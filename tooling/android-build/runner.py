@@ -83,8 +83,28 @@ def sign_and_release():
     if existing.returncode==0:raise RuntimeError('This build release already exists. Verify its state before retrying publication.')
     run(['gh','release','create',tag,'--repo',REPOSITORY,'--title','STCC + Petalix · '+(item['source']['tag'] or item['source']['sha'][:10]),'--notes-file',notes,'--prerelease',*assets])
     release=json.loads(run(['gh','api','repos/'+REPOSITORY+'/releases/tags/'+tag],capture_output=True,text=True).stdout)
-    panel('complete',{'id':item['id'],'releaseId':str(release['id'])})
+    panel('complete',{'id':item['id'],'release':release,'metadata':{brand:json.loads((out/(brand+'-release.json')).read_text()) for brand in ['petalix','stcc']}})
     print('Both signed builds were published for review. Customer deployment remains a separate panel action.')
+def recover():
+    identifier=os.environ.get('RECOVER_BUILD_ID','')
+    if not re.fullmatch(r'[a-f0-9-]{36}',identifier):raise RuntimeError('Choose the exact completed panel build identifier.')
+    tag='panel-'+identifier
+    release=json.loads(run(['gh','api','repos/'+REPOSITORY+'/releases/tags/'+tag],capture_output=True,text=True).stdout)
+    tools=android_tools()
+    with tempfile.TemporaryDirectory(prefix='verify-published-') as directory:
+        root=pathlib.Path(directory)
+        run(['gh','release','download',tag,'--repo',REPOSITORY,'--dir',root,'--pattern','*-release.json','--pattern','*.apk'])
+        metadata={brand:json.loads((root/(brand+'-release.json')).read_text()) for brand in ['petalix','stcc']}
+        for brand,meta in metadata.items():
+            name=meta['assetName']
+            if pathlib.Path(name).name!=name:raise RuntimeError('Invalid APK filename')
+            apk=root/name
+            if apk.stat().st_size!=meta['sizeBytes'] or hashlib.sha256(apk.read_bytes()).hexdigest()!=meta['sha256']:raise RuntimeError('Published APK checksum mismatch')
+            verify_certificate(run([tools/'apksigner','verify','--print-certs',apk],capture_output=True,text=True).stdout.lower())
+            info=run([tools/'aapt','dump','badging',apk],capture_output=True,text=True).stdout
+            if not all(v in info for v in ["name='"+meta['packageName']+"'","versionCode='"+str(meta['versionCode'])+"'","versionName='"+meta['versionName']+"'"]):raise RuntimeError('Published app identity mismatch')
+        panel('recover',{'id':identifier,'release':release,'metadata':metadata})
+    print('Both published APK signatures and checksums verified. Panel downloads and build status restored.')
 def sync_current():
     tag='panel-current-7.5'
     found=subprocess.run(['gh','release','view',tag,'--repo',REPOSITORY,'--json','id'],capture_output=True,text=True)
@@ -115,4 +135,4 @@ def sync_current():
     print('Current signed builds registered for panel deployment.')
 if __name__=='__main__':
     if not re.fullmatch(r'[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*',REPOSITORY):raise RuntimeError('Run this workflow from the dedicated panel build repository.')
-    {'claim':claim,'defaults':defaults,'sign':sign_and_release,'failed':fail,'sync-current':sync_current}[sys.argv[1]]()
+    {'claim':claim,'defaults':defaults,'sign':sign_and_release,'failed':fail,'sync-current':sync_current,'recover':recover}[sys.argv[1]]()
