@@ -36,6 +36,18 @@ def restore_base_build_sources(root):
     # Restore original source packages omitted by the earlier export's build-dir filter.
     unzip(pathlib.Path(__file__).with_name('base-build-sources.zip'),root)
 
+def adapt_frame_rate_control(root):
+    # New upstream releases store three modes. Legacy enabled meant START_STOP.
+    preferences=root/'app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt'
+    coordinator=root/'app/src/main/java/com/nuvio/tv/petalix/ManagedCoordinator.kt'
+    if 'frameRateMode = p[Keys.frameRateMode]' not in preferences.read_text():return
+    text=coordinator.read_text()
+    old='matchFrameRate=values.getBoolean("play.frameRate")'
+    new='frameRateMode=if(values.getBoolean("play.frameRate"))"START_STOP" else "OFF"'
+    if new in text:return
+    if text.count(old)!=1:raise RuntimeError('Managed frame-rate binding needs review for this upstream version.')
+    coordinator.write_text(text.replace(old,new))
+
 def clear(root):
     for p in root.iterdir():
         if p.name=='.git':continue
@@ -96,6 +108,7 @@ def prepare(item,brand,work,cache):
     original=manifest.read_text();original,count=re.subn(r'(\<application\b[^>]*?android:label=)[\"][^\"]*[\"]',r'\g<1>"'+('STCC' if brand=='stcc' else 'Petalix')+'"',original,count=1,flags=re.S)
     if count!=1:raise RuntimeError('Application label binding missing')
     manifest.write_text(original)
+    adapt_frame_rate_control(work)
     from playlist_patch import apply
     apply(work,brand)
     from kaptain_patch import apply as apply_kaptain
