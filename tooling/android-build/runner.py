@@ -27,6 +27,10 @@ def panel(action,body):
 def job():return json.loads(os.environ['PANEL_JOB'])
 def run(args,**kw):return subprocess.run([str(v) for v in args],check=True,**kw)
 def claim():
+    rebuild=os.environ.get('REBUILD_BUILD_ID','').strip()
+    if rebuild:
+        if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch' or not re.fullmatch(r'[a-f0-9-]{36}',rebuild):raise RuntimeError('Choose a valid finished panel build for a manual rebuild.')
+        panel('rebuild',{'id':rebuild})
     value=panel('claim',{})['job']
     with open(os.environ['GITHUB_OUTPUT'],'a') as output:
         output.write('has_job='+('true' if value else 'false')+'\n')
@@ -72,10 +76,13 @@ def sign_and_release():
                 import zipfile
                 with zipfile.ZipFile(apk) as z:
                     if not any(b'management-v3' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Managed client capability missing')
+            import zipfile
+            with zipfile.ZipFile(apk) as z:
+                if not any(b'device-updates-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Individual-device update capability missing')
             source_candidates=list(artifacts.rglob(brand+'-source.zip'))
             if len(source_candidates)!=1:raise RuntimeError('Corresponding source missing')
             source=out/(label+'-'+str(number)+'-Source.zip');shutil.copyfile(source_candidates[0],source)
-            meta={'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'sizeBytes':apk.stat().st_size,'minSdk':24,'assetName':apk.name,'sourceAssetName':source.name,'upstreamTag':item['source']['tag'] or 'commit-'+item['source']['sha'][:10],'upstreamCommit':item['source']['sha'],'notes':'Prepared from '+item['source']['sha']+' for '+label+'. Activation and shared panel controls retained. Physical TV playback still requires testing.'}
+            meta={'supportsDeviceUpdates':True,'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'sizeBytes':apk.stat().st_size,'minSdk':24,'assetName':apk.name,'sourceAssetName':source.name,'upstreamTag':item['source']['tag'] or 'commit-'+item['source']['sha'][:10],'upstreamCommit':item['source']['sha'],'notes':'Prepared from '+item['source']['sha']+' for '+label+'. Activation and shared panel controls retained. Physical TV playback still requires testing.'}
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')
@@ -127,7 +134,7 @@ def sync_current():
         info=run([tools/'aapt','dump','badging',apk],capture_output=True,text=True).stdout
         version='1.1.0-'+brand+'.7.5-controls1'
         if not all(v in info for v in ["name='"+package+"'","versionCode='"+str(number)+"'","versionName='"+version+"'"]):raise RuntimeError('Current app identity mismatch')
-        meta={'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':expected,'sizeBytes':size,'minSdk':24,'assetName':apk.name,'sourceAssetName':label+'-'+str(number)+'-Source.zip','upstreamTag':'1.1.0-beta.7.5','upstreamCommit':'39aa0cd17a417497d1e6a77479a12fa21bdc0f5c','notes':'Current verified '+label+' build. 277 shared panel settings and options. Matching GPL source included.'}
+        meta={'supportsDeviceUpdates':True,'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':expected,'sizeBytes':size,'minSdk':24,'assetName':apk.name,'sourceAssetName':label+'-'+str(number)+'-Source.zip','upstreamTag':'1.1.0-beta.7.5','upstreamCommit':'39aa0cd17a417497d1e6a77479a12fa21bdc0f5c','notes':'Current verified '+label+' build. 277 shared panel settings and options. Matching GPL source included.'}
         (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     assets=[str(p) for p in out.iterdir()]
     notes=out/'notes.md';notes.write_text('Current STCC and Petalix builds, with their original verified signatures and matching GPL source. Publishing this GitHub release does not offer an update to customers; deploy each service from the shared panel when ready.\n')
