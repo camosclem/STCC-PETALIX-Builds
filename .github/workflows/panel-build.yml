@@ -1,6 +1,11 @@
 name: STCC + Petalix panel builds
 on:
   workflow_dispatch:
+    inputs:
+      recover_build:
+        description: 'Recover an already published build without recompiling (panel build ID)'
+        required: false
+        type: string
   push:
     branches: [main]
     paths: [.github/workflows/panel-build.yml, tooling/android-build/**]
@@ -12,6 +17,7 @@ concurrency:
 permissions: {}
 jobs:
   claim:
+    if: inputs.recover_build == ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -99,6 +105,23 @@ jobs:
           path: artifacts
       - name: Verify, sign and prepare both releases
         run: python3 tooling/android-build/runner.py sign
+  recover:
+    if: github.event_name == 'workflow_dispatch' && inputs.recover_build != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: android-signing
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RECOVER_BUILD_ID: ${{ inputs.recover_build }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify published APKs and restore panel registration
+        run: python3 tooling/android-build/runner.py recover
   report-failure:
     needs: [claim, build, sign]
     if: always() && needs.claim.outputs.has_job == 'true' && (needs.build.result != 'success' || needs.sign.result != 'success')
