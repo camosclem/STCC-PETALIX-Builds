@@ -2,6 +2,10 @@ name: STCC + Petalix panel builds
 on:
   workflow_dispatch:
     inputs:
+      rebuild_build:
+        description: 'Rebuild a finished panel request with current app support (panel build ID)'
+        required: false
+        type: string
       recover_build:
         description: 'Recover an already published build without recompiling (panel build ID)'
         required: false
@@ -31,6 +35,8 @@ jobs:
         with:
           persist-credentials: false
       - id: claim
+        env:
+          REBUILD_BUILD_ID: ${{ inputs.rebuild_build }}
         run: python3 tooling/android-build/runner.py claim
   sync-current:
     needs: claim
