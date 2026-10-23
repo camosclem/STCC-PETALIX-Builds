@@ -1,0 +1,116 @@
+name: STCC + Petalix panel builds
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/panel-build.yml, tooling/android-build/**]
+  schedule:
+    - cron: '3-59/5 * * * *'
+concurrency:
+  group: stcc-petalix-panel-build
+  cancel-in-progress: false
+permissions: {}
+jobs:
+  claim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      has_job: ${{ steps.claim.outputs.has_job }}
+      job: ${{ steps.claim.outputs.job }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: claim
+        run: python3 tooling/android-build/runner.py claim
+  sync-current:
+    needs: claim
+    if: needs.claim.outputs.has_job == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 tooling/android-build/runner.py sync-current
+  build:
+    needs: claim
+    if: needs.claim.outputs.has_job == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        brand: [petalix, stcc]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PANEL_JOB: ${{ needs.claim.outputs.job }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+      - name: Shared app defaults
+        run: python3 tooling/android-build/runner.py defaults
+      - name: Merge, test and build
+        env:
+          SERVICE_BRAND: ${{ matrix.brand }}
+        run: python3 tooling/android-build/build.py "$SERVICE_BRAND"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-${{ matrix.brand }}
+          path: out/*
+          retention-days: 7
+          if-no-files-found: error
+  sign:
+    needs: [claim, build]
+    if: needs.claim.outputs.has_job == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: android-signing
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+    env:
+      PANEL_JOB: ${{ needs.claim.outputs.job }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Verify, sign and prepare both releases
+        run: python3 tooling/android-build/runner.py sign
+  report-failure:
+    needs: [claim, build, sign]
+    if: always() && needs.claim.outputs.has_job == 'true' && (needs.build.result != 'success' || needs.sign.result != 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PANEL_JOB: ${{ needs.claim.outputs.job }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 tooling/android-build/runner.py failed
