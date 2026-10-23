@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
 """Trusted runner entry points. Gradle source is built in a separate, keyless job."""
-import base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile, urllib.parse, urllib.request
+import base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile, urllib.parse, urllib.request, urllib.error
 ORIGIN='https://petalix-control.pinkgiant5.chatgpt.site'
 REPOSITORY=os.environ.get('GITHUB_REPOSITORY','')
 CERTIFICATE='b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1'
 def http_json(url,body=None,headers=None):
     req=urllib.request.Request(url,data=None if body is None else json.dumps(body).encode(),headers={'User-Agent':'Mozilla/5.0 STCC-Petalix-Builder/1.0',**({'Content-Type':'application/json'} if body is not None else {}),**(headers or {})})
-    with urllib.request.urlopen(req,timeout=90) as response:return json.load(response)
+    try:
+        with urllib.request.urlopen(req,timeout=90) as response:return json.load(response)
+    except urllib.error.HTTPError as error:
+        if url.startswith(ORIGIN+'/api/build/'):
+            try:
+                reason=json.loads(error.read()).get('reason','unknown')
+                if re.fullmatch(r'[A-Za-z]{1,40}',str(reason)):print('Build authentication check: '+str(reason),flush=True)
+            except (ValueError,TypeError):pass
+        raise
 def panel(action,body):
     endpoint=os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']+'&audience='+urllib.parse.quote(ORIGIN,safe='')
     token=http_json(endpoint,headers={'Authorization':'Bearer '+os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']})['value']
-    return http_json(ORIGIN+'/api/build/'+action,body,{'Authorization':'Bearer '+token})
+    return http_json(ORIGIN+'/api/build/'+action,body,{'X-Build-Identity':token})
 def job():return json.loads(os.environ['PANEL_JOB'])
 def run(args,**kw):return subprocess.run([str(v) for v in args],check=True,**kw)
 def claim():
