@@ -4,6 +4,11 @@ import base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile
 ORIGIN='https://petalix-control.pinkgiant5.chatgpt.site'
 REPOSITORY=os.environ.get('GITHUB_REPOSITORY','')
 CERTIFICATE='b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1'
+def verify_certificate(output):
+    # New apksigner versions prefix signer lines with the Android SDK range.
+    digests=set(re.findall(r'certificate SHA-256 digest:\s*([a-f0-9]{64})\b',output,re.I))
+    if digests!={CERTIFICATE}:
+        raise RuntimeError('App signing certificate mismatch: '+(', '.join(sorted(digests)) or 'no SHA-256 certificate reported'))
 def http_json(url,body=None,headers=None):
     req=urllib.request.Request(url,data=None if body is None else json.dumps(body).encode(),headers={'User-Agent':'Mozilla/5.0 STCC-Petalix-Builder/1.0',**({'Content-Type':'application/json'} if body is not None else {}),**(headers or {})})
     try:
@@ -59,7 +64,7 @@ def sign_and_release():
             run([tools/'zipalign','-f','-P','16','4',candidates[0],aligned])
             run([tools/'apksigner','sign','--ks',key,'--ks-key-alias',cfg['alias'],'--ks-pass','env:SIGN_STORE_PASSWORD','--key-pass','env:SIGN_KEY_PASSWORD','--out',apk,aligned],env=env)
             verified=run([tools/'apksigner','verify','--verbose','--print-certs',apk],capture_output=True,text=True).stdout.lower()
-            if 'signer #1 certificate sha-256 digest: '+CERTIFICATE not in verified:raise RuntimeError('Signing certificate mismatch')
+            verify_certificate(verified)
             badging=run([tools/'aapt','dump','badging',apk],capture_output=True,text=True).stdout
             if not all(v in badging for v in ["name='"+package+"'","versionCode='"+str(number)+"'","versionName='"+version+"'"]):raise RuntimeError('App identity or version mismatch')
             if 'management-v3' not in run(['unzip','-p',apk,'classes.dex'],capture_output=True).stdout.decode('latin1'):
@@ -98,7 +103,7 @@ def sync_current():
             if actual!=(expected if kind=='apk' else source_sha):raise RuntimeError('Current '+brand+' '+kind+' checksum mismatch')
         apk=out/(label+'-'+str(number)+'.apk')
         verified=run([tools/'apksigner','verify','--print-certs',apk],capture_output=True,text=True).stdout.lower()
-        if 'signer #1 certificate sha-256 digest: '+CERTIFICATE not in verified:raise RuntimeError('Current app signing certificate mismatch')
+        verify_certificate(verified)
         info=run([tools/'aapt','dump','badging',apk],capture_output=True,text=True).stdout
         version='1.1.0-'+brand+'.7.5-controls1'
         if not all(v in info for v in ["name='"+package+"'","versionCode='"+str(number)+"'","versionName='"+version+"'"]):raise RuntimeError('Current app identity mismatch')
