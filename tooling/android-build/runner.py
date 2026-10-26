@@ -27,6 +27,10 @@ def panel(action,body):
 def job():return json.loads(os.environ['PANEL_JOB'])
 def run(args,**kw):return subprocess.run([str(v) for v in args],check=True,**kw)
 def claim():
+    repair=pathlib.Path('tooling/android-build/repair-request.json')
+    if repair.exists():
+        request=json.loads(repair.read_text())
+        panel('repair',request)
     rebuild=os.environ.get('REBUILD_BUILD_ID','').strip()
     if rebuild:
         if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch' or not re.fullmatch(r'[a-f0-9-]{36}',rebuild):raise RuntimeError('Choose a valid finished panel build for a manual rebuild.')
@@ -44,7 +48,12 @@ def defaults():
     manifest=value.get('manifest','')
     if not manifest:raise RuntimeError('The shared app addon configuration is unavailable.')
     print('::add-mask::'+manifest)
-    with open(os.environ['GITHUB_ENV'],'a') as output:output.write('PETALIX_VOD_MANIFEST='+manifest+'\n')
+    tmdb=value.get('tmdbApiKey','')
+    if not re.fullmatch('[a-fA-F0-9]{32}',tmdb):raise RuntimeError('Configure the TMDB API key in the panel before building.')
+    print('::add-mask::'+tmdb)
+    with open(os.environ['GITHUB_ENV'],'a') as output:
+        output.write('PETALIX_VOD_MANIFEST='+manifest+'\n')
+        output.write('TMDB_API_KEY='+tmdb+'\n')
 def android_tools():
     root=pathlib.Path(os.environ.get('ANDROID_HOME') or os.environ['ANDROID_SDK_ROOT'])/'build-tools'
     choices=sorted(root.glob('*/apksigner'),key=lambda p:[int(x) if x.isdigit() else 0 for x in p.parent.name.split('.')])
@@ -53,6 +62,9 @@ def android_tools():
 
 def sign_and_release():
     item=job();out=pathlib.Path('release');out.mkdir(exist_ok=True)
+    tmdb=panel('defaults',{'id':item['id']}).get('tmdbApiKey','')
+    if not re.fullmatch('[a-fA-F0-9]{32}',tmdb):raise RuntimeError('TMDB verification configuration is missing.')
+    print('::add-mask::'+tmdb)
     # This runs on a fresh signing runner, which has not executed upstream source.
     credentials=panel('credentials',{'id':item['id']});cfg=credentials['config']
     for field in ['store_password','key_password','alias']:print('::add-mask::'+str(cfg[field]))
@@ -79,10 +91,11 @@ def sign_and_release():
             import zipfile
             with zipfile.ZipFile(apk) as z:
                 if not any(b'device-updates-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Individual-device update capability missing')
+                if not any(tmdb.encode() in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('The TMDB key was not included in the built app.')
             source_candidates=list(artifacts.rglob(brand+'-source.zip'))
             if len(source_candidates)!=1:raise RuntimeError('Corresponding source missing')
             source=out/(label+'-'+str(number)+'-Source.zip');shutil.copyfile(source_candidates[0],source)
-            meta={'supportsDeviceUpdates':True,'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'sizeBytes':apk.stat().st_size,'minSdk':24,'assetName':apk.name,'sourceAssetName':source.name,'upstreamTag':item['source']['tag'] or 'commit-'+item['source']['sha'][:10],'upstreamCommit':item['source']['sha'],'notes':'Prepared from '+item['source']['sha']+' for '+label+'. Activation and shared panel controls retained. Physical TV playback still requires testing.'}
+            meta={'supportsDeviceUpdates':True,'supportsTmdbEnrichment':True,'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'sizeBytes':apk.stat().st_size,'minSdk':24,'assetName':apk.name,'sourceAssetName':source.name,'upstreamTag':item['source']['tag'] or 'commit-'+item['source']['sha'][:10],'upstreamCommit':item['source']['sha'],'notes':'Prepared from '+item['source']['sha']+' for '+label+'. TMDB configuration and service branding included. Activation and panel controls retained. Physical TV playback still requires testing.'}
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')

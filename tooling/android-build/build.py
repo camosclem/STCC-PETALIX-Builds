@@ -91,6 +91,9 @@ def prepare(item,brand,work,cache):
             for name in conflicts:
                 if name=='README.md' or re.fullmatch(r'app/src/main/res/values[^/]*/strings\.xml',name):
                     git('checkout','--ours','--',name);git('add','--',name)
+                else:
+                    from upstream_policy_patch import resolve
+                    resolve(work,name)
             conflicts=git('diff','--name-only','--diff-filter=U',capture_output=True,text=True).stdout
             if conflicts:print('Source merge needs review:\n'+conflicts,flush=True)
             if conflicts:raise RuntimeError('Upstream changes conflict with managed app code. Resolve the listed files before building this version.')
@@ -100,9 +103,11 @@ def prepare(item,brand,work,cache):
     text,n=re.subn(r'android\.defaultConfig\.versionName\s*=\s*"[^"]+"','android.defaultConfig.versionName = "'+version+'"',text)
     if n!=1:raise RuntimeError('Managed version name override missing')
     gradle.write_text(text)
-    for values in (work/'app/src/main/res').glob('values*/strings.xml'):
-        original=values.read_text();updated=re.sub(r'(<string name="app_name">)[^<]+(</string>)',r'\g<1>'+('STCC' if brand=='stcc' else 'Petalix')+r'\g<2>',original);values.write_text(updated)
-    (work/'local.properties').write_text('sdk.dir='+os.environ.get('ANDROID_HOME',os.environ.get('ANDROID_SDK_ROOT',''))+'\n')
+    from branding_patch import apply as apply_branding
+    apply_branding(work,brand)
+    tmdb=os.environ.get('TMDB_API_KEY','')
+    if not re.fullmatch('[a-fA-F0-9]{32}',tmdb):raise RuntimeError('TMDB configuration is required for this build.')
+    (work/'local.properties').write_text('sdk.dir='+os.environ.get('ANDROID_HOME',os.environ.get('ANDROID_SDK_ROOT',''))+'\nTMDB_API_KEY='+tmdb+'\n')
     (work/'gradlew').chmod(0o755)
     manifest=work/'app/src/main/AndroidManifest.xml'
     original=manifest.read_text();original,count=re.subn(r'(\<application\b[^>]*?android:label=)[\"][^\"]*[\"]',r'\g<1>"'+('STCC' if brand=='stcc' else 'Petalix')+'"',original,count=1,flags=re.S)
