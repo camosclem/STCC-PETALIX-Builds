@@ -120,6 +120,8 @@ def prepare(item,brand,work,cache):
     apply_kaptain(work)
     from device_updates_patch import apply as apply_device_updates
     apply_device_updates(work,brand)
+    from activation_patch import apply as apply_activation
+    apply_activation(work,brand)
     required=['ManagedCoordinator.kt','ManagedNativeSettings.kt','ManagedPolicy.kt','ActivationActivity.kt']
     for file in required:
         if not list((work/'app/src').rglob(file)):raise RuntimeError('Managed client source missing: '+file)
