@@ -91,11 +91,12 @@ def sign_and_release():
             import zipfile
             with zipfile.ZipFile(apk) as z:
                 if not any(b'device-updates-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Individual-device update capability missing')
+                if not any(b'home-services-first-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Streaming Services first-row capability missing')
                 if not any(tmdb.encode() in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('The TMDB key was not included in the built app.')
             source_candidates=list(artifacts.rglob(brand+'-source.zip'))
             if len(source_candidates)!=1:raise RuntimeError('Corresponding source missing')
             source=out/(label+'-'+str(number)+'-Source.zip');shutil.copyfile(source_candidates[0],source)
-            meta={'supportsDeviceUpdates':True,'supportsTmdbEnrichment':True,'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'sizeBytes':apk.stat().st_size,'minSdk':24,'assetName':apk.name,'sourceAssetName':source.name,'upstreamTag':item['source']['tag'] or 'commit-'+item['source']['sha'][:10],'upstreamCommit':item['source']['sha'],'notes':'Prepared from '+item['source']['sha']+' for '+label+'. TMDB configuration and service branding included. Activation and panel controls retained. Physical TV playback still requires testing.'}
+            meta={'supportsServicesFirst':True,'supportsDeviceUpdates':True,'supportsTmdbEnrichment':True,'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'sizeBytes':apk.stat().st_size,'minSdk':24,'assetName':apk.name,'sourceAssetName':source.name,'upstreamTag':item['source']['tag'] or 'commit-'+item['source']['sha'][:10],'upstreamCommit':item['source']['sha'],'notes':'Animated Streaming Services is the first row in Modern Home. Native Continue Watching, Live TV and playlist content are preserved. Daily PIN persistence and panel controls retained. Physical TV verification is still required.'}
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')
