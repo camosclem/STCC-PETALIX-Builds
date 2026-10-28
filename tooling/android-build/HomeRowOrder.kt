@@ -8,7 +8,7 @@ internal fun isStreamingServicesRow(key: String?): Boolean = key == STREAMING_SE
 internal fun <T> streamingServicesFirst(rows: List<T>, key: (T) -> String): List<T> {
     if (rows.none { isStreamingServicesRow(key(it)) }) return rows
     return rows.filter { isStreamingServicesRow(key(it)) } +
-        rows.filterNot { isStreamingServicesRow(key(it)) }
+        rows.filterNot { isStreamingServicesRow(key(it)) || key(it).startsWith("catalog_") || key(it).startsWith("collection_") }
 }
 
 internal fun liveTvBeforeRow(here: Boolean, above: Boolean?, hasContinueWatching: Boolean, key: String): Boolean =

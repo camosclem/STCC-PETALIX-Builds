@@ -126,6 +126,10 @@ def prepare(item,brand,work,cache):
     apply_home_row(work)
     from pengu_play_patch import apply as apply_pengu_play
     apply_pengu_play(work)
+    from service_hubs_patch import apply as apply_service_hubs
+    apply_service_hubs(work)
+    from panel_connection_patch import apply as apply_panel_connection
+    apply_panel_connection(work)
     required=['ManagedCoordinator.kt','ManagedNativeSettings.kt','ManagedPolicy.kt','ActivationActivity.kt']
     for file in required:
         if not list((work/'app/src').rglob(file)):raise RuntimeError('Managed client source missing: '+file)
@@ -135,7 +139,7 @@ def main():
     if brand not in SOURCES:raise RuntimeError('Unknown service')
     cache=pathlib.Path('android-cache');cache.mkdir(exist_ok=True);work=pathlib.Path('android-work').resolve();out=pathlib.Path('out');out.mkdir(exist_ok=True)
     prepare(item,brand,work,cache)
-    env=dict(os.environ,CI_USE_DEBUG_SIGNING='true')
+    env=dict(os.environ,CI_USE_DEBUG_SIGNING='true',PETALIX_VOD_MANIFEST='')
     command=[work/'gradlew',':app:testFullReleaseUnitTest','--tests','com.nuvio.tv.petalix.*',':app:assembleFullRelease','-PlivetvTestBuild=true','--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=768m','-x',':app:lintVitalAnalyzeFullRelease','-x',':app:lintVitalReportFullRelease','-x',':app:lintVitalFullRelease']
     run(command,cwd=work,env=env)
     apks=list((work/'app/build/outputs/apk/full/release').glob('*.apk'))

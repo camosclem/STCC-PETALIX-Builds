@@ -32,4 +32,17 @@ class PenguPlayAccessTest {
             assertFalse(once.any { PenguPlayAccess.matches(it, pengu) })
         }
     }
+    @Test fun freshInstallHasNoSourceAndUpgradeRemovesOldSourceWithoutItsUrlInTheApp() {
+        val legacy=PenguPlayAccess.fingerprint(pengu.single())
+        assertTrue(PenguPlayAccess.urls(emptyList(),emptyList(),false,true,setOf(legacy)).isEmpty())
+        assertEquals(listOf(other),PenguPlayAccess.urls(listOf(alias,other),emptyList(),false,true,setOf(legacy)))
+        assertEquals(false,PenguPlayAccess.states(mapOf(alias to true,other to true),emptyList(),false,true,setOf(legacy))[alias])
+        assertEquals(pengu+other,PenguPlayAccess.urls(listOf(alias,other),pengu,true,true,setOf(legacy)))
+    }
+    @Test fun changingPanelManifestRemovesPriorAssignmentsAcrossProfiles() {
+        val replacement=listOf("https://assigned.example/customer")
+        val known=setOf(PenguPlayAccess.fingerprint(pengu.single()),PenguPlayAccess.fingerprint(replacement.single()))
+        assertEquals(replacement+other,PenguPlayAccess.urls(listOf(alias,other),replacement,true,true,known))
+        assertEquals(listOf(other),PenguPlayAccess.urls(listOf(alias,replacement.single(),other),emptyList(),false,false,known))
+    }
 }

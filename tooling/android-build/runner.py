@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Trusted runner entry points. Gradle source is built in a separate, keyless job."""
 import base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile, urllib.parse, urllib.request, urllib.error
-ORIGIN='https://petalix-control.pinkgiant5.chatgpt.site'
+ORIGIN='https://petalix-control.caroliinaconsultant.chatgpt.site'
 REPOSITORY=os.environ.get('GITHUB_REPOSITORY','')
 CERTIFICATE='b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1'
 def verify_certificate(output):
@@ -62,7 +62,7 @@ def android_tools():
 
 def sign_and_release():
     item=job();out=pathlib.Path('release');out.mkdir(exist_ok=True)
-    tmdb=panel('defaults',{'id':item['id']}).get('tmdbApiKey','')
+    defaults=panel('defaults',{'id':item['id']});tmdb=defaults.get('tmdbApiKey','');legacy=defaults.get('manifest','')
     if not re.fullmatch('[a-fA-F0-9]{32}',tmdb):raise RuntimeError('TMDB verification configuration is missing.')
     print('::add-mask::'+tmdb)
     # This runs on a fresh signing runner, which has not executed upstream source.
@@ -91,13 +91,16 @@ def sign_and_release():
             import zipfile
             with zipfile.ZipFile(apk) as z:
                 if not any(b'device-updates-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Individual-device update capability missing')
+                for capability in [b'pengu-play-panel-v1',b'service-hubs-v1',b'panel-session-origin-v1']:
+                    if not any(capability in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Test app capability missing: '+capability.decode())
+                if legacy and any(legacy.encode() in z.read(n) or legacy.removesuffix('/manifest.json').encode() in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n) or n.startswith('assets/')):raise RuntimeError('A private built-in Pengu Play URL remains in the APK')
                 if not any(b'pengu-play-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Pengu Play access capability missing')
                 if not any(b'home-services-first-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Streaming Services first-row capability missing')
                 if not any(tmdb.encode() in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('The TMDB key was not included in the built app.')
             source_candidates=list(artifacts.rglob(brand+'-source.zip'))
             if len(source_candidates)!=1:raise RuntimeError('Corresponding source missing')
             source=out/(label+'-'+str(number)+'-Source.zip');shutil.copyfile(source_candidates[0],source)
-            meta={'supportsPenguPlay':True,'supportsServicesFirst':True,'supportsDeviceUpdates':True,'supportsTmdbEnrichment':True,'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'sizeBytes':apk.stat().st_size,'minSdk':24,'assetName':apk.name,'sourceAssetName':source.name,'upstreamTag':item['source']['tag'] or 'commit-'+item['source']['sha'][:10],'upstreamCommit':item['source']['sha'],'notes':'Pengu Play can be enabled or disabled per service or customer. Disabled access is enforced across profiles and source locking. Streaming Services first row, PIN persistence and panel controls retained. Physical TV verification is still required.'}
+            meta={'testOnly':True,'supportsServiceHubs':True,'supportsPanelPenguPlay':True,'supportsPenguPlay':True,'supportsServicesFirst':True,'supportsDeviceUpdates':True,'supportsTmdbEnrichment':True,'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'sizeBytes':apk.stat().st_size,'minSdk':24,'assetName':apk.name,'sourceAssetName':source.name,'upstreamTag':item['source']['tag'] or 'commit-'+item['source']['sha'][:10],'upstreamCommit':item['source']['sha'],'notes':'Test build: service-first Home, branded service hubs, full TMDB rows and metadata, trailer previews after service selection, duplicate reduction, panel-only Pengu Play, and saved activation across the verified panel-address migration. Customer rollout requires manual testing approval. Physical TV verification is still required.'}
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')
