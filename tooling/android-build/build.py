@@ -124,6 +124,8 @@ def prepare(item,brand,work,cache):
     apply_activation(work,brand)
     from home_row_patch import apply as apply_home_row
     apply_home_row(work)
+    from pengu_play_patch import apply as apply_pengu_play
+    apply_pengu_play(work)
     required=['ManagedCoordinator.kt','ManagedNativeSettings.kt','ManagedPolicy.kt','ActivationActivity.kt']
     for file in required:
         if not list((work/'app/src').rglob(file)):raise RuntimeError('Managed client source missing: '+file)
