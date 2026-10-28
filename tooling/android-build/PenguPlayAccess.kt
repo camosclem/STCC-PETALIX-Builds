@@ -18,6 +18,6 @@ object PenguPlayAccess {
     fun states(current: Map<String, Boolean>, assigned: List<String>, enabled: Boolean, ensure: Boolean, blocked: Set<String> = emptySet()): Map<String, Boolean> {
         val allowed = if (enabled) assigned else emptyList()
         val clean = current.mapValues { (url, value) -> if (fingerprint(url) in blocked && !matches(url, allowed) || !enabled && matches(url, assigned)) false else if (ensure && matches(url, allowed)) true else value }
-        return if (enabled && ensure) clean + allowed.associateWith { true } else clean
+        return if (!enabled) clean + assigned.associateWith { false } else if (ensure) clean + allowed.associateWith { true } else clean
     }
 }
