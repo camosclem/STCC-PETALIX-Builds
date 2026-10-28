@@ -47,7 +47,9 @@ def apply(work):
     replace_once(activity,old,'catch(e:Exception){if(e is ActivationRequired && manager.hasSavedActivation)restoreSaved() else {message.text=e.message?:"Activation failed. Try again.";button.isEnabled=true}}')
     replace_once(activity,'        fun openApp(){','''        val changePin=line("Use a different activation PIN",13f).apply { setTextColor(Color.LTGRAY);isFocusable=true;isClickable=true }
         content.addView(changePin)
+        lateinit var restoreSaved:()->Unit
         fun openApp(){''')
+    replace_once(activity,'        fun restoreSaved(){','        restoreSaved = {')
     replace_once(activity,'            pin.visibility=android.view.View.VISIBLE','            pin.visibility=android.view.View.VISIBLE\n            changePin.visibility=android.view.View.GONE')
     replace_once(activity,'            pin.visibility=android.view.View.GONE','            pin.visibility=android.view.View.GONE\n            changePin.visibility=android.view.View.VISIBLE')
     replace_once(activity,'        showPin()\n        if(manager.hasSavedActivation)restoreSaved()','        changePin.setOnClickListener{showPin();message.text="Enter the activation PIN from your provider.";pin.requestFocus()}\n        showPin()\n        if(manager.hasSavedActivation)restoreSaved()')
