@@ -89,6 +89,8 @@ def prepare(item,brand,work,cache):
             apply_seek(work,cache)
             vm=work/'app/src/main/java/com/nuvio/tv/ui/screens/collection/FolderDetailViewModel.kt'
             vm.write_text(vm.read_text().replace('collectionId=="collection-streaming-services-only"','collectionId in setOf("collection-streaming-services-only","collection-service-templates-test-v1")'))
+            content=work/'app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt'
+            content.write_text(content.read_text().replace('it.collection.id == "collection-streaming-services-only"','it.collection.id in setOf("collection-streaming-services-only","collection-service-templates-test-v1")'))
             if item.get('recipeRevision')==BRAND_RECIPE:apply_logo(work,brand)
         return version
     sha=item['source']['sha']
