@@ -63,7 +63,8 @@ def android_tools():
 def sign_and_release():
     item=job();out=pathlib.Path('release');out.mkdir(exist_ok=True)
     from home_baseline import RECIPE,FILES,RELEASE_ID,baseline_url,verify_preserved_source
-    trial=item.get('recipeRevision')=='seek-service-templates-test-v1'
+    trial=item.get('recipeRevision') in ['seek-service-templates-test-v1','seek-service-templates-branding-test-v2']
+    branding=item.get('recipeRevision')=='seek-service-templates-branding-test-v2'
     home=item.get('recipeRevision')==RECIPE or trial
     defaults=panel('defaults',{'id':item['id']});tmdb=defaults.get('tmdbApiKey','');legacy=defaults.get('manifest','')
     if not re.fullmatch('[a-fA-F0-9]{32}',tmdb):raise RuntimeError('TMDB verification configuration is missing.')
@@ -116,12 +117,16 @@ def sign_and_release():
                 with urllib.request.urlopen(req,timeout=180) as response,original.open('wb') as target:shutil.copyfileobj(response,target)
                 if trial:
                     from seek_previews_patch import verify_trial_source
-                    verified_source=verify_trial_source(original,source,brand)
+                    verified_source=verify_trial_source(original,source,brand,branding=branding)
                 else:verified_source=verify_preserved_source(original,source,brand)
                 meta.update(homeLayoutBaselineReleaseId=RELEASE_ID,homeLayoutSourceSha256=verified_source,notes='Original Home layout retained: Live TV, Continue Watching and Streaming Services. Includes the daily PIN persistence fix and the current saved-login repair for the new panel address. All source changes are limited to activation, connection policy, version configuration and their tests. No built-in private Pengu Play URL. Requires testing on your TVs before customer use.')
             if trial:
                 meta.pop('homeLayoutBaselineReleaseId',None);meta.pop('homeLayoutSourceSha256',None)
-                meta.update(supportsSeekPreviews=True,supportsServiceTemplates=True,supportsServiceHubs=True,trialOriginalHomeReleaseId=RELEASE_ID,trialOriginalHomeSourceSha256=verified_source,recipeRevision='seek-service-templates-test-v1',notes='TEST ONLY: original Live TV / Continue Watching / Streaming Services Home retained, with current PIN repair. Opt-in native seek thumbnails generate locally without a thumbnail API key; 32-bit and 64-bit ARM decoders included. Settings > Playback has test controls for HD-only / HD+4K previews and a separate Service Templates Test collection with distinct provider, studio, network and genre queries. Preview-owned caches are bounded and cleared after playback. No new live panel feature controls. Physical testing on Fire TV, onn and Shield is required before customer use.')
+                meta.update(supportsSeekPreviews=True,supportsServiceTemplates=True,supportsServiceHubs=True,trialOriginalHomeReleaseId=RELEASE_ID,trialOriginalHomeSourceSha256=verified_source,recipeRevision=item['recipeRevision'],supportsLargerBranding=branding,notes='TEST ONLY: original Live TV / Continue Watching / Streaming Services Home retained, with current PIN repair. Opt-in native seek thumbnails generate locally without a thumbnail API key; 32-bit and 64-bit ARM decoders included. Settings > Playback has test controls for HD-only / HD+4K previews and a separate Service Templates Test collection with distinct provider, studio, network and genre queries. Preview-owned caches are bounded and cleared after playback. No new live panel feature controls. Physical testing on Fire TV, onn and Shield is required before customer use.')
+            if branding:
+                with zipfile.ZipFile(apk) as z:
+                    if not any(b'large-branding-test-v2' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Larger test branding capability missing')
+                meta['notes']+=' In-app logos are larger, with the new metallic Petalix wordmark and original STCC artwork retained.'
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')

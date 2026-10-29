@@ -104,12 +104,20 @@ def apply(work,cache):
     (work/'app/src/main/assets/service-templates-test.json').write_text(json.dumps(asset,separators=(',',':')))
     (work/'SEEK_THUMBNAIL_NOTICES.md').write_text('Native seek-thumbnail trial\n\nPorted from ysosrs123/NuvioTV-Fork '+DONOR_TAG+' ('+DONOR_COMMIT+'), GPL-3.0. Original license and copyright notices remain. The matching source includes the original thumbnail engine, tests, JNI shim and vendored FFmpeg headers/licenses.\n\nTrial changes: original Petalix/STCC player adapter, local test controls, a separate opt-in service-template collection, a bounded 16 MiB frame cache and 8 MiB spool, no post-play generation, and session/crash cleanup confined to preview-owned caches. Playback/activation/Home code remains from the verified original Home build except the explicit adapters.\n\nPhysical Fire TV, onn and Shield validation is required before customer use. No API key is used by thumbnail generation.\n')
 
-def verify_trial_source(original,updated,brand):
+def verify_trial_source(original,updated,brand,branding=False):
     from home_baseline import source_files,verify_archive,ALLOWED,FILES
     verify_archive(original,brand);before,after=source_files(original),source_files(updated)
     changed={name for name in before.keys()|after.keys() if before.get(name)!=after.get(name)}
     extra={ROOT+name for name in ['petalix/ManagedPolicy.kt','petalix/ServiceHubPolicy.kt','petalix/ServiceHubRows.kt','petalix/SeekPreviewTestControls.kt','ui/screens/player/PlayerScreen.kt','ui/screens/player/PlayerViewModel.kt','ui/screens/player/SeekThumbnailPane.kt','ui/screens/player/SeekStripLayout.kt','ui/screens/player/SeekPreviewPlayerSession.kt','ui/screens/settings/PlaybackSettingsScreen.kt','ui/screens/collection/FolderDetailViewModel.kt','ui/screens/collection/FolderDetailScreen.kt','ui/screens/home/ModernHomeContent.kt','domain/model/Collection.kt','data/local/CollectionsDataStore.kt','core/tmdb/TmdbCollectionSourceResolver.kt']}
     extra.update({'app/proguard-rules.pro','app/src/main/res/values/seek_preview_test.xml','app/src/main/assets/service-templates-test.json','app/src/main/assets/managed-native-controls.json','app/src/test/java/com/nuvio/tv/petalix/ServiceHubRowsTest.kt','SEEK_THUMBNAIL_NOTICES.md'})
+    if branding:
+        extra.update({ROOT+name for name in ['MainActivity.kt','ModernSidebarBlurPanel.kt','petalix/BrandLogoAssets.kt','ui/components/BrandWordmark.kt','ui/components/StartupSplashScreen.kt','ui/screens/profile/ProfileSelectionScreen.kt','ui/screens/settings/AboutScreen.kt','ui/screens/settings/SettingsDesignSystem.kt']})
+        extra.add('app/src/test/java/com/nuvio/tv/petalix/BrandLogoBoundsTest.kt')
+        if brand=='petalix':
+            from logo_trial_patch import PETALIX_LOGO_SHA256
+            logos={name for name in after if name.startswith('app/src/main/res/drawable/app_logo_wordmark') and name.endswith('.png')}
+            if len(logos)<6 or any(after[name]!=PETALIX_LOGO_SHA256 for name in logos):raise RuntimeError('The requested Petalix wordmark is missing from a theme')
+            extra.update(logos)
     prefixes=(ROOT+'core/player/thumbnail/','app/src/test/java/com/nuvio/tv/core/player/thumbnail/','app/src/main/cpp/')
     unexpected={name for name in changed if name not in ALLOWED|extra and not name.startswith(prefixes)}
     if unexpected:raise RuntimeError('Trial source changed outside reviewed integration files: '+', '.join(sorted(unexpected)))
