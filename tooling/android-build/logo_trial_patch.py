@@ -42,6 +42,10 @@ def apply(work,brand):
     settings=root/'ui/screens/settings/SettingsDesignSystem.kt'
     replace_once(settings,'.fillMaxWidth(0.9f)\n                .height(72.dp)','.fillMaxWidth()\n                .height(96.dp)')
     activation=root/'petalix/ActivationActivity.kt'
-    replace_once(activation,'setImageResource(R.drawable.app_logo_wordmark);scaleType=ImageView.ScaleType.FIT_CENTER},LinearLayout.LayoutParams(dp(280),dp(85))','setImageBitmap(BrandLogoAssets.bitmap(this@ActivationActivity,R.drawable.app_logo_wordmark));scaleType=ImageView.ScaleType.FIT_CENTER},LinearLayout.LayoutParams(dp(440),dp(120))')
+    if brand=='petalix':
+        drawable='app_logo_wordmark';old_size='dp(280),dp(85)';new_size='dp(440),dp(120)'
+    else:
+        drawable='stcc_logo';old_size='dp(210),dp(210)';new_size='dp(280),dp(280)'
+    replace_once(activation,f'setImageResource(R.drawable.{drawable});scaleType=ImageView.ScaleType.FIT_CENTER}},LinearLayout.LayoutParams({old_size})',f'setImageBitmap(BrandLogoAssets.bitmap(this@ActivationActivity,R.drawable.{drawable}));scaleType=ImageView.ScaleType.FIT_CENTER}},LinearLayout.LayoutParams({new_size})')
     coordinator=root/'petalix/ManagedCoordinator.kt'
     replace_once(coordinator,'"seek-previews-test-v1"','"seek-previews-test-v1","large-branding-test-v2"')
