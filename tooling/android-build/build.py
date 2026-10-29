@@ -79,7 +79,16 @@ def prepare_home_baseline(item,brand,work,cache):
     return version
 def prepare(item,brand,work,cache):
     from home_baseline import RECIPE
-    if item.get('recipeRevision')==RECIPE:return prepare_home_baseline(item,brand,work,cache)
+    from seek_previews_patch import RECIPE as SEEK_RECIPE,apply as apply_seek
+    if item.get('recipeRevision') in [RECIPE,SEEK_RECIPE]:
+        version=prepare_home_baseline(item,brand,work,cache)
+        if item.get('recipeRevision')==SEEK_RECIPE:
+            from service_hubs_patch import apply as apply_hubs
+            apply_hubs(work)
+            apply_seek(work,cache)
+            vm=work/'app/src/main/java/com/nuvio/tv/ui/screens/collection/FolderDetailViewModel.kt'
+            vm.write_text(vm.read_text().replace('collectionId=="collection-streaming-services-only"','collectionId in setOf("collection-streaming-services-only","collection-service-templates-test-v1")'))
+        return version
     sha=item['source']['sha']
     if not re.fullmatch('[a-f0-9]{40}',sha):raise RuntimeError('Invalid source commit')
     filename,expected=SOURCES[brand];custom=cache/filename
@@ -166,7 +175,7 @@ def main():
     cache=pathlib.Path('android-cache');cache.mkdir(exist_ok=True);work=pathlib.Path('android-work').resolve();out=pathlib.Path('out');out.mkdir(exist_ok=True)
     prepare(item,brand,work,cache)
     env=dict(os.environ,CI_USE_DEBUG_SIGNING='true',PETALIX_VOD_MANIFEST='')
-    command=[work/'gradlew',':app:testFullReleaseUnitTest','--tests','com.nuvio.tv.petalix.*',':app:assembleFullRelease','-PlivetvTestBuild=true','--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=768m','-x',':app:lintVitalAnalyzeFullRelease','-x',':app:lintVitalReportFullRelease','-x',':app:lintVitalFullRelease']
+    command=[work/'gradlew',':app:testFullReleaseUnitTest','--tests','com.nuvio.tv.petalix.*',*(['--tests','com.nuvio.tv.core.player.thumbnail.*'] if item.get('recipeRevision')=='seek-service-templates-test-v1' else []),':app:assembleFullRelease','-PlivetvTestBuild=true','--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=768m','-x',':app:lintVitalAnalyzeFullRelease','-x',':app:lintVitalReportFullRelease','-x',':app:lintVitalFullRelease']
     run(command,cwd=work,env=env)
     apks=list((work/'app/build/outputs/apk/full/release').glob('*.apk'))
     if len(apks)!=1:raise RuntimeError('Expected one universal release APK')
@@ -178,5 +187,8 @@ def main():
             archive.write(path,str(pathlib.Path(brand+'-source')/relative))
     from home_baseline import RECIPE,FILES,verify_preserved_source
     if item.get('recipeRevision')==RECIPE:verify_preserved_source(cache/FILES[brand][0],out/(brand+'-source.zip'),brand)
+    if item.get('recipeRevision')=='seek-service-templates-test-v1':
+        from seek_previews_patch import verify_trial_source
+        verify_trial_source(cache/FILES[brand][0],out/(brand+'-source.zip'),brand)
     print('Managed tests and APK build passed for '+brand,flush=True)
 if __name__=='__main__':main()

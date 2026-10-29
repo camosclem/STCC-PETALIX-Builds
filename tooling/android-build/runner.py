@@ -63,7 +63,8 @@ def android_tools():
 def sign_and_release():
     item=job();out=pathlib.Path('release');out.mkdir(exist_ok=True)
     from home_baseline import RECIPE,FILES,RELEASE_ID,baseline_url,verify_preserved_source
-    home=item.get('recipeRevision')==RECIPE
+    trial=item.get('recipeRevision')=='seek-service-templates-test-v1'
+    home=item.get('recipeRevision')==RECIPE or trial
     defaults=panel('defaults',{'id':item['id']});tmdb=defaults.get('tmdbApiKey','');legacy=defaults.get('manifest','')
     if not re.fullmatch('[a-fA-F0-9]{32}',tmdb):raise RuntimeError('TMDB verification configuration is missing.')
     print('::add-mask::'+tmdb)
@@ -76,7 +77,7 @@ def sign_and_release():
         key=pathlib.Path(private)/'release.jks';key.write_bytes(base64.b64decode(credentials['key']));key.chmod(0o600)
         for brand,label,package,offset in [('petalix','Petalix','com.petalix.iptv.preview',0),('stcc','STCC','com.stcc.iptv',1)]:
             number=item['versionCode']+offset;version='1.1.0-'+brand+'.panel'+str(number)
-            apk=out/(label+'-'+str(number)+'.apk');aligned=pathlib.Path(private)/(brand+'-aligned.apk')
+            apk=out/((label+'-Seek-Previews-and-Service-Templates-Test.apk') if trial else label+'-'+str(number)+'.apk');aligned=pathlib.Path(private)/(brand+'-aligned.apk')
             candidates=list(artifacts.rglob(brand+'-unsigned.apk'))
             if len(candidates)!=1:raise RuntimeError('Expected exactly one APK for '+brand)
             run([tools/'zipalign','-f','-P','16','4',candidates[0],aligned])
@@ -93,7 +94,7 @@ def sign_and_release():
             import zipfile
             with zipfile.ZipFile(apk) as z:
                 if not any(b'device-updates-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Individual-device update capability missing')
-                for capability in ([b'panel-session-origin-v1'] if home else [b'pengu-play-panel-v1',b'service-hubs-v1',b'panel-session-origin-v1']):
+                for capability in ([b'panel-session-origin-v1',b'seek-previews-test-v1',b'service-hubs-v1'] if trial else [b'panel-session-origin-v1'] if home else [b'pengu-play-panel-v1',b'service-hubs-v1',b'panel-session-origin-v1']):
                     if not any(capability in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Test app capability missing: '+capability.decode())
                 if legacy and any(legacy.encode() in z.read(n) or legacy.removesuffix('/manifest.json').encode() in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n) or n.startswith('assets/')):raise RuntimeError('A private built-in Pengu Play URL remains in the APK')
                 if not home and not any(b'pengu-play-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Pengu Play access capability missing')
@@ -101,14 +102,26 @@ def sign_and_release():
                 if not any(tmdb.encode() in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('The TMDB key was not included in the built app.')
             source_candidates=list(artifacts.rglob(brand+'-source.zip'))
             if len(source_candidates)!=1:raise RuntimeError('Corresponding source missing')
-            source=out/(label+'-'+str(number)+'-Source.zip');shutil.copyfile(source_candidates[0],source)
+            source=out/((label+'-Seek-Previews-and-Service-Templates-Test-Source.zip') if trial else label+'-'+str(number)+'-Source.zip');shutil.copyfile(source_candidates[0],source)
             meta={'testOnly':True,'supportsPanelSessionOrigin':True,'supportsServiceHubs':not home,'supportsPanelPenguPlay':not home,'supportsPenguPlay':not home,'supportsServicesFirst':not home,'supportsDeviceUpdates':True,'supportsTmdbEnrichment':True,'packageName':package,'certificateSha256':CERTIFICATE,'versionCode':number,'versionName':version,'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'sizeBytes':apk.stat().st_size,'minSdk':24,'assetName':apk.name,'sourceAssetName':source.name,'upstreamTag':item['source']['tag'] or 'commit-'+item['source']['sha'][:10],'upstreamCommit':item['source']['sha'],'notes':'Test build: service-first Home, branded service hubs, full TMDB rows and metadata, trailer previews after service selection, duplicate reduction, panel-only Pengu Play, and saved activation across the verified panel-address migration. Customer rollout requires manual testing approval. Physical TV verification is still required.'}
+            if trial:
+                with zipfile.ZipFile(apk) as z:
+                    for abi in ['armeabi-v7a','arm64-v8a']:
+                        if 'lib/'+abi+'/libnuviothumb.so' not in z.namelist():raise RuntimeError('Native thumbnail decoder missing for '+abi)
+                    test_collection=json.loads(z.read('assets/service-templates-test.json'))
+                    if test_collection[0]['id']!='collection-service-templates-test-v1' or len(test_collection[0]['folders'])!=10:raise RuntimeError('Service-template test asset missing')
             if home:
                 original=pathlib.Path(private)/FILES[brand][0]
                 req=urllib.request.Request(baseline_url(brand),headers={'User-Agent':'STCC-Petalix-Signing-Verification'})
                 with urllib.request.urlopen(req,timeout=180) as response,original.open('wb') as target:shutil.copyfileobj(response,target)
-                verified_source=verify_preserved_source(original,source,brand)
+                if trial:
+                    from seek_previews_patch import verify_trial_source
+                    verified_source=verify_trial_source(original,source,brand)
+                else:verified_source=verify_preserved_source(original,source,brand)
                 meta.update(homeLayoutBaselineReleaseId=RELEASE_ID,homeLayoutSourceSha256=verified_source,notes='Original Home layout retained: Live TV, Continue Watching and Streaming Services. Includes the daily PIN persistence fix and the current saved-login repair for the new panel address. All source changes are limited to activation, connection policy, version configuration and their tests. No built-in private Pengu Play URL. Requires testing on your TVs before customer use.')
+            if trial:
+                meta.pop('homeLayoutBaselineReleaseId',None);meta.pop('homeLayoutSourceSha256',None)
+                meta.update(supportsSeekPreviews=True,supportsServiceTemplates=True,supportsServiceHubs=True,trialOriginalHomeReleaseId=RELEASE_ID,trialOriginalHomeSourceSha256=verified_source,recipeRevision='seek-service-templates-test-v1',notes='TEST ONLY: original Live TV / Continue Watching / Streaming Services Home retained, with current PIN repair. Opt-in native seek thumbnails generate locally without a thumbnail API key; 32-bit and 64-bit ARM decoders included. Settings > Playback has test controls for HD-only / HD+4K previews and a separate Service Templates Test collection with distinct provider, studio, network and genre queries. Preview-owned caches are bounded and cleared after playback. No new live panel feature controls. Physical testing on Fire TV, onn and Shield is required before customer use.')
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')

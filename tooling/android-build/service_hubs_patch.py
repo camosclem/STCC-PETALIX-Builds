@@ -8,7 +8,7 @@ def apply(work):
     controls.append({'key':'pref:layout_settings:service_hub_deduplicate','feature':'layout_settings','preference':'service_hub_deduplicate','kind':'boolean','type':'boolean','optional':True})
     asset.write_text(json.dumps(controls,indent=2)+'\n')
     coordinator=root/'petalix/ManagedCoordinator.kt'
-    replace_once(coordinator,'"pengu-play-panel-v1"','"pengu-play-panel-v1","service-hubs-v1"')
+    replace_once(coordinator,'"device-updates-v1"','"device-updates-v1","service-hubs-v1"')
     policy=root/'petalix/ManagedPolicy.kt'
     replace_once(policy,'    @Synchronized fun initialize(context:Context) {','    @Synchronized fun initialize(context:Context) {\n        ServiceHubPolicy.initialize(context)')
     replace_once(policy,'        state.value=next\n    }','        state.value=next\n        ServiceHubPolicy.save(context,values)\n    }')
@@ -30,11 +30,11 @@ def apply(work):
             com.nuvio.tv.petalix.ServiceHubPolicy.deduplicate.collect { rebuildFollowLayoutState() }
         }''')
     replace_once(vm,'        val allRows = if (useShimmer) {','        val sourceRows = if (useShimmer) {')
-    replace_once(vm,'        if (allRows.isEmpty()) return','''        val allRows=if(state.isServiceHub && com.nuvio.tv.petalix.ServiceHubPolicy.deduplicate.value)
-            com.nuvio.tv.petalix.uniqueServiceRows(sourceRows,{it.isLoading},{it.items},{"${it.apiType}:${it.id}"},{row,items->row.copy(items=items)}) else sourceRows
+    replace_once(vm,'        if (allRows.isEmpty()) return','''        val allRows=if(state.isServiceHub)
+            com.nuvio.tv.petalix.uniqueServiceRows(sourceRows,{it.isLoading},{it.items},{"${it.apiType}:${it.id}"},{row,items->row.copy(items=items)},com.nuvio.tv.petalix.ServiceHubPolicy.deduplicate.value) else sourceRows
         val generation=presentationGeneration.incrementAndGet()
         presentationJob?.cancel()
-        if (allRows.isEmpty()) return''')
+        if (allRows.isEmpty()) { _uiState.update { it.copy(followLayoutHomeState=null) };return }''')
     replace_once(vm,'            viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {','''            presentationJob=viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
               presentationMutex.withLock {
                 if(generation!=presentationGeneration.get())return@withLock''')

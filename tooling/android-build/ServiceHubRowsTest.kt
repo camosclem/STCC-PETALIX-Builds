@@ -19,6 +19,11 @@ class ServiceHubRowsTest {
         val next=dedupe(listOf(Row("loading",listOf(item),true),Row("ready",listOf(item)),Row("duplicate",listOf(item))))
         assertEquals(listOf("loading","ready"),next.map{it.id})
     }
+    @Test fun emptyRowsStayHiddenWhenDuplicateReductionIsOff() {
+        val item=Item("10","movie")
+        val next=uniqueServiceRows(listOf(Row("first",listOf(item)),Row("empty",emptyList()),Row("repeat",listOf(item))),{it.loading},{it.items},{"${it.type}:${it.id}"},{r,items->r.copy(items=items)},false)
+        assertEquals(listOf("first","repeat"),next.map{it.id})
+    }
     @Test fun homeKeepsServiceTilesAndViewingHistoryWhileRemovingRepeatedDiscoveryRows() {
         val rows=listOf("catalog_movie",STREAMING_SERVICES_ROW,"continue_watching","catalog_shows","collection_old","upcoming_section")
         assertEquals(listOf(STREAMING_SERVICES_ROW,"continue_watching","upcoming_section"),streamingServicesFirst(rows){it})
