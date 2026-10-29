@@ -40,7 +40,7 @@ def apply(work):
     text=text.replace(needle,needle+'&&!prefs.getBoolean("accessDenied",false)')
     coordinator.write_text(text)
     replace_once(coordinator,'.putLong("verified",System.currentTimeMillis()).commit()', '.putLong("verified",System.currentTimeMillis()).putBoolean("accessDenied",false).commit()')
-    replace_once(coordinator,'"service-hubs-v1"','"service-hubs-v1","panel-session-origin-v1"')
+    replace_once(coordinator,'"device-updates-v1"','"device-updates-v1","panel-session-origin-v1"')
     activity=root/'ActivationActivity.kt'
     replace_once(activity,'catch(e:ActivationRequired){showPin();message.text="Saved activation was not accepted. Contact your provider or enter your current PIN.";pin.requestFocus()}', 'catch(e:ActivationRequired){message.text="This TV’s saved activation could not be confirmed. Retry the connection or contact your provider. Your saved login is retained.";button.isEnabled=true;button.requestFocus()}')
     old='catch(e:Exception){message.text=e.message?:"Activation failed. Try again.";button.isEnabled=true}'

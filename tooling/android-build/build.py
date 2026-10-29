@@ -53,7 +53,33 @@ def clear(root):
         if p.name=='.git':continue
         if p.is_dir():shutil.rmtree(p)
         else:p.unlink()
+def prepare_home_baseline(item,brand,work,cache):
+    from home_baseline import FILES,UPSTREAM,baseline_url,verify_archive
+    if item['source']['sha']!=UPSTREAM:raise RuntimeError('The original Home build needs its exact upstream revision.')
+    filename,_=FILES[brand];archive=cache/filename
+    if not archive.exists():download(baseline_url(brand),archive)
+    verify_archive(archive,brand)
+    work.mkdir(parents=True,exist_ok=True)
+    if any(work.iterdir()):raise RuntimeError('The original Home build needs an empty work directory.')
+    unzip(archive,work)
+    gradle=work/'app/build.gradle.kts';text=gradle.read_text();number=item['versionCode']+(brand=='stcc');version='1.1.0-'+brand+'.panel'+str(number)
+    text,n=re.subn(r'android\.defaultConfig\.versionCode\s*=\s*\d+','android.defaultConfig.versionCode = '+str(number),text)
+    if n!=1:raise RuntimeError('Original Home version code binding needs review')
+    text,n=re.subn(r'android\.defaultConfig\.versionName\s*=\s*"[^"]+"','android.defaultConfig.versionName = "'+version+'"',text)
+    if n!=1:raise RuntimeError('Original Home version name binding needs review')
+    gradle.write_text(text)
+    tmdb=os.environ.get('TMDB_API_KEY','')
+    if not re.fullmatch('[a-fA-F0-9]{32}',tmdb):raise RuntimeError('TMDB configuration is required for this build.')
+    (work/'local.properties').write_text('sdk.dir='+os.environ.get('ANDROID_HOME',os.environ.get('ANDROID_SDK_ROOT',''))+'\nTMDB_API_KEY='+tmdb+'\n')
+    (work/'gradlew').chmod(0o755)
+    from activation_patch import apply as apply_activation
+    apply_activation(work,brand)
+    from panel_connection_patch import apply as apply_panel_connection
+    apply_panel_connection(work)
+    return version
 def prepare(item,brand,work,cache):
+    from home_baseline import RECIPE
+    if item.get('recipeRevision')==RECIPE:return prepare_home_baseline(item,brand,work,cache)
     sha=item['source']['sha']
     if not re.fullmatch('[a-f0-9]{40}',sha):raise RuntimeError('Invalid source commit')
     filename,expected=SOURCES[brand];custom=cache/filename
@@ -150,5 +176,7 @@ def main():
             relative=path.relative_to(work)
             if not path.is_file() or (any(p in {'.git','.gradle','.kotlin','.idea','.cxx'} for p in relative.parts) or relative.parts[0]=='build' or (len(relative.parts)>1 and relative.parts[1]=='build')) or path.name in {'local.properties','local.dev.properties'} or path.suffix in {'.jks','.keystore'}:continue
             archive.write(path,str(pathlib.Path(brand+'-source')/relative))
+    from home_baseline import RECIPE,FILES,verify_preserved_source
+    if item.get('recipeRevision')==RECIPE:verify_preserved_source(cache/FILES[brand][0],out/(brand+'-source.zip'),brand)
     print('Managed tests and APK build passed for '+brand,flush=True)
 if __name__=='__main__':main()
