@@ -1,0 +1,6119 @@
+[
+  {
+    "key": "pref:theme_settings:amoled_mode",
+    "feature": "theme_settings",
+    "preference": "amoled_mode",
+    "kind": "boolean",
+    "group": "Appearance & theme",
+    "label": "AMOLED Mode",
+    "help": "Use pure black for app backgrounds",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/ThemeDataStore.kt:34",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:theme_settings:selected_font",
+    "feature": "theme_settings",
+    "preference": "selected_font",
+    "kind": "string",
+    "group": "Appearance & theme",
+    "label": "App Font",
+    "help": "Choose your preferred font",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/ThemeDataStore.kt:33",
+    "type": "select",
+    "options": [
+      [
+        "DM_SANS",
+        "Dm Sans"
+      ],
+      [
+        "INTER",
+        "Inter"
+      ],
+      [
+        "OPEN_SANS",
+        "Open Sans"
+      ]
+    ]
+  },
+  {
+    "key": "pref:theme_settings:selected_theme",
+    "feature": "theme_settings",
+    "preference": "selected_theme",
+    "kind": "string",
+    "group": "Appearance & theme",
+    "label": "Color Theme",
+    "help": "Pick the accent color used across the app",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/ThemeDataStore.kt:31",
+    "type": "select",
+    "options": [
+      [
+        "GOLD",
+        "Gold"
+      ],
+      [
+        "JADE",
+        "Jade"
+      ],
+      [
+        "ROSE_GOLD",
+        "Rose Gold"
+      ],
+      [
+        "ARCTIC_BLUE",
+        "Arctic Blue"
+      ],
+      [
+        "GRAPHITE",
+        "Graphite"
+      ],
+      [
+        "CRIMSON",
+        "Crimson"
+      ],
+      [
+        "OCEAN",
+        "Ocean"
+      ],
+      [
+        "VIOLET",
+        "Violet"
+      ],
+      [
+        "EMERALD",
+        "Emerald"
+      ],
+      [
+        "AMBER",
+        "Amber"
+      ],
+      [
+        "ROSE",
+        "Rose"
+      ],
+      [
+        "WHITE",
+        "White"
+      ]
+    ]
+  },
+  {
+    "key": "pref:theme_settings:amoled_surfaces_mode",
+    "feature": "theme_settings",
+    "preference": "amoled_surfaces_mode",
+    "kind": "boolean",
+    "group": "Appearance & theme",
+    "label": "Pure Black Surfaces",
+    "help": "Also make cards, panels, and containers pure black",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/ThemeDataStore.kt:35",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:theme_settings:settings_ui_style",
+    "feature": "theme_settings",
+    "preference": "settings_ui_style",
+    "kind": "string",
+    "group": "Appearance & theme",
+    "label": "Settings Style",
+    "help": "Choose how the settings screens are presented",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/ThemeDataStore.kt:36",
+    "type": "select",
+    "options": [
+      [
+        "CLASSIC",
+        "Classic"
+      ],
+      [
+        "HORIZON",
+        "Horizon"
+      ],
+      [
+        "ZEN",
+        "Zen"
+      ]
+    ]
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_artwork",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_artwork",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Artwork",
+    "help": "Logo and backdrop images from TMDB",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:39",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_basic_info",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_basic_info",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Basic Info",
+    "help": "Description, genres, and rating from TMDB",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:40",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_collections",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_collections",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Collections",
+    "help": "TMDB movie collections in release order",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:48",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_credits",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_credits",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Credits",
+    "help": "Cast with photos, director, and writer from TMDB",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:42",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_details",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_details",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Details",
+    "help": "Runtime, status, country, and language from TMDB",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:41",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_enabled",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_enabled",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Enable TMDB Enrichment",
+    "help": "Use TMDB as a metadata source to enhance addon data",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:35",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_modern_home_enabled",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_modern_home_enabled",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Enable on Modern Home",
+    "help": "Also apply TMDB enrichment to Modern Home hero and focused cards",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:36",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_enrich_continue_watching",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_enrich_continue_watching",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Enrich Continue Watching",
+    "help": "Apply TMDB enrichment to Continue Watching items",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:37",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_episodes",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_episodes",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Episodes",
+    "help": "Episode titles, overviews, thumbnails, and runtime from TMDB",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:45",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_language",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_language",
+    "kind": "string",
+    "group": "Artwork & metadata",
+    "label": "Language",
+    "help": "TMDB metadata language for title, logo, and enabled fields",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:38",
+    "type": "select",
+    "options": [
+      [
+        "af",
+        "Afrikaans"
+      ],
+      [
+        "sq",
+        "Albanian"
+      ],
+      [
+        "am",
+        "Amharic"
+      ],
+      [
+        "ar",
+        "Arabic"
+      ],
+      [
+        "hy",
+        "Armenian"
+      ],
+      [
+        "az",
+        "Azerbaijani"
+      ],
+      [
+        "eu",
+        "Basque"
+      ],
+      [
+        "be",
+        "Belarusian"
+      ],
+      [
+        "bn",
+        "Bengali"
+      ],
+      [
+        "bs",
+        "Bosnian"
+      ],
+      [
+        "bg",
+        "Bulgarian"
+      ],
+      [
+        "my",
+        "Burmese"
+      ],
+      [
+        "ca",
+        "Catalan"
+      ],
+      [
+        "zh",
+        "Chinese"
+      ],
+      [
+        "zh-CN",
+        "Chinese (Simplified)"
+      ],
+      [
+        "zh-TW",
+        "Chinese (Traditional)"
+      ],
+      [
+        "hr",
+        "Croatian"
+      ],
+      [
+        "cs",
+        "Czech"
+      ],
+      [
+        "da",
+        "Danish"
+      ],
+      [
+        "nl",
+        "Dutch"
+      ],
+      [
+        "en",
+        "English"
+      ],
+      [
+        "et",
+        "Estonian"
+      ],
+      [
+        "tl",
+        "Filipino"
+      ],
+      [
+        "fi",
+        "Finnish"
+      ],
+      [
+        "fr",
+        "French"
+      ],
+      [
+        "gl",
+        "Galician"
+      ],
+      [
+        "ka",
+        "Georgian"
+      ],
+      [
+        "de",
+        "German"
+      ],
+      [
+        "el",
+        "Greek"
+      ],
+      [
+        "gu",
+        "Gujarati"
+      ],
+      [
+        "he",
+        "Hebrew"
+      ],
+      [
+        "hi",
+        "Hindi"
+      ],
+      [
+        "hu",
+        "Hungarian"
+      ],
+      [
+        "is",
+        "Icelandic"
+      ],
+      [
+        "id",
+        "Indonesian"
+      ],
+      [
+        "ga",
+        "Irish"
+      ],
+      [
+        "it",
+        "Italian"
+      ],
+      [
+        "ja",
+        "Japanese"
+      ],
+      [
+        "kn",
+        "Kannada"
+      ],
+      [
+        "kk",
+        "Kazakh"
+      ],
+      [
+        "km",
+        "Khmer"
+      ],
+      [
+        "ko",
+        "Korean"
+      ],
+      [
+        "lo",
+        "Lao"
+      ],
+      [
+        "lv",
+        "Latvian"
+      ],
+      [
+        "lt",
+        "Lithuanian"
+      ],
+      [
+        "mk",
+        "Macedonian"
+      ],
+      [
+        "ms",
+        "Malay"
+      ],
+      [
+        "ml",
+        "Malayalam"
+      ],
+      [
+        "mt",
+        "Maltese"
+      ],
+      [
+        "mr",
+        "Marathi"
+      ],
+      [
+        "mn",
+        "Mongolian"
+      ],
+      [
+        "ne",
+        "Nepali"
+      ],
+      [
+        "no",
+        "Norwegian"
+      ],
+      [
+        "pa",
+        "Punjabi"
+      ],
+      [
+        "fa",
+        "Persian"
+      ],
+      [
+        "pl",
+        "Polish"
+      ],
+      [
+        "pt",
+        "Portuguese (Portugal)"
+      ],
+      [
+        "pt-br",
+        "Portuguese (Brazil)"
+      ],
+      [
+        "ro",
+        "Romanian"
+      ],
+      [
+        "ru",
+        "Russian"
+      ],
+      [
+        "sr",
+        "Serbian"
+      ],
+      [
+        "si",
+        "Sinhala"
+      ],
+      [
+        "sk",
+        "Slovak"
+      ],
+      [
+        "sl",
+        "Slovenian"
+      ],
+      [
+        "es",
+        "Spanish"
+      ],
+      [
+        "es-419",
+        "Spanish (Latin America)"
+      ],
+      [
+        "sw",
+        "Swahili"
+      ],
+      [
+        "sv",
+        "Swedish"
+      ],
+      [
+        "ta",
+        "Tamil"
+      ],
+      [
+        "te",
+        "Telugu"
+      ],
+      [
+        "th",
+        "Thai"
+      ],
+      [
+        "tr",
+        "Turkish"
+      ],
+      [
+        "uk",
+        "Ukrainian"
+      ],
+      [
+        "ur",
+        "Urdu"
+      ],
+      [
+        "uz",
+        "Uzbek"
+      ],
+      [
+        "vi",
+        "Vietnamese"
+      ],
+      [
+        "cy",
+        "Welsh"
+      ],
+      [
+        "zu",
+        "Zulu"
+      ],
+      [
+        "en-AU",
+        "English (Australia)"
+      ],
+      [
+        "en-CA",
+        "English (Canada)"
+      ],
+      [
+        "en-GB",
+        "English (United Kingdom)"
+      ]
+    ]
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_more_like_this",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_more_like_this",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "More Like This",
+    "help": "TMDB recommendation backdrops on detail and post-play screens",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:47",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_networks",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_networks",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Networks",
+    "help": "Networks with logos from TMDB",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:44",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_productions",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_productions",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Productions",
+    "help": "Production companies from TMDB",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:43",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:tmdb_settings:tmdb_use_trailers",
+    "feature": "tmdb_settings",
+    "preference": "tmdb_use_trailers",
+    "kind": "boolean",
+    "group": "Artwork & metadata",
+    "label": "Trailers",
+    "help": "Trailer candidates from TMDB videos for the detail trailer section",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TmdbSettingsDataStore.kt:46",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:audio_amplification_db",
+    "feature": "player_settings",
+    "preference": "audio_amplification_db",
+    "kind": "integer",
+    "group": "Audio",
+    "label": "Audio Amplification Db",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:499",
+    "type": "number",
+    "min": 0,
+    "max": 10,
+    "step": 1,
+    "scale": 1,
+    "unit": "",
+    "integer": true,
+    "appDefault": 0
+  },
+  {
+    "key": "pref:player_settings:center_mix_level_db",
+    "feature": "player_settings",
+    "preference": "center_mix_level_db",
+    "kind": "integer",
+    "group": "Audio",
+    "label": "Center Mix Level Db",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:500",
+    "type": "number",
+    "min": -10,
+    "max": 30,
+    "step": 1,
+    "scale": 1,
+    "unit": "",
+    "integer": true,
+    "appDefault": 0
+  },
+  {
+    "key": "pref:player_settings:downmix_enabled",
+    "feature": "player_settings",
+    "preference": "downmix_enabled",
+    "kind": "boolean",
+    "group": "Audio",
+    "label": "Enable downmix",
+    "help": "Uses the FFmpeg downmix path. Requires Prefer app decoders (FFmpeg). When disabled, audio follows the previous Android/device path.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:490",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:force_optical_passthrough",
+    "feature": "player_settings",
+    "preference": "force_optical_passthrough",
+    "kind": "boolean",
+    "group": "Audio",
+    "label": "Force AC-3 Transcoding (Optical/SPDIF)",
+    "help": "Transcodes multichannel formats (TrueHD, DTS, AAC, etc.) to Dolby Digital 5.1 in real-time for Optical/SPDIF connections.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:497",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:maintain_original_audio_on_downmix",
+    "feature": "player_settings",
+    "preference": "maintain_original_audio_on_downmix",
+    "kind": "boolean",
+    "group": "Audio",
+    "label": "Maintain original audio on downmix",
+    "help": "When disabled, downmix normalization can reduce overall volume.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:493",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:audio_output_channels",
+    "feature": "player_settings",
+    "preference": "audio_output_channels",
+    "kind": "string",
+    "group": "Audio",
+    "label": "Number of channels",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:491",
+    "type": "select",
+    "options": [
+      [
+        "2.0",
+        "2.0"
+      ],
+      [
+        "2.1",
+        "2.1"
+      ],
+      [
+        "3.0",
+        "3.0"
+      ],
+      [
+        "3.1",
+        "3.1"
+      ],
+      [
+        "4.0",
+        "4.0"
+      ],
+      [
+        "4.1",
+        "4.1"
+      ],
+      [
+        "5.0",
+        "5.0"
+      ],
+      [
+        "5.1",
+        "5.1"
+      ],
+      [
+        "7.0",
+        "7.0"
+      ],
+      [
+        "7.1",
+        "7.1"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:persist_audio_amplification",
+    "feature": "player_settings",
+    "preference": "persist_audio_amplification",
+    "kind": "boolean",
+    "group": "Audio",
+    "label": "Persist Audio Amplification",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:501",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:preferred_audio_language",
+    "feature": "player_settings",
+    "preference": "preferred_audio_language",
+    "kind": "string",
+    "group": "Audio",
+    "label": "Preferred Audio Language",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:503",
+    "type": "select",
+    "options": [
+      [
+        "device",
+        "System default"
+      ],
+      [
+        "default",
+        "File default"
+      ],
+      [
+        "original",
+        "Original language"
+      ],
+      [
+        "af",
+        "Afrikaans"
+      ],
+      [
+        "sq",
+        "Albanian"
+      ],
+      [
+        "am",
+        "Amharic"
+      ],
+      [
+        "ar",
+        "Arabic"
+      ],
+      [
+        "hy",
+        "Armenian"
+      ],
+      [
+        "az",
+        "Azerbaijani"
+      ],
+      [
+        "eu",
+        "Basque"
+      ],
+      [
+        "be",
+        "Belarusian"
+      ],
+      [
+        "bn",
+        "Bengali"
+      ],
+      [
+        "bs",
+        "Bosnian"
+      ],
+      [
+        "bg",
+        "Bulgarian"
+      ],
+      [
+        "my",
+        "Burmese"
+      ],
+      [
+        "ca",
+        "Catalan"
+      ],
+      [
+        "zh",
+        "Chinese"
+      ],
+      [
+        "zh-CN",
+        "Chinese (Simplified)"
+      ],
+      [
+        "zh-TW",
+        "Chinese (Traditional)"
+      ],
+      [
+        "hr",
+        "Croatian"
+      ],
+      [
+        "cs",
+        "Czech"
+      ],
+      [
+        "da",
+        "Danish"
+      ],
+      [
+        "nl",
+        "Dutch"
+      ],
+      [
+        "en",
+        "English"
+      ],
+      [
+        "et",
+        "Estonian"
+      ],
+      [
+        "tl",
+        "Filipino"
+      ],
+      [
+        "fi",
+        "Finnish"
+      ],
+      [
+        "fr",
+        "French"
+      ],
+      [
+        "gl",
+        "Galician"
+      ],
+      [
+        "ka",
+        "Georgian"
+      ],
+      [
+        "de",
+        "German"
+      ],
+      [
+        "el",
+        "Greek"
+      ],
+      [
+        "gu",
+        "Gujarati"
+      ],
+      [
+        "he",
+        "Hebrew"
+      ],
+      [
+        "hi",
+        "Hindi"
+      ],
+      [
+        "hu",
+        "Hungarian"
+      ],
+      [
+        "is",
+        "Icelandic"
+      ],
+      [
+        "id",
+        "Indonesian"
+      ],
+      [
+        "ga",
+        "Irish"
+      ],
+      [
+        "it",
+        "Italian"
+      ],
+      [
+        "ja",
+        "Japanese"
+      ],
+      [
+        "kn",
+        "Kannada"
+      ],
+      [
+        "kk",
+        "Kazakh"
+      ],
+      [
+        "km",
+        "Khmer"
+      ],
+      [
+        "ko",
+        "Korean"
+      ],
+      [
+        "lo",
+        "Lao"
+      ],
+      [
+        "lv",
+        "Latvian"
+      ],
+      [
+        "lt",
+        "Lithuanian"
+      ],
+      [
+        "mk",
+        "Macedonian"
+      ],
+      [
+        "ms",
+        "Malay"
+      ],
+      [
+        "ml",
+        "Malayalam"
+      ],
+      [
+        "mt",
+        "Maltese"
+      ],
+      [
+        "mr",
+        "Marathi"
+      ],
+      [
+        "mn",
+        "Mongolian"
+      ],
+      [
+        "ne",
+        "Nepali"
+      ],
+      [
+        "no",
+        "Norwegian"
+      ],
+      [
+        "pa",
+        "Punjabi"
+      ],
+      [
+        "fa",
+        "Persian"
+      ],
+      [
+        "pl",
+        "Polish"
+      ],
+      [
+        "pt",
+        "Portuguese (Portugal)"
+      ],
+      [
+        "pt-br",
+        "Portuguese (Brazil)"
+      ],
+      [
+        "ro",
+        "Romanian"
+      ],
+      [
+        "ru",
+        "Russian"
+      ],
+      [
+        "sr",
+        "Serbian"
+      ],
+      [
+        "si",
+        "Sinhala"
+      ],
+      [
+        "sk",
+        "Slovak"
+      ],
+      [
+        "sl",
+        "Slovenian"
+      ],
+      [
+        "es",
+        "Spanish"
+      ],
+      [
+        "es-419",
+        "Spanish (Latin America)"
+      ],
+      [
+        "sw",
+        "Swahili"
+      ],
+      [
+        "sv",
+        "Swedish"
+      ],
+      [
+        "ta",
+        "Tamil"
+      ],
+      [
+        "te",
+        "Telugu"
+      ],
+      [
+        "th",
+        "Thai"
+      ],
+      [
+        "tr",
+        "Turkish"
+      ],
+      [
+        "uk",
+        "Ukrainian"
+      ],
+      [
+        "ur",
+        "Urdu"
+      ],
+      [
+        "uz",
+        "Uzbek"
+      ],
+      [
+        "vi",
+        "Vietnamese"
+      ],
+      [
+        "cy",
+        "Welsh"
+      ],
+      [
+        "zu",
+        "Zulu"
+      ],
+      [
+        "en-AU",
+        "English (Australia)"
+      ],
+      [
+        "en-CA",
+        "English (Canada)"
+      ],
+      [
+        "en-GB",
+        "English (United Kingdom)"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:remember_audio_delay_per_device",
+    "feature": "player_settings",
+    "preference": "remember_audio_delay_per_device",
+    "kind": "boolean",
+    "group": "Audio",
+    "label": "Remember audio delay per device",
+    "help": "Save and restore the in-player audio delay for the current audio output route",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:502",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:secondary_preferred_audio_language",
+    "feature": "player_settings",
+    "preference": "secondary_preferred_audio_language",
+    "kind": "string",
+    "group": "Audio",
+    "label": "Secondary Preferred Language",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:504",
+    "type": "select",
+    "options": [
+      [
+        "",
+        "None"
+      ],
+      [
+        "device",
+        "System default"
+      ],
+      [
+        "default",
+        "File default"
+      ],
+      [
+        "original",
+        "Original language"
+      ],
+      [
+        "af",
+        "Afrikaans"
+      ],
+      [
+        "sq",
+        "Albanian"
+      ],
+      [
+        "am",
+        "Amharic"
+      ],
+      [
+        "ar",
+        "Arabic"
+      ],
+      [
+        "hy",
+        "Armenian"
+      ],
+      [
+        "az",
+        "Azerbaijani"
+      ],
+      [
+        "eu",
+        "Basque"
+      ],
+      [
+        "be",
+        "Belarusian"
+      ],
+      [
+        "bn",
+        "Bengali"
+      ],
+      [
+        "bs",
+        "Bosnian"
+      ],
+      [
+        "bg",
+        "Bulgarian"
+      ],
+      [
+        "my",
+        "Burmese"
+      ],
+      [
+        "ca",
+        "Catalan"
+      ],
+      [
+        "zh",
+        "Chinese"
+      ],
+      [
+        "zh-CN",
+        "Chinese (Simplified)"
+      ],
+      [
+        "zh-TW",
+        "Chinese (Traditional)"
+      ],
+      [
+        "hr",
+        "Croatian"
+      ],
+      [
+        "cs",
+        "Czech"
+      ],
+      [
+        "da",
+        "Danish"
+      ],
+      [
+        "nl",
+        "Dutch"
+      ],
+      [
+        "en",
+        "English"
+      ],
+      [
+        "et",
+        "Estonian"
+      ],
+      [
+        "tl",
+        "Filipino"
+      ],
+      [
+        "fi",
+        "Finnish"
+      ],
+      [
+        "fr",
+        "French"
+      ],
+      [
+        "gl",
+        "Galician"
+      ],
+      [
+        "ka",
+        "Georgian"
+      ],
+      [
+        "de",
+        "German"
+      ],
+      [
+        "el",
+        "Greek"
+      ],
+      [
+        "gu",
+        "Gujarati"
+      ],
+      [
+        "he",
+        "Hebrew"
+      ],
+      [
+        "hi",
+        "Hindi"
+      ],
+      [
+        "hu",
+        "Hungarian"
+      ],
+      [
+        "is",
+        "Icelandic"
+      ],
+      [
+        "id",
+        "Indonesian"
+      ],
+      [
+        "ga",
+        "Irish"
+      ],
+      [
+        "it",
+        "Italian"
+      ],
+      [
+        "ja",
+        "Japanese"
+      ],
+      [
+        "kn",
+        "Kannada"
+      ],
+      [
+        "kk",
+        "Kazakh"
+      ],
+      [
+        "km",
+        "Khmer"
+      ],
+      [
+        "ko",
+        "Korean"
+      ],
+      [
+        "lo",
+        "Lao"
+      ],
+      [
+        "lv",
+        "Latvian"
+      ],
+      [
+        "lt",
+        "Lithuanian"
+      ],
+      [
+        "mk",
+        "Macedonian"
+      ],
+      [
+        "ms",
+        "Malay"
+      ],
+      [
+        "ml",
+        "Malayalam"
+      ],
+      [
+        "mt",
+        "Maltese"
+      ],
+      [
+        "mr",
+        "Marathi"
+      ],
+      [
+        "mn",
+        "Mongolian"
+      ],
+      [
+        "ne",
+        "Nepali"
+      ],
+      [
+        "no",
+        "Norwegian"
+      ],
+      [
+        "pa",
+        "Punjabi"
+      ],
+      [
+        "fa",
+        "Persian"
+      ],
+      [
+        "pl",
+        "Polish"
+      ],
+      [
+        "pt",
+        "Portuguese (Portugal)"
+      ],
+      [
+        "pt-br",
+        "Portuguese (Brazil)"
+      ],
+      [
+        "ro",
+        "Romanian"
+      ],
+      [
+        "ru",
+        "Russian"
+      ],
+      [
+        "sr",
+        "Serbian"
+      ],
+      [
+        "si",
+        "Sinhala"
+      ],
+      [
+        "sk",
+        "Slovak"
+      ],
+      [
+        "sl",
+        "Slovenian"
+      ],
+      [
+        "es",
+        "Spanish"
+      ],
+      [
+        "es-419",
+        "Spanish (Latin America)"
+      ],
+      [
+        "sw",
+        "Swahili"
+      ],
+      [
+        "sv",
+        "Swedish"
+      ],
+      [
+        "ta",
+        "Tamil"
+      ],
+      [
+        "te",
+        "Telugu"
+      ],
+      [
+        "th",
+        "Thai"
+      ],
+      [
+        "tr",
+        "Turkish"
+      ],
+      [
+        "uk",
+        "Ukrainian"
+      ],
+      [
+        "ur",
+        "Urdu"
+      ],
+      [
+        "uz",
+        "Uzbek"
+      ],
+      [
+        "vi",
+        "Vietnamese"
+      ],
+      [
+        "cy",
+        "Welsh"
+      ],
+      [
+        "zu",
+        "Zulu"
+      ],
+      [
+        "en-AU",
+        "English (Australia)"
+      ],
+      [
+        "en-CA",
+        "English (Canada)"
+      ],
+      [
+        "en-GB",
+        "English (United Kingdom)"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:skip_silence",
+    "feature": "player_settings",
+    "preference": "skip_silence",
+    "kind": "boolean",
+    "group": "Audio",
+    "label": "Skip Silence",
+    "help": "Skip silent portions of audio during playback",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:498",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:allow_large_target_buffer",
+    "feature": "player_settings",
+    "preference": "allow_large_target_buffer",
+    "kind": "boolean",
+    "group": "Buffering & caching",
+    "label": "Allow Larger Target Buffer",
+    "help": "Removes the device-memory cap on the Target Buffer Size slider, allowing values up to 2GB. May crash on devices with less than 2GB of RAM.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:564",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:back_buffer_duration_ms",
+    "feature": "player_settings",
+    "preference": "back_buffer_duration_ms",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "Back Buffer Duration",
+    "help": "How much already-played content to keep in memory. Enables fast backward seeking without re-downloading. Set to 0 to disable and save memory.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:596",
+    "type": "number",
+    "min": 0.0,
+    "max": 120000.0,
+    "step": 5000.0,
+    "scale": 1000,
+    "unit": "seconds",
+    "integer": true,
+    "appDefault": 0
+  },
+  {
+    "key": "pref:player_settings:buffer_for_playback_after_rebuffer_ms",
+    "feature": "player_settings",
+    "preference": "buffer_for_playback_after_rebuffer_ms",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "Buffer After Rebuffer",
+    "help": "How much content to buffer after playback stalls due to buffering. Higher values reduce repeated buffering interruptions.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:594",
+    "type": "number",
+    "min": 1000,
+    "max": 60000,
+    "step": 1000.0,
+    "scale": 1000,
+    "unit": "seconds",
+    "integer": true,
+    "appDefault": 3000
+  },
+  {
+    "key": "pref:player_settings:parallel_connection_count",
+    "feature": "player_settings",
+    "preference": "parallel_connection_count",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "Connection Count",
+    "help": "Number of parallel TCP connections. Higher values increase memory usage and throughput but with diminishing returns.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:566",
+    "type": "number",
+    "min": 1,
+    "max": 16,
+    "step": 1,
+    "scale": 1,
+    "unit": "",
+    "integer": true,
+    "appDefault": 2
+  },
+  {
+    "key": "pref:player_settings:parallel_network_enabled",
+    "feature": "player_settings",
+    "preference": "parallel_network_enabled",
+    "kind": "boolean",
+    "group": "Buffering & caching",
+    "label": "Custom Network",
+    "help": "Use multiple parallel connections to fetch progressive streams. When off, a single connection is used.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:563",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:buffer_engine_enabled",
+    "feature": "player_settings",
+    "preference": "buffer_engine_enabled",
+    "kind": "boolean",
+    "group": "Buffering & caching",
+    "label": "Custom Playback Buffers",
+    "help": "Override Media3's default buffering with the values below. When off, the player uses Media3's stock buffer durations and target size.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:562",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:enable_http2",
+    "feature": "player_settings",
+    "preference": "enable_http2",
+    "kind": "boolean",
+    "group": "Buffering & caching",
+    "label": "Enable Http2",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:569",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:buffer_for_playback_ms",
+    "feature": "player_settings",
+    "preference": "buffer_for_playback_ms",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "Initial Buffer",
+    "help": "How much content must be buffered before playback starts. Lower values start faster but may cause initial stuttering on slow connections.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:593",
+    "type": "number",
+    "min": 1000,
+    "max": 30000,
+    "step": 1000.0,
+    "scale": 1000,
+    "unit": "seconds",
+    "integer": true,
+    "appDefault": 5000
+  },
+  {
+    "key": "pref:player_settings:stream_reuse_last_link_cache_hours",
+    "feature": "player_settings",
+    "preference": "stream_reuse_last_link_cache_hours",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "Last Link Cache Duration",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:552",
+    "type": "select",
+    "options": [
+      [
+        1,
+        "1 hour"
+      ],
+      [
+        2,
+        "2 hours"
+      ],
+      [
+        3,
+        "3 hours"
+      ],
+      [
+        6,
+        "6 hours"
+      ],
+      [
+        12,
+        "12 hours"
+      ],
+      [
+        24,
+        "1 day"
+      ],
+      [
+        48,
+        "2 days"
+      ],
+      [
+        72,
+        "3 days"
+      ],
+      [
+        168,
+        "7 days"
+      ]
+    ],
+    "appDefault": 1
+  },
+  {
+    "key": "pref:player_settings:buffer_budget_managed",
+    "feature": "player_settings",
+    "preference": "buffer_budget_managed",
+    "kind": "boolean",
+    "group": "Buffering & caching",
+    "label": "Managed Memory Budget",
+    "help": "Caps the buffer to a safe share of this device's memory. Turn off to set the Target Buffer Size yourself (advanced \u2014 large values can crash low-memory devices).",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:565",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:max_buffer_ms",
+    "feature": "player_settings",
+    "preference": "max_buffer_ms",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "Max Buffer Duration",
+    "help": "Maximum amount of media to buffer. Must be at least the minimum buffer duration. Higher values use more memory but provide smoother playback on unstable connections.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:592",
+    "type": "number",
+    "min": 5000,
+    "max": 120000,
+    "step": 5000,
+    "scale": 1000,
+    "unit": "seconds",
+    "integer": true,
+    "appDefault": 45000
+  },
+  {
+    "key": "pref:player_settings:min_buffer_ms",
+    "feature": "player_settings",
+    "preference": "min_buffer_ms",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "Min Buffer Duration",
+    "help": "Minimum amount of media to buffer. The player will try to ensure at least this much content is always buffered ahead of the current playback position.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:591",
+    "type": "number",
+    "min": 5000,
+    "max": 120000,
+    "step": 5000,
+    "scale": 1000,
+    "unit": "seconds",
+    "integer": true,
+    "appDefault": 15000
+  },
+  {
+    "key": "pref:player_settings:parallel_chunk_size_kb",
+    "feature": "player_settings",
+    "preference": "parallel_chunk_size_kb",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "Parallel Chunk Size Kb",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:568",
+    "type": "number",
+    "min": 256,
+    "max": 8192,
+    "step": 1,
+    "scale": 1,
+    "unit": "",
+    "integer": true
+  },
+  {
+    "key": "pref:player_settings:use_parallel_connections",
+    "feature": "player_settings",
+    "preference": "use_parallel_connections",
+    "kind": "boolean",
+    "group": "Buffering & caching",
+    "label": "Parallel Connections",
+    "help": "Use multiple connections in parallel for fetching streams. Activate when you experience buffering although your download speed is definitely more than sufficient.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:561",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:retain_back_buffer_from_keyframe",
+    "feature": "player_settings",
+    "preference": "retain_back_buffer_from_keyframe",
+    "kind": "boolean",
+    "group": "Buffering & caching",
+    "label": "Retain Back Buffer From Keyframe",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:597",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:target_buffer_size_mb",
+    "feature": "player_settings",
+    "preference": "target_buffer_size_mb",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "Target Buffer Size",
+    "help": "Maximum RAM used for ahead-buffering. The maximum is calculated from your device's available memory (Android's per-app heap limit), so higher-RAM devices unlock larger caps automatically.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:595",
+    "type": "number",
+    "min": 50,
+    "max": 2025,
+    "step": 25,
+    "scale": 1,
+    "unit": "MB",
+    "integer": true,
+    "appDefault": 50
+  },
+  {
+    "key": "pref:player_settings:vod_cache_size_mb",
+    "feature": "player_settings",
+    "preference": "vod_cache_size_mb",
+    "kind": "integer",
+    "group": "Buffering & caching",
+    "label": "VOD Cache Size Mb",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:560",
+    "type": "number",
+    "min": 0,
+    "max": 2048,
+    "step": 1,
+    "scale": 1,
+    "unit": "",
+    "integer": true,
+    "appDefault": 500
+  },
+  {
+    "key": "pref:player_settings:vod_cache_enabled",
+    "feature": "player_settings",
+    "preference": "vod_cache_enabled",
+    "kind": "boolean",
+    "group": "Buffering & caching",
+    "label": "VOD Disk Cache",
+    "help": "Persist downloaded bytes to disk for the current stream. Extends instant seek-back beyond the in-memory back buffer and survives brief network drops. Only applies to progressive streams (no HLS/DASH).",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:558",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:layout_settings:always_show_landscape_clearlogo",
+    "feature": "layout_settings",
+    "preference": "always_show_landscape_clearlogo",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Always Backdrop with Logo for Landscape Posters",
+    "help": "Ignore landscape poster from addon and use backdrop with clearlogo overlay instead.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:109",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:smooth_bring_into_view_enabled",
+    "feature": "layout_settings",
+    "preference": "smooth_bring_into_view_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "App Focus Scrolling",
+    "help": "Use Petalix's custom global focus scroll animation and positioning.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:126",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:focused_poster_backdrop_trailer_enabled",
+    "feature": "layout_settings",
+    "preference": "focused_poster_backdrop_trailer_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Autoplay Trailer in Expanded Card",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:90",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:focused_poster_backdrop_expand_delay_seconds",
+    "feature": "layout_settings",
+    "preference": "focused_poster_backdrop_expand_delay_seconds",
+    "kind": "integer",
+    "group": "Home & layout",
+    "label": "Backdrop Expand Delay",
+    "help": "How long to wait before expanding focused cards.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:89",
+    "type": "number",
+    "min": 0.0,
+    "max": 10.0,
+    "step": 1.0,
+    "scale": 1,
+    "unit": "seconds",
+    "integer": true
+  },
+  {
+    "key": "pref:layout_settings:blur_unwatched_episodes",
+    "feature": "layout_settings",
+    "preference": "blur_unwatched_episodes",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Blur Unwatched Episodes",
+    "help": "Blur episode thumbnails until watched to avoid spoilers.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:106",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:blur_continue_watching_next_up",
+    "feature": "layout_settings",
+    "preference": "blur_continue_watching_next_up",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Blur Unwatched in Continue Watching",
+    "help": "Blur unwatched episode thumbnails in Continue Watching to avoid spoilers.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:118",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:continue_watching_card_style",
+    "feature": "layout_settings",
+    "preference": "continue_watching_card_style",
+    "kind": "string",
+    "group": "Home & layout",
+    "label": "Card style",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:115",
+    "type": "select",
+    "options": [
+      [
+        "CARD",
+        "Card"
+      ],
+      [
+        "POSTER",
+        "Poster"
+      ],
+      [
+        "WIDE",
+        "Wide"
+      ]
+    ]
+  },
+  {
+    "key": "pref:layout_settings:card_depth_cast_enabled",
+    "feature": "layout_settings",
+    "preference": "card_depth_cast_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Cast",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:104",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:sidebar_collapsed_by_default",
+    "feature": "layout_settings",
+    "preference": "sidebar_collapsed_by_default",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Collapse Sidebar",
+    "help": "Hide sidebar by default; show when focused.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:78",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:compose_highlighter_enabled",
+    "feature": "layout_settings",
+    "preference": "compose_highlighter_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Compose Highlighter Enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:129",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:card_depth_continue_watching_enabled",
+    "feature": "layout_settings",
+    "preference": "card_depth_continue_watching_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Continue Watching",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:102",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:poster_card_corner_radius_dp",
+    "feature": "layout_settings",
+    "preference": "poster_card_corner_radius_dp",
+    "kind": "integer",
+    "group": "Home & layout",
+    "label": "Corner Radius",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:96",
+    "type": "select",
+    "options": [
+      [
+        0,
+        "Sharp"
+      ],
+      [
+        4,
+        "Subtle"
+      ],
+      [
+        8,
+        "Classic"
+      ],
+      [
+        12,
+        "Rounded"
+      ],
+      [
+        16,
+        "Pill"
+      ]
+    ],
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "unit": "dp"
+  },
+  {
+    "key": "pref:layout_settings:discover_location",
+    "feature": "layout_settings",
+    "preference": "discover_location",
+    "kind": "string",
+    "group": "Home & layout",
+    "label": "Discover Location",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:951",
+    "type": "select",
+    "options": [
+      [
+        "IN_SEARCH",
+        "In Search"
+      ],
+      [
+        "IN_SIDEBAR",
+        "In Sidebar"
+      ],
+      [
+        "OFF",
+        "Off"
+      ]
+    ]
+  },
+  {
+    "key": "pref:layout_settings:card_depth_edge_coverage",
+    "feature": "layout_settings",
+    "preference": "card_depth_edge_coverage",
+    "kind": "integer",
+    "group": "Home & layout",
+    "label": "Edge coverage",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:100",
+    "type": "select",
+    "options": [
+      [
+        0,
+        "Top only"
+      ],
+      [
+        50,
+        "Half"
+      ],
+      [
+        100,
+        "Full outline"
+      ]
+    ],
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "unit": "%"
+  },
+  {
+    "key": "pref:layout_settings:card_depth_edge_strength",
+    "feature": "layout_settings",
+    "preference": "card_depth_edge_strength",
+    "kind": "integer",
+    "group": "Home & layout",
+    "label": "Edge glow",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:98",
+    "type": "select",
+    "options": [
+      [
+        28,
+        "Subtle"
+      ],
+      [
+        42,
+        "Balanced"
+      ],
+      [
+        56,
+        "Bold"
+      ]
+    ],
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "unit": "%"
+  },
+  {
+    "key": "pref:layout_settings:card_depth_enabled",
+    "feature": "layout_settings",
+    "preference": "card_depth_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Enable depth effect",
+    "help": "Adds a lit top edge and a soft sheen to image cards for a subtle sense of depth.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:97",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:episode_options_overlay_style",
+    "feature": "layout_settings",
+    "preference": "episode_options_overlay_style",
+    "kind": "string",
+    "group": "Home & layout",
+    "label": "Episode Options Overlay",
+    "help": "Choose the appearance shown when holding an episode.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:110",
+    "type": "select",
+    "options": [
+      [
+        "ARTWORK",
+        "Artwork"
+      ],
+      [
+        "BLUR",
+        "Blur"
+      ],
+      [
+        "NONE",
+        "None"
+      ]
+    ]
+  },
+  {
+    "key": "pref:layout_settings:detail_imdb_ratings_visibility",
+    "feature": "layout_settings",
+    "preference": "detail_imdb_ratings_visibility",
+    "kind": "string",
+    "group": "Home & layout",
+    "label": "Episode Ratings",
+    "help": "Choose which episode ratings are visible.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:112",
+    "type": "select",
+    "options": [
+      [
+        "HIDE_ALL",
+        "Hide All"
+      ],
+      [
+        "HIDE_EPISODES",
+        "Hide Episodes"
+      ],
+      [
+        "HIDE_UNWATCHED_EPISODES",
+        "Hide Unwatched Episodes"
+      ],
+      [
+        "SHOW_ALL",
+        "Show All"
+      ]
+    ]
+  },
+  {
+    "key": "pref:layout_settings:card_depth_episode_cards_enabled",
+    "feature": "layout_settings",
+    "preference": "card_depth_episode_cards_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Episode cards",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:103",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:focused_poster_backdrop_expand_enabled",
+    "feature": "layout_settings",
+    "preference": "focused_poster_backdrop_expand_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Expand Focused Poster to Backdrop",
+    "help": "Expand focused poster after idle delay.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:88",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:fast_horizontal_navigation_enabled",
+    "feature": "layout_settings",
+    "preference": "fast_horizontal_navigation_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Fast Horizontal Navigation",
+    "help": "Increase D-pad repeat speed in rows while keeping repeat throttling enabled.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:127",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:classic_focus_gradient_enabled",
+    "feature": "layout_settings",
+    "preference": "classic_focus_gradient_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Focused Item Gradient",
+    "help": "Blend artwork colors into the right side of Classic home.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:87",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:follow_addons_order",
+    "feature": "layout_settings",
+    "preference": "follow_addons_order",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Follow Addons Order",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:128",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:modern_hero_full_screen_backdrop",
+    "feature": "layout_settings",
+    "preference": "modern_hero_full_screen_backdrop",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Fullscreen Hero Backdrop",
+    "help": "Expand the hero backdrop to fill the entire screen.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:122",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:hide_unreleased_content",
+    "feature": "layout_settings",
+    "preference": "hide_unreleased_content",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Hide Unreleased Content",
+    "help": "Hide movies and shows that haven't been released yet.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:123",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:selected_layout",
+    "feature": "layout_settings",
+    "preference": "selected_layout",
+    "kind": "string",
+    "group": "Home & layout",
+    "label": "Home Layout",
+    "help": "Choose structure and hero source.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:71",
+    "type": "select",
+    "options": [
+      [
+        "CLASSIC",
+        "Classic"
+      ],
+      [
+        "GRID",
+        "Grid"
+      ],
+      [
+        "MODERN",
+        "Modern"
+      ]
+    ]
+  },
+  {
+    "key": "pref:layout_settings:modern_landscape_posters_enabled",
+    "feature": "layout_settings",
+    "preference": "modern_landscape_posters_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Landscape Poster Mode",
+    "help": "Use landscape cards everywhere.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:82",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:memory_only_vertical_scroll",
+    "feature": "layout_settings",
+    "preference": "memory_only_vertical_scroll",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Memory Only Vertical Scroll",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:125",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:modern_sidebar_enabled",
+    "feature": "layout_settings",
+    "preference": "modern_sidebar_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Modern Sidebar",
+    "help": "Enable floating sidebar navigation.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:79",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:modern_sidebar_blur_enabled",
+    "feature": "layout_settings",
+    "preference": "modern_sidebar_blur_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Modern Sidebar Blur",
+    "help": "Toggle blur effect for modern sidebar surfaces.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:81",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:focused_poster_backdrop_trailer_playback_target",
+    "feature": "layout_settings",
+    "preference": "focused_poster_backdrop_trailer_playback_target",
+    "kind": "string",
+    "group": "Home & layout",
+    "label": "Modern Trailer Playback Location",
+    "help": "Choose where trailer preview plays in Modern Home.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:93",
+    "type": "select",
+    "options": [
+      [
+        "EXPANDED_CARD",
+        "Expanded Card"
+      ],
+      [
+        "HERO_MEDIA",
+        "Hero Media"
+      ]
+    ]
+  },
+  {
+    "key": "pref:layout_settings:home_imdb_ratings_visibility",
+    "feature": "layout_settings",
+    "preference": "home_imdb_ratings_visibility",
+    "kind": "string",
+    "group": "Home & layout",
+    "label": "Overall Ratings",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:111",
+    "type": "select",
+    "options": [
+      [
+        "HIDE_ALL",
+        "Hide All"
+      ],
+      [
+        "SHOW_ALL",
+        "Show All"
+      ]
+    ]
+  },
+  {
+    "key": "pref:layout_settings:focused_poster_backdrop_trailer_muted",
+    "feature": "layout_settings",
+    "preference": "focused_poster_backdrop_trailer_muted",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Play Trailer Muted",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:91",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:poster_card_height_dp",
+    "feature": "layout_settings",
+    "preference": "poster_card_height_dp",
+    "kind": "integer",
+    "group": "Home & layout",
+    "label": "Poster Card Height Dp",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:95",
+    "type": "number",
+    "min": 60,
+    "max": 500,
+    "step": 1,
+    "scale": 1,
+    "unit": "dp",
+    "integer": true
+  },
+  {
+    "key": "pref:layout_settings:card_depth_posters_enabled",
+    "feature": "layout_settings",
+    "preference": "card_depth_posters_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Posters",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:101",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:prefer_external_meta_addon_detail",
+    "feature": "layout_settings",
+    "preference": "prefer_external_meta_addon_detail",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Prefer meta from external addon",
+    "help": "Use metadata from external addon instead of catalog addon.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:121",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:search_discover_enabled",
+    "feature": "layout_settings",
+    "preference": "search_discover_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Search Discover Enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:950",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:card_depth_sheen_strength",
+    "feature": "layout_settings",
+    "preference": "card_depth_sheen_strength",
+    "kind": "integer",
+    "group": "Home & layout",
+    "label": "Sheen",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:99",
+    "type": "select",
+    "options": [
+      [
+        0,
+        "Off"
+      ],
+      [
+        10,
+        "Soft"
+      ],
+      [
+        16,
+        "Bright"
+      ]
+    ],
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "unit": "%"
+  },
+  {
+    "key": "pref:layout_settings:catalog_addon_name_enabled",
+    "feature": "layout_settings",
+    "preference": "catalog_addon_name_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Show Addon Name",
+    "help": "Show source name under catalog titles.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:85",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:catalog_type_suffix_enabled",
+    "feature": "layout_settings",
+    "preference": "catalog_type_suffix_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Show Catalog Type",
+    "help": "Show type suffix next to catalog name (Movie/Series).",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:86",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:continue_watching_enabled",
+    "feature": "layout_settings",
+    "preference": "continue_watching_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Show Continue Watching",
+    "help": "Show the Continue Watching row on the home screen.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:114",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:hero_section_enabled",
+    "feature": "layout_settings",
+    "preference": "hero_section_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Show Hero Section",
+    "help": "Display hero carousel at top of home.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:83",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:poster_labels_enabled",
+    "feature": "layout_settings",
+    "preference": "poster_labels_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Show Poster Labels",
+    "help": "Show titles under posters in rows, grid, and see-all.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:84",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:detail_page_trailer_button_enabled",
+    "feature": "layout_settings",
+    "preference": "detail_page_trailer_button_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Show Trailer Button",
+    "help": "Show trailer button on detail page (only when trailer is available).",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:120",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:show_unaired_next_up",
+    "feature": "layout_settings",
+    "preference": "show_unaired_next_up",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Show Unaired Next Up Episodes",
+    "help": "Include upcoming episodes in Continue Watching before they air.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:116",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:show_full_release_date",
+    "feature": "layout_settings",
+    "preference": "show_full_release_date",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Show full release date",
+    "help": "For movies, show full release date instead of year only.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:124",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:random_episode_enabled",
+    "feature": "layout_settings",
+    "preference": "random_episode_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Shuffle",
+    "help": "Shuffle episodes from any series. Turning this off pauses shuffle.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:107",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:continue_watching_sort_mode",
+    "feature": "layout_settings",
+    "preference": "continue_watching_sort_mode",
+    "kind": "string",
+    "group": "Home & layout",
+    "label": "Sort Order",
+    "help": "How Continue Watching items are arranged",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:119",
+    "type": "select",
+    "options": [
+      [
+        "DEFAULT",
+        "Default"
+      ],
+      [
+        "SPLIT_UPCOMING",
+        "Split Upcoming"
+      ],
+      [
+        "STREAMING_STYLE",
+        "Streaming Style"
+      ]
+    ]
+  },
+  {
+    "key": "pref:layout_settings:startup_splash_enabled",
+    "feature": "layout_settings",
+    "preference": "startup_splash_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Startup Splash Enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:108",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:card_depth_trailers_enabled",
+    "feature": "layout_settings",
+    "preference": "card_depth_trailers_enabled",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Trailers",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:105",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:next_up_from_furthest_episode",
+    "feature": "layout_settings",
+    "preference": "next_up_from_furthest_episode",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Up Next From Furthest Episode",
+    "help": "Show next episode based on the furthest watched episode. Disable for rewatches to use the most recently watched episode instead.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:117",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:use_episode_thumbnails_in_cw",
+    "feature": "layout_settings",
+    "preference": "use_episode_thumbnails_in_cw",
+    "kind": "boolean",
+    "group": "Home & layout",
+    "label": "Use Episode Thumbnails in Continue Watching",
+    "help": "Use episode thumbnails as default image. When disabled, uses backdrop.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:113",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:layout_settings:poster_card_width_dp",
+    "feature": "layout_settings",
+    "preference": "poster_card_width_dp",
+    "kind": "integer",
+    "group": "Home & layout",
+    "label": "Width",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:94",
+    "type": "select",
+    "options": [
+      [
+        104,
+        "Compact"
+      ],
+      [
+        112,
+        "Dense"
+      ],
+      [
+        120,
+        "Standard"
+      ],
+      [
+        126,
+        "Balanced"
+      ],
+      [
+        134,
+        "Comfort"
+      ],
+      [
+        140,
+        "Large"
+      ]
+    ],
+    "min": 60,
+    "max": 500,
+    "step": 1,
+    "unit": "dp"
+  },
+  {
+    "key": "pref:animeskip_settings:animeskip_enabled",
+    "feature": "animeskip_settings",
+    "preference": "animeskip_enabled",
+    "kind": "boolean",
+    "group": "Intro skipping",
+    "label": "Animeskip Enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/AnimeSkipSettingsDataStore.kt:24",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:external_player_send_skip_segments",
+    "feature": "player_settings",
+    "preference": "external_player_send_skip_segments",
+    "kind": "boolean",
+    "group": "Intro skipping",
+    "label": "Send intro and outro timestamps",
+    "help": "Pass resolved intro/outro skip timestamps to the external player for auto-skipping. Only works in players that support it; other players ignore it.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:554",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:skip_intro_enabled",
+    "feature": "player_settings",
+    "preference": "skip_intro_enabled",
+    "kind": "boolean",
+    "group": "Intro skipping",
+    "label": "Skip Intro",
+    "help": "Use introdb.app to detect intros and recaps.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:510",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:trakt_settings:simkl_anime_id_preference",
+    "feature": "trakt_settings",
+    "preference": "simkl_anime_id_preference",
+    "kind": "string",
+    "group": "Library & continue watching",
+    "label": "Anime ID preference",
+    "help": "Controls how anime series are identified. Choosing MAL or Kitsu gives each season its own entry instead of grouping under one IMDB ID.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TraktSettingsDataStore.kt:78",
+    "type": "select",
+    "options": [
+      [
+        "IMDB",
+        "Prefer IMDB"
+      ],
+      [
+        "MAL",
+        "Prefer MyAnimeList"
+      ],
+      [
+        "KITSU",
+        "Prefer Kitsu"
+      ],
+      [
+        "TVDB",
+        "Prefer TVDB"
+      ]
+    ]
+  },
+  {
+    "key": "pref:trakt_settings:show_meta_comments",
+    "feature": "trakt_settings",
+    "preference": "show_meta_comments",
+    "kind": "boolean",
+    "group": "Library & continue watching",
+    "label": "Comments",
+    "help": "Show Trakt reviews on metadata pages",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TraktSettingsDataStore.kt:72",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:trakt_settings:continue_watching_days_cap",
+    "feature": "trakt_settings",
+    "preference": "continue_watching_days_cap",
+    "kind": "integer",
+    "group": "Library & continue watching",
+    "label": "Continue Watching Window",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TraktSettingsDataStore.kt:68",
+    "type": "select",
+    "options": [
+      [
+        14,
+        "14 days"
+      ],
+      [
+        30,
+        "30 days"
+      ],
+      [
+        60,
+        "60 days"
+      ],
+      [
+        90,
+        "90 days"
+      ],
+      [
+        180,
+        "180 days"
+      ],
+      [
+        365,
+        "365 days"
+      ],
+      [
+        0,
+        "All"
+      ]
+    ]
+  },
+  {
+    "key": "pref:trakt_settings:library_source_mode",
+    "feature": "trakt_settings",
+    "preference": "library_source_mode",
+    "kind": "string",
+    "group": "Library & continue watching",
+    "label": "Library Source",
+    "help": "Choose which source Petalix reads for your Library",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TraktSettingsDataStore.kt:74",
+    "type": "select",
+    "options": [
+      [
+        "LOCAL",
+        "Petalix"
+      ],
+      [
+        "TRAKT",
+        "Trakt"
+      ],
+      [
+        "SIMKL",
+        "Simkl"
+      ],
+      [
+        "MDBLIST",
+        "MDBList"
+      ]
+    ]
+  },
+  {
+    "key": "pref:trakt_settings:more_like_this_source",
+    "feature": "trakt_settings",
+    "preference": "more_like_this_source",
+    "kind": "string",
+    "group": "Library & continue watching",
+    "label": "More Like This source",
+    "help": "Choose where recommendations come from on detail and post-play screens",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TraktSettingsDataStore.kt:77",
+    "type": "select",
+    "options": [
+      [
+        "TRAKT",
+        "Trakt"
+      ],
+      [
+        "TMDB",
+        "TMDB"
+      ],
+      [
+        "SIMKL",
+        "Simkl"
+      ]
+    ]
+  },
+  {
+    "key": "pref:trakt_settings:show_unaired_next_up",
+    "feature": "trakt_settings",
+    "preference": "show_unaired_next_up",
+    "kind": "boolean",
+    "group": "Library & continue watching",
+    "label": "Show Unaired Next Up Episodes",
+    "help": "Include upcoming episodes in Continue Watching before they air.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TraktSettingsDataStore.kt:70",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:trakt_settings:next_up_from_furthest_episode",
+    "feature": "trakt_settings",
+    "preference": "next_up_from_furthest_episode",
+    "kind": "boolean",
+    "group": "Library & continue watching",
+    "label": "Up Next From Furthest Episode",
+    "help": "Show next episode based on the furthest watched episode. Disable for rewatches to use the most recently watched episode instead.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TraktSettingsDataStore.kt:71",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:trakt_settings:watch_progress_source",
+    "feature": "trakt_settings",
+    "preference": "watch_progress_source",
+    "kind": "string",
+    "group": "Library & continue watching",
+    "label": "Watch Progress",
+    "help": "Choose which progress source powers resume and continue watching",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TraktSettingsDataStore.kt:73",
+    "type": "select",
+    "options": [
+      [
+        "NUVIO_SYNC",
+        "Petalix Sync"
+      ],
+      [
+        "TRAKT",
+        "Trakt"
+      ],
+      [
+        "SIMKL",
+        "Simkl"
+      ],
+      [
+        "MDBLIST",
+        "MDBList"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:buffer_size",
+    "feature": "live_tv",
+    "preference": "buffer_size",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Buffer Size",
+    "help": "Larger rides out a slow connection or provider (fewer pauses); smaller changes channels a little faster",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:148",
+    "type": "select",
+    "options": [
+      [
+        "small",
+        "Small"
+      ],
+      [
+        "normal",
+        "Normal"
+      ],
+      [
+        "large",
+        "Large"
+      ],
+      [
+        "xlarge",
+        "Extra large"
+      ]
+    ],
+    "appDefault": "normal"
+  },
+  {
+    "key": "pref:live_tv:captions_by_default",
+    "feature": "live_tv",
+    "preference": "captions_by_default",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Captions On by Default",
+    "help": "Turns captions on when a channel has them. You can still switch them off with CC.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:153",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:channel_sort",
+    "feature": "live_tv",
+    "preference": "channel_sort",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Channel Order",
+    "help": "How channels are sorted in every group, Favorites included. Playlist order keeps your own order in Favorites and your groups.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:87",
+    "type": "select",
+    "options": [
+      [
+        "PLAYLIST",
+        "Playlist order"
+      ],
+      [
+        "NUMBER",
+        "Channel number"
+      ],
+      [
+        "NAME",
+        "Name (A\u2013Z)"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:zap_mode",
+    "feature": "live_tv",
+    "preference": "zap_mode",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Channel Up / Down Moves Within",
+    "help": "Which channels Up and Down (or CH+ and CH\u2212) step through while watching",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:74",
+    "type": "select",
+    "options": [
+      [
+        "GROUP",
+        "Current group"
+      ],
+      [
+        "ALL",
+        "All channels"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:home_row_limit",
+    "feature": "live_tv",
+    "preference": "home_row_limit",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Channels in the Row",
+    "help": "How many channels the row shows",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:143",
+    "type": "select",
+    "options": [
+      [
+        10,
+        "10"
+      ],
+      [
+        20,
+        "20"
+      ],
+      [
+        40,
+        "40"
+      ],
+      [
+        0,
+        "All"
+      ]
+    ],
+    "appDefault": 20
+  },
+  {
+    "key": "pref:live_tv:playlist_refresh_hours",
+    "feature": "live_tv",
+    "preference": "playlist_refresh_hours",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Check Playlists for Updates Every",
+    "help": "How often channel lists are downloaded again from your providers",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:79",
+    "type": "select",
+    "options": [
+      [
+        3,
+        "3 hours"
+      ],
+      [
+        6,
+        "6 hours"
+      ],
+      [
+        12,
+        "12 hours"
+      ],
+      [
+        24,
+        "1 day"
+      ],
+      [
+        48,
+        "2 days"
+      ],
+      [
+        72,
+        "3 days"
+      ],
+      [
+        168,
+        "7 days"
+      ]
+    ],
+    "appDefault": 24
+  },
+  {
+    "key": "pref:live_tv:home_row_compact",
+    "feature": "live_tv",
+    "preference": "home_row_compact",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Compact Cards",
+    "help": "Just the logo and the show name",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:147",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:epg_future_days",
+    "feature": "live_tv",
+    "preference": "epg_future_days",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Days Ahead",
+    "help": "How far into the future the guide keeps shows",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:82",
+    "type": "select",
+    "options": [
+      [
+        1,
+        "1 day"
+      ],
+      [
+        2,
+        "2 days"
+      ],
+      [
+        3,
+        "3 days"
+      ],
+      [
+        5,
+        "5 days"
+      ],
+      [
+        7,
+        "7 days"
+      ],
+      [
+        10,
+        "10 days"
+      ],
+      [
+        14,
+        "14 days"
+      ]
+    ],
+    "appDefault": 3
+  },
+  {
+    "key": "pref:live_tv:vod_default_sort",
+    "feature": "live_tv",
+    "preference": "vod_default_sort",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Default Sort Order",
+    "help": "How each group is sorted, unless you pick a sort for it in See all or Manage VOD Groups",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:131",
+    "type": "select",
+    "options": [
+      [
+        "DEFAULT",
+        "Provider's Order"
+      ],
+      [
+        "NAME_AZ",
+        "A\u2013Z"
+      ],
+      [
+        "NAME_ZA",
+        "Z\u2013A"
+      ],
+      [
+        "NEWEST",
+        "Newest Release"
+      ],
+      [
+        "OLDEST",
+        "Oldest Release"
+      ],
+      [
+        "RECENTLY_ADDED",
+        "Recently Added"
+      ],
+      [
+        "RATING",
+        "Highest Rated"
+      ],
+      [
+        "SHUFFLE",
+        "Shuffle"
+      ]
+    ],
+    "appDefault": "DEFAULT"
+  },
+  {
+    "key": "pref:live_tv:developer_tools",
+    "feature": "live_tv",
+    "preference": "developer_tools",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Developer Tools",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:124",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:group_playlist_headings",
+    "feature": "live_tv",
+    "preference": "group_playlist_headings",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Group by Playlist",
+    "help": "With more than one playlist, each playlist's groups sit under its own heading, which you can fold away",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:120",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:epg_offset_minutes",
+    "feature": "live_tv",
+    "preference": "epg_offset_minutes",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Guide Time Shift",
+    "help": "Moves all listings earlier or later, for a guide that's out of step with what's playing",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:72",
+    "type": "select",
+    "options": [
+      [
+        0,
+        "None"
+      ],
+      [
+        30,
+        "+0 h 30 min"
+      ],
+      [
+        60,
+        "+1 h"
+      ],
+      [
+        90,
+        "+1 h 30 min"
+      ],
+      [
+        120,
+        "+2 h"
+      ],
+      [
+        150,
+        "+2 h 30 min"
+      ],
+      [
+        180,
+        "+3 h"
+      ],
+      [
+        210,
+        "+3 h 30 min"
+      ],
+      [
+        240,
+        "+4 h"
+      ],
+      [
+        270,
+        "+4 h 30 min"
+      ],
+      [
+        300,
+        "+5 h"
+      ],
+      [
+        330,
+        "+5 h 30 min"
+      ],
+      [
+        360,
+        "+6 h"
+      ],
+      [
+        390,
+        "+6 h 30 min"
+      ],
+      [
+        420,
+        "+7 h"
+      ],
+      [
+        450,
+        "+7 h 30 min"
+      ],
+      [
+        480,
+        "+8 h"
+      ],
+      [
+        510,
+        "+8 h 30 min"
+      ],
+      [
+        540,
+        "+9 h"
+      ],
+      [
+        570,
+        "+9 h 30 min"
+      ],
+      [
+        600,
+        "+10 h"
+      ],
+      [
+        630,
+        "+10 h 30 min"
+      ],
+      [
+        660,
+        "+11 h"
+      ],
+      [
+        690,
+        "+11 h 30 min"
+      ],
+      [
+        720,
+        "+12 h"
+      ]
+    ],
+    "appDefault": 0
+  },
+  {
+    "key": "pref:live_tv:home_row_hide_placeholders",
+    "feature": "live_tv",
+    "preference": "home_row_hide_placeholders",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Hide Channels with No Listings",
+    "help": "Leaves out channels showing only \"Programming\" or no information",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:144",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:solid_highlight",
+    "feature": "live_tv",
+    "preference": "solid_highlight",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Highlight Style",
+    "help": "How the selected show is marked: an outline, or filled with your theme color",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:88",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:home_row_above_cw",
+    "feature": "live_tv",
+    "preference": "home_row_above_cw",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Home Row Above Cw",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:139",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:live_tv:home_row_enabled",
+    "feature": "live_tv",
+    "preference": "home_row_enabled",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Home Row Enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:137",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:banner_seconds",
+    "feature": "live_tv",
+    "preference": "banner_seconds",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Info Bar Stays For",
+    "help": "How long the show info stays on screen after changing channel or pressing OK",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:78",
+    "type": "select",
+    "options": [
+      [
+        3,
+        "3 seconds"
+      ],
+      [
+        5,
+        "5 seconds"
+      ],
+      [
+        8,
+        "8 seconds"
+      ],
+      [
+        10,
+        "10 seconds"
+      ],
+      [
+        15,
+        "15 seconds"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:timeshift_minutes",
+    "feature": "live_tv",
+    "preference": "timeshift_minutes",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Keep Up To",
+    "help": "How far back you can go. Saved to the drive set in Recordings, and deleted when you change channel or leave Live TV.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:151",
+    "type": "select",
+    "options": [
+      [
+        10,
+        "10 min"
+      ],
+      [
+        15,
+        "15 min"
+      ],
+      [
+        30,
+        "30 min"
+      ],
+      [
+        60,
+        "60 min"
+      ],
+      [
+        120,
+        "120 min"
+      ],
+      [
+        240,
+        "240 min"
+      ]
+    ],
+    "appDefault": 10
+  },
+  {
+    "key": "pref:live_tv:browse_by_channel_name",
+    "feature": "live_tv",
+    "preference": "browse_by_channel_name",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Land on Channel Names (Like a Cable Box)",
+    "help": "Picking a group lands on the channel names: Up and Down change channel, OK plays, Right shows the schedule, Left goes back to the groups",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:125",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:lock_adult_content",
+    "feature": "live_tv",
+    "preference": "lock_adult_content",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Lock Adult Content Automatically",
+    "help": "Locks groups and categories with names like Adult, XXX or 18+",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:108",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:sequential_numbers",
+    "feature": "live_tv",
+    "preference": "sequential_numbers",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Number Channels 1, 2, 3\u2026 in Each Group",
+    "help": "Replaces the playlist's numbers with each channel's place in the group: 20 favorites become 1 to 20",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:101",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:fullscreen_on_select",
+    "feature": "live_tv",
+    "preference": "fullscreen_on_select",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "OK Opens Full Screen",
+    "help": "OK on a show goes straight to full screen, instead of playing it in the preview first",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:77",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:live_tv:home_row_opens_guide",
+    "feature": "live_tv",
+    "preference": "home_row_opens_guide",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "OK Opens the Guide",
+    "help": "Off: OK plays the channel full screen. On: opens the guide with the channel playing.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:145",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:on_demand_in_streams",
+    "feature": "live_tv",
+    "preference": "on_demand_in_streams",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "On Demand in Streams",
+    "help": "Your provider's copy offered with your addon streams for movies and episodes",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:114",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:remember_group",
+    "feature": "live_tv",
+    "preference": "remember_group",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Open on Last Group",
+    "help": "Live TV opens on the group you last watched a channel in",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:76",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:live_tv:overlay_mode",
+    "feature": "live_tv",
+    "preference": "overlay_mode",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Overlay Mode",
+    "help": "Left while watching shows channels and schedules over the video. Off: Left goes back to the guide.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:102",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:parental_pin",
+    "feature": "live_tv",
+    "preference": "parental_pin",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Parental Pin",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:107",
+    "type": "text",
+    "maxLength": 200,
+    "secret": true,
+    "pattern": "[0-9]{4,8}",
+    "appDefault": ""
+  },
+  {
+    "key": "pref:live_tv:epg_past_hours",
+    "feature": "live_tv",
+    "preference": "epg_past_hours",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Past Shows Kept",
+    "help": "How far back the guide keeps shows, for catch-up",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:81",
+    "type": "select",
+    "options": [
+      [
+        6,
+        "6 hours"
+      ],
+      [
+        12,
+        "12 hours"
+      ],
+      [
+        24,
+        "24 hours"
+      ],
+      [
+        48,
+        "48 hours"
+      ],
+      [
+        72,
+        "72 hours"
+      ],
+      [
+        168,
+        "168 hours"
+      ]
+    ],
+    "appDefault": 24
+  },
+  {
+    "key": "pref:live_tv:timeshift_enabled",
+    "feature": "live_tv",
+    "preference": "timeshift_enabled",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Pause and Rewind Live TV",
+    "help": "On channels without catch-up, pausing records the channel to this device, so it carries on from where you paused",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:150",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:resume_in_preview",
+    "feature": "live_tv",
+    "preference": "resume_in_preview",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Play Last Channel in the Preview",
+    "help": "Opening Live TV starts the channel you watched last in the preview window",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:97",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:live_tv:catchup_prefer_hls",
+    "feature": "live_tv",
+    "preference": "catchup_prefer_hls",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Prefer HLS for Catch-Up",
+    "help": "Asks Xtream providers for replays in HLS (m3u8) first, so the seek bar works. Falls back to TS if the provider doesn't offer it.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:105",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:show_quality_badges",
+    "feature": "live_tv",
+    "preference": "show_quality_badges",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Quality Badges",
+    "help": "4K, FHD, HD or SD next to channels you've watched",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:109",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:reverse_zap",
+    "feature": "live_tv",
+    "preference": "reverse_zap",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Reverse Channel Up / Down",
+    "help": "Up goes to the previous channel instead of the next one",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:73",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:rewind_always",
+    "feature": "live_tv",
+    "preference": "rewind_always",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Rewind Anytime",
+    "help": "Full-screen channels keep a rolling recording, so you can skip back without pausing first (Left / Right once you're behind live, or from the panel). Channels take a second longer to start.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:152",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:home_row_sort",
+    "feature": "live_tv",
+    "preference": "home_row_sort",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Row Order",
+    "help": "Your order, channel number, or the shows ending soonest first",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:142",
+    "type": "select",
+    "options": [
+      [
+        "yours",
+        "Your order"
+      ],
+      [
+        "number",
+        "Channel number"
+      ],
+      [
+        "ending",
+        "Ending soonest"
+      ]
+    ],
+    "appDefault": "yours"
+  },
+  {
+    "key": "pref:live_tv:home_row_source",
+    "feature": "live_tv",
+    "preference": "home_row_source",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Row Shows",
+    "help": "Favorites, Recently Watched, or one of your own groups",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:140",
+    "type": "select",
+    "options": [
+      [
+        "favorites",
+        "Favorites"
+      ],
+      [
+        "recent",
+        "Recently watched"
+      ]
+    ],
+    "appDefault": "favorites"
+  },
+  {
+    "key": "pref:live_tv:home_row_title",
+    "feature": "live_tv",
+    "preference": "home_row_title",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Row Title",
+    "help": "The name shown above the row",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:141",
+    "type": "text",
+    "maxLength": 100,
+    "secret": false,
+    "appDefault": ""
+  },
+  {
+    "key": "pref:live_tv:show_all_group",
+    "feature": "live_tv",
+    "preference": "show_all_group",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show All Channels",
+    "help": "The group with every channel in it",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:96",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:live_tv:show_group_counts",
+    "feature": "live_tv",
+    "preference": "show_group_counts",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show Channel Counts",
+    "help": "The number of channels next to each group",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:98",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:show_favorites_group",
+    "feature": "live_tv",
+    "preference": "show_favorites_group",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show Favorites",
+    "help": "The group of channels you've marked as favorites",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:65",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:show_in_search",
+    "feature": "live_tv",
+    "preference": "show_in_search",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show In Search",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:89",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:show_program_details",
+    "feature": "live_tv",
+    "preference": "show_program_details",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show Info Panel",
+    "help": "The panel with the highlighted show's poster, title, time and description",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:64",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:show_in_sidebar",
+    "feature": "live_tv",
+    "preference": "show_in_sidebar",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show Live TV in the Side Menu",
+    "help": "Off: Live TV leaves Petalix's main menu. You can still reach it from Settings.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:59",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:show_playlist_in_info",
+    "feature": "live_tv",
+    "preference": "show_playlist_in_info",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show Playlist Name in Info Panel",
+    "help": "Which playlist the highlighted channel comes from",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:126",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:show_posters",
+    "feature": "live_tv",
+    "preference": "show_posters",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show Posters",
+    "help": "Posters for what's on, from your addons. Off: just the channel logo.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:129",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:show_recent_group",
+    "feature": "live_tv",
+    "preference": "show_recent_group",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show Recently Watched",
+    "help": "The group of channels you watched last",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:66",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:show_program_times",
+    "feature": "live_tv",
+    "preference": "show_program_times",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show Times in the Guide",
+    "help": "Each show's start and end time under its title (rows get a little taller)",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:68",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:home_row_show_next",
+    "feature": "live_tv",
+    "preference": "home_row_show_next",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show What's Next",
+    "help": "A \"Next: 9:00 The News\" line on each card",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:146",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:show_now_line",
+    "feature": "live_tv",
+    "preference": "show_now_line",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show the \"Now\" Line",
+    "help": "The line that marks the current time across the guide",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:127",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:small_header",
+    "feature": "live_tv",
+    "preference": "small_header",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Smaller Info Panel & Preview",
+    "help": "Shrinks the top of the guide to about two-thirds of its height, so more channels fit",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:99",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:live_tv:stripe_missing_guide",
+    "feature": "live_tv",
+    "preference": "stripe_missing_guide",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Striped Bars When There's No Guide",
+    "help": "Channels with no show listings get striped bars. Turn off to show the channel name in a plain bar instead.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:71",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:on_demand_addon_posters",
+    "feature": "live_tv",
+    "preference": "on_demand_addon_posters",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Use Posters from My Addons",
+    "help": "Your addons' posters where they have the title. Off: the provider's images only.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:119",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:live_tv:recording_space_rule",
+    "feature": "live_tv",
+    "preference": "recording_space_rule",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "When Storage Runs Low",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:133",
+    "type": "select",
+    "options": [
+      [
+        "STOP",
+        "Stop Recording"
+      ],
+      [
+        "DELETE_OLDEST",
+        "Delete Oldest"
+      ]
+    ],
+    "appDefault": "STOP"
+  },
+  {
+    "key": "pref:player_settings:still_watching_enabled",
+    "feature": "player_settings",
+    "preference": "still_watching_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Are You Still Watching?",
+    "help": "Prompt after consecutive auto-played episodes.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:544",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_mode",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_mode",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Auto Stream Selection",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:531",
+    "type": "select",
+    "options": [
+      [
+        "MANUAL",
+        "Manual (choose stream)"
+      ],
+      [
+        "FIRST_STREAM",
+        "Auto-play first source"
+      ],
+      [
+        "REGEX_MATCH",
+        "Auto-play regex match"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_next_episode_enabled",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_next_episode_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Auto-play Next Episode",
+    "help": "Start next episode automatically when prompt appears.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:538",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_source",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_source",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Auto-play Source Scope",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:532",
+    "type": "select",
+    "options": [
+      [
+        "ALL_SOURCES",
+        "All sources"
+      ],
+      [
+        "INSTALLED_ADDONS_ONLY",
+        "Installed addons only"
+      ],
+      [
+        "ENABLED_PLUGINS_ONLY",
+        "Enabled plugins only"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:auto_switch_internal_player_on_error",
+    "feature": "player_settings",
+    "preference": "auto_switch_internal_player_on_error",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Auto-switch engine on startup error",
+    "help": "If stream startup fails, switch between ExoPlayer and libmpv automatically.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:486",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:parental_guide_enabled",
+    "feature": "player_settings",
+    "preference": "parental_guide_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Content Warnings",
+    "help": "Show parental guidance overlay when playback starts.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:511",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:decoder_priority",
+    "feature": "player_settings",
+    "preference": "decoder_priority",
+    "kind": "integer",
+    "group": "Playback",
+    "label": "Decoder Priority",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:489",
+    "type": "select",
+    "options": [
+      [
+        0,
+        "Device decoders only"
+      ],
+      [
+        1,
+        "Prefer device decoders"
+      ],
+      [
+        2,
+        "Prefer app decoders (FFmpeg)"
+      ]
+    ],
+    "appDefault": 1
+  },
+  {
+    "key": "pref:player_settings:player_preference",
+    "feature": "player_settings",
+    "preference": "player_preference",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Default Player",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:484",
+    "type": "select",
+    "options": [
+      [
+        "INTERNAL",
+        "Internal"
+      ],
+      [
+        "EXTERNAL",
+        "External"
+      ],
+      [
+        "ASK_EVERY_TIME",
+        "Ask every time"
+      ]
+    ],
+    "appDefault": "INTERNAL"
+  },
+  {
+    "key": "pref:player_settings:dv7_handling_mode",
+    "feature": "player_settings",
+    "preference": "dv7_handling_mode",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Dolby Vision Handling",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:520",
+    "type": "select",
+    "options": [
+      [
+        "AUTO",
+        "Auto (recommended)"
+      ],
+      [
+        "HDR10_BASE_LAYER",
+        "HDR10 base layer"
+      ],
+      [
+        "DV81_LIBDOVI",
+        "Convert to DV8.1"
+      ],
+      [
+        "STRIP_DV",
+        "Always Strip DV"
+      ],
+      [
+        "OFF",
+        "Off (native)"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:dv7_libdovi_mode_override",
+    "feature": "player_settings",
+    "preference": "dv7_libdovi_mode_override",
+    "kind": "integer",
+    "group": "Playback",
+    "label": "Dv7 Libdovi Mode Override",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:523",
+    "type": "number",
+    "min": -1,
+    "max": 4,
+    "step": 1,
+    "scale": 1,
+    "unit": "",
+    "integer": true,
+    "appDefault": -1
+  },
+  {
+    "key": "pref:player_settings:still_watching_episode_threshold",
+    "feature": "player_settings",
+    "preference": "still_watching_episode_threshold",
+    "kind": "integer",
+    "group": "Playback",
+    "label": "Episode Threshold",
+    "help": "Number of auto-played episodes before prompting.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:545",
+    "type": "number",
+    "min": 2.0,
+    "max": 6.0,
+    "step": 1.0,
+    "scale": 1,
+    "unit": "",
+    "integer": true,
+    "appDefault": 3
+  },
+  {
+    "key": "pref:player_settings:nuvio_performance_mode_enabled",
+    "feature": "player_settings",
+    "preference": "nuvio_performance_mode_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "ExoPlayer Native Memory",
+    "help": "Enable native off-heap allocator and scrubbing optimizations.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:598",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:experimental_dv5_to_dv81_enabled",
+    "feature": "player_settings",
+    "preference": "experimental_dv5_to_dv81_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Experimental Dv5 To Dv81 Enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:518",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:experimental_dv7_to_dv81_preserve_mapping_enabled",
+    "feature": "player_settings",
+    "preference": "experimental_dv7_to_dv81_preserve_mapping_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Experimental Dv7 To Dv81 Preserve Mapping Enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:519",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_next_episode_fallback_enabled",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_next_episode_fallback_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Fallback when binge group fails",
+    "help": "Auto-select first available stream if binge group is not found. When off, shows the stream picker instead.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:539",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:external_player_forward_subtitles",
+    "feature": "player_settings",
+    "preference": "external_player_forward_subtitles",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Forward subtitles to external player",
+    "help": "Fetch subtitles in your preferred language from addons and pass them to the external player.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:553",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:frame_rate_matching",
+    "feature": "player_settings",
+    "preference": "frame_rate_matching",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Frame Rate Matching",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:528",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:frame_rate_matching_mode",
+    "feature": "player_settings",
+    "preference": "frame_rate_matching_mode",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Frame Rate Matching",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:529",
+    "type": "select",
+    "options": [
+      [
+        "OFF",
+        "Off"
+      ],
+      [
+        "START",
+        "On start"
+      ],
+      [
+        "START_STOP",
+        "On start/stop"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:mpv_hardware_decode_mode",
+    "feature": "player_settings",
+    "preference": "mpv_hardware_decode_mode",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Hardware Decoding (MPV-only)",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:527",
+    "type": "select",
+    "options": [
+      [
+        "AUTO_SAFE",
+        "Auto (auto-safe)"
+      ],
+      [
+        "HARDWARE_COPY",
+        "Hardware (copy) (mediacodec-copy)"
+      ],
+      [
+        "HARDWARE_DIRECT",
+        "Hardware (direct) (mediacodec)"
+      ],
+      [
+        "DISABLED",
+        "Disabled (no)"
+      ],
+      [
+        "LEGACY_DIRECT_COPY",
+        "Legacy (direct -> copy)"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:mpv_hi10p_gnext_software_fallback_enabled",
+    "feature": "player_settings",
+    "preference": "mpv_hi10p_gnext_software_fallback_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Hi10P G-NEXT SW fallback (MPV-only)",
+    "help": "Use G-NEXT software decoding when stream details identify H.264 Hi10P. Off by default; enable only if Hi10P playback freezes or fails.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:526",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:internal_player_engine",
+    "feature": "player_settings",
+    "preference": "internal_player_engine",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Internal Engine",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:485",
+    "type": "select",
+    "options": [
+      [
+        "EXOPLAYER",
+        "ExoPlayer"
+      ],
+      [
+        "MVP_PLAYER",
+        "Libmpv (Beta)"
+      ],
+      [
+        "AUTO",
+        "Auto (Best for Content)"
+      ]
+    ],
+    "appDefault": "EXOPLAYER"
+  },
+  {
+    "key": "pref:player_settings:loading_overlay_enabled",
+    "feature": "player_settings",
+    "preference": "loading_overlay_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Loading Overlay",
+    "help": "Show loading screen until first video frame appears.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:505",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:post_play_movie_threshold_percent",
+    "feature": "player_settings",
+    "preference": "post_play_movie_threshold_percent",
+    "kind": "integer",
+    "group": "Playback",
+    "label": "Movie Recommendation Timing",
+    "help": "Choose when movie recommendations appear. Episodes follow the Next Episode Threshold setting.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:537",
+    "type": "number",
+    "min": 80,
+    "max": 100,
+    "step": 1,
+    "scale": 1,
+    "unit": "%",
+    "integer": true,
+    "appDefault": 96
+  },
+  {
+    "key": "pref:player_settings:next_episode_threshold_mode",
+    "feature": "player_settings",
+    "preference": "next_episode_threshold_mode",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Next Episode Threshold Mode",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:546",
+    "type": "select",
+    "options": [
+      [
+        "PERCENTAGE",
+        "Percentage"
+      ],
+      [
+        "MINUTES_BEFORE_END",
+        "Minutes before end"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:osd_clock_enabled",
+    "feature": "player_settings",
+    "preference": "osd_clock_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "OSD Clock",
+    "help": "Show current time and end time while controls are visible.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:509",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:pause_overlay_enabled",
+    "feature": "player_settings",
+    "preference": "pause_overlay_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Pause Overlay",
+    "help": "Show details overlay after 5 seconds while paused.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:508",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:post_play_recommendations_enabled",
+    "feature": "player_settings",
+    "preference": "post_play_recommendations_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Post-play Recommendations",
+    "help": "Show recommendations near the end of movies and series.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:536",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:preload_next_episode_sources",
+    "feature": "player_settings",
+    "preference": "preload_next_episode_sources",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Preload Next Episode Sources",
+    "help": "Start searching for sources in the background before the next episode button appears.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:543",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:resize_mode",
+    "feature": "player_settings",
+    "preference": "resize_mode",
+    "kind": "integer",
+    "group": "Playback",
+    "label": "Resize Mode",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:573",
+    "type": "number",
+    "min": 0,
+    "max": 4,
+    "step": 1,
+    "scale": 1,
+    "unit": "",
+    "integer": true,
+    "appDefault": 0
+  },
+  {
+    "key": "pref:player_settings:resolution_matching_enabled",
+    "feature": "player_settings",
+    "preference": "resolution_matching_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Resolution matching",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:530",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_reuse_binge_group",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_reuse_binge_group",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Reuse Binge Group",
+    "help": "Remember and reuse the last binge group across sessions (Continue Watching, Details, etc.).",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:541",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:player_settings:stream_reuse_last_link_enabled",
+    "feature": "player_settings",
+    "preference": "stream_reuse_last_link_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Reuse Last Link",
+    "help": "Auto-play your last working stream for this same movie/episode when cache is still valid",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:551",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:show_player_loading_status",
+    "feature": "player_settings",
+    "preference": "show_player_loading_status",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Show loading status",
+    "help": "Display step-by-step progress while the player is initializing.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:506",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_prefer_bingegroup_next_episode",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_prefer_bingegroup_next_episode",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Stream Auto Play Prefer Bingegroup Next Episode",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:540",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_timeout_seconds",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_timeout_seconds",
+    "kind": "integer",
+    "group": "Playback",
+    "label": "Stream Selection Timeout",
+    "help": "Wait time for addons before selecting.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:542",
+    "type": "select",
+    "options": [
+      [
+        0,
+        "Instant"
+      ],
+      [
+        1,
+        "1 seconds"
+      ],
+      [
+        2,
+        "2 seconds"
+      ],
+      [
+        3,
+        "3 seconds"
+      ],
+      [
+        4,
+        "4 seconds"
+      ],
+      [
+        5,
+        "5 seconds"
+      ],
+      [
+        6,
+        "6 seconds"
+      ],
+      [
+        7,
+        "7 seconds"
+      ],
+      [
+        8,
+        "8 seconds"
+      ],
+      [
+        9,
+        "9 seconds"
+      ],
+      [
+        10,
+        "10 seconds"
+      ],
+      [
+        15,
+        "15 seconds"
+      ],
+      [
+        20,
+        "20 seconds"
+      ],
+      [
+        25,
+        "25 seconds"
+      ],
+      [
+        30,
+        "30 seconds"
+      ],
+      [
+        2147483647,
+        "Unlimited"
+      ]
+    ],
+    "appDefault": 10
+  },
+  {
+    "key": "pref:player_settings:strip_hdr10plus_sei",
+    "feature": "player_settings",
+    "preference": "strip_hdr10plus_sei",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Strip HDR10+ Metadata",
+    "help": "Remove HDR10+ dynamic metadata from streams. When Convert to DV8.1 is also enabled, stripping runs after conversion.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:524",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:next_episode_threshold_minutes_before_end_v2",
+    "feature": "player_settings",
+    "preference": "next_episode_threshold_minutes_before_end_v2",
+    "kind": "float",
+    "group": "Playback",
+    "label": "Threshold Minutes",
+    "help": "Fallback when no outro timestamp exists.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:550",
+    "type": "number",
+    "min": 0,
+    "max": 3.5,
+    "step": 0.5,
+    "scale": 1,
+    "unit": "min",
+    "integer": false,
+    "appDefault": 2
+  },
+  {
+    "key": "pref:player_settings:next_episode_threshold_percent_v2",
+    "feature": "player_settings",
+    "preference": "next_episode_threshold_percent_v2",
+    "kind": "float",
+    "group": "Playback",
+    "label": "Threshold Percentage",
+    "help": "Fallback when no outro timestamp exists.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:549",
+    "type": "number",
+    "min": 97,
+    "max": 100,
+    "step": 0.5,
+    "scale": 1,
+    "unit": "%",
+    "integer": false,
+    "appDefault": 99
+  },
+  {
+    "key": "pref:player_settings:tunneling_enabled",
+    "feature": "player_settings",
+    "preference": "tunneling_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Tunneled Playback",
+    "help": "Hardware-level audio/video sync. May improve playback on some Android TV devices",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:496",
+    "type": "boolean",
+    "appDefault": false
+  },
+  {
+    "key": "pref:device_local_player_prefs:player_stats_hud_enabled",
+    "feature": "device_local_player_prefs",
+    "preference": "player_stats_hud_enabled",
+    "kind": "boolean",
+    "group": "Player display",
+    "label": "Playback stats overlay",
+    "help": "Show a button in stream info to toggle live cpu, memory, buffer, bitrate and thermal readings during playback",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/DeviceLocalPlayerPreferences.kt:44",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:device_local_player_prefs:transparent_letterbox",
+    "feature": "device_local_player_prefs",
+    "preference": "transparent_letterbox",
+    "kind": "boolean",
+    "group": "Player display",
+    "label": "Transparent Letterbox",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/DeviceLocalPlayerPreferences.kt:42",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:device_local_player_prefs:tunneled_surface_fill",
+    "feature": "device_local_player_prefs",
+    "preference": "tunneled_surface_fill",
+    "kind": "boolean",
+    "group": "Player display",
+    "label": "Tunneled Surface Fill",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/DeviceLocalPlayerPreferences.kt:43",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_enabled",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_enabled",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Enable MDBList Ratings",
+    "help": "Fetch ratings from external providers in metadata detail screen",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:26",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_show_audience",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_show_audience",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Mdblist Show Audience",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:33",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_show_imdb",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_show_imdb",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Mdblist Show IMDb",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:29",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_show_letterboxd",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_show_letterboxd",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Mdblist Show Letterboxd",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:31",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_show_mal",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_show_mal",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Mdblist Show Mal",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:35",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_show_metacritic",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_show_metacritic",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Mdblist Show Metacritic",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:34",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_show_tmdb",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_show_tmdb",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Mdblist Show TMDB",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:30",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_show_tomatoes",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_show_tomatoes",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Mdblist Show Tomatoes",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:32",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_show_trakt",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_show_trakt",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Mdblist Show Trakt",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:28",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:mdblist_settings:mdblist_show_on_hero",
+    "feature": "mdblist_settings",
+    "preference": "mdblist_show_on_hero",
+    "kind": "boolean",
+    "group": "Ratings",
+    "label": "Use Ratings on Hero",
+    "help": "Show MDBList ratings on hero carousel (modern and classic/grid)",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/MDBListSettingsDataStore.kt:36",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:ambient_mode_settings:ambient_enabled",
+    "feature": "ambient_mode_settings",
+    "preference": "ambient_enabled",
+    "kind": "boolean",
+    "group": "Screensaver",
+    "label": "Ambient enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/AmbientModeDataStore.kt:30",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:ambient_mode_settings:ambient_timeout_minutes",
+    "feature": "ambient_mode_settings",
+    "preference": "ambient_timeout_minutes",
+    "kind": "integer",
+    "group": "Screensaver",
+    "label": "Ambient timeout minutes",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/AmbientModeDataStore.kt:31",
+    "type": "number",
+    "min": 1,
+    "max": 120,
+    "step": 1,
+    "scale": 1,
+    "unit": "minutes",
+    "integer": true
+  },
+  {
+    "key": "sport:bestChannelFirst",
+    "feature": "sports",
+    "preference": "bestChannelFirst",
+    "kind": "boolean",
+    "type": "boolean",
+    "group": "Sports Hub",
+    "label": "Best matching channel first",
+    "help": "Followed teams and channel corrections remain available.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/sports/SportsModels.kt:172"
+  },
+  {
+    "key": "sport:remindMyTeams",
+    "feature": "sports",
+    "preference": "remindMyTeams",
+    "kind": "boolean",
+    "type": "boolean",
+    "group": "Sports Hub",
+    "label": "Remind me about followed teams",
+    "help": "Followed teams and channel corrections remain available.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/sports/SportsModels.kt:172"
+  },
+  {
+    "key": "sport:remindMinutes",
+    "feature": "sports",
+    "preference": "remindMinutes",
+    "kind": "integer",
+    "type": "number",
+    "group": "Sports Hub",
+    "label": "Reminder lead time",
+    "help": "Followed teams and channel corrections remain available.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/sports/SportsModels.kt:172",
+    "min": 0,
+    "max": 60,
+    "step": 1,
+    "unit": "minutes",
+    "integer": true
+  },
+  {
+    "key": "sport:onlyMyChannels",
+    "feature": "sports",
+    "preference": "onlyMyChannels",
+    "kind": "boolean",
+    "type": "boolean",
+    "group": "Sports Hub",
+    "label": "Show games on available channels",
+    "help": "Followed teams and channel corrections remain available.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/sports/SportsModels.kt:172"
+  },
+  {
+    "key": "sport:autoSwitch",
+    "feature": "sports",
+    "preference": "autoSwitch",
+    "kind": "boolean",
+    "type": "boolean",
+    "group": "Sports Hub",
+    "label": "Switch to games automatically",
+    "help": "Followed teams and channel corrections remain available.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/livetv/sports/SportsModels.kt:172"
+  },
+  {
+    "key": "pref:stream_badge_settings:show_addon_logo",
+    "feature": "stream_badge_settings",
+    "preference": "show_addon_logo",
+    "kind": "boolean",
+    "group": "Stream labels",
+    "label": "Show Addon Logo",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/StreamBadgeSettingsDataStore.kt:51",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:stream_badge_settings:show_file_size_badges",
+    "feature": "stream_badge_settings",
+    "preference": "show_file_size_badges",
+    "kind": "boolean",
+    "group": "Stream labels",
+    "label": "Show File Size Badges",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/StreamBadgeSettingsDataStore.kt:50",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:debrid_settings:cloud_library_enabled",
+    "feature": "debrid_settings",
+    "preference": "cloud_library_enabled",
+    "kind": "boolean",
+    "group": "Stream selection",
+    "label": "Cloud Library Enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/DebridSettingsDataStore.kt:46",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:debrid_settings:debrid_enabled",
+    "feature": "debrid_settings",
+    "preference": "debrid_enabled",
+    "kind": "boolean",
+    "group": "Stream selection",
+    "label": "Debrid Enabled",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/DebridSettingsDataStore.kt:45",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:debrid_settings:instant_playback_preparation_limit",
+    "feature": "debrid_settings",
+    "preference": "instant_playback_preparation_limit",
+    "kind": "integer",
+    "group": "Stream selection",
+    "label": "Links to prepare",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/DebridSettingsDataStore.kt:51",
+    "type": "select",
+    "options": [
+      [
+        1,
+        "1 link"
+      ],
+      [
+        2,
+        "2 links"
+      ],
+      [
+        3,
+        "3 links"
+      ],
+      [
+        5,
+        "5 links"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:subtitle_background_color",
+    "feature": "player_settings",
+    "preference": "subtitle_background_color",
+    "kind": "integer",
+    "group": "Subtitles",
+    "label": "Background Color",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:585",
+    "type": "select",
+    "options": [
+      [
+        0,
+        "Transparent"
+      ],
+      [
+        -16777216,
+        "Black"
+      ],
+      [
+        -2147483648,
+        "Half transparent black"
+      ],
+      [
+        -15066598,
+        "Dark grey"
+      ],
+      [
+        -13816531,
+        "Grey"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:subtitle_bold",
+    "feature": "player_settings",
+    "preference": "subtitle_bold",
+    "kind": "boolean",
+    "group": "Subtitles",
+    "label": "Bold",
+    "help": "Use bold font weight for subtitles",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:583",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:libass_render_type",
+    "feature": "player_settings",
+    "preference": "libass_render_type",
+    "kind": "string",
+    "group": "Subtitles",
+    "label": "Libass Render Mode",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:488",
+    "type": "select",
+    "options": [
+      [
+        "OVERLAY_OPEN_GL",
+        "Overlay OpenGL (Recommended)"
+      ],
+      [
+        "OVERLAY_CANVAS",
+        "Overlay Canvas"
+      ],
+      [
+        "EFFECTS_OPEN_GL",
+        "Effects OpenGL"
+      ],
+      [
+        "EFFECTS_CANVAS",
+        "Effects Canvas"
+      ],
+      [
+        "CUES",
+        "Standard Cues"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:subtitle_outline_enabled",
+    "feature": "player_settings",
+    "preference": "subtitle_outline_enabled",
+    "kind": "boolean",
+    "group": "Subtitles",
+    "label": "Outline",
+    "help": "Add outline around subtitle text for better visibility",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:586",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:subtitle_outline_color",
+    "feature": "player_settings",
+    "preference": "subtitle_outline_color",
+    "kind": "integer",
+    "group": "Subtitles",
+    "label": "Outline Color",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:587",
+    "type": "select",
+    "options": [
+      [
+        -16777216,
+        "Black"
+      ],
+      [
+        -15066598,
+        "Dark grey"
+      ],
+      [
+        -13421773,
+        "Grey"
+      ],
+      [
+        -1,
+        "White"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:subtitle_preferred_language",
+    "feature": "player_settings",
+    "preference": "subtitle_preferred_language",
+    "kind": "string",
+    "group": "Subtitles",
+    "label": "Preferred Language",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:576",
+    "type": "select",
+    "options": [
+      [
+        "device",
+        "System default"
+      ],
+      [
+        "af",
+        "Afrikaans"
+      ],
+      [
+        "sq",
+        "Albanian"
+      ],
+      [
+        "am",
+        "Amharic"
+      ],
+      [
+        "ar",
+        "Arabic"
+      ],
+      [
+        "hy",
+        "Armenian"
+      ],
+      [
+        "az",
+        "Azerbaijani"
+      ],
+      [
+        "eu",
+        "Basque"
+      ],
+      [
+        "be",
+        "Belarusian"
+      ],
+      [
+        "bn",
+        "Bengali"
+      ],
+      [
+        "bs",
+        "Bosnian"
+      ],
+      [
+        "bg",
+        "Bulgarian"
+      ],
+      [
+        "my",
+        "Burmese"
+      ],
+      [
+        "ca",
+        "Catalan"
+      ],
+      [
+        "zh",
+        "Chinese"
+      ],
+      [
+        "zh-CN",
+        "Chinese (Simplified)"
+      ],
+      [
+        "zh-TW",
+        "Chinese (Traditional)"
+      ],
+      [
+        "hr",
+        "Croatian"
+      ],
+      [
+        "cs",
+        "Czech"
+      ],
+      [
+        "da",
+        "Danish"
+      ],
+      [
+        "nl",
+        "Dutch"
+      ],
+      [
+        "en",
+        "English"
+      ],
+      [
+        "et",
+        "Estonian"
+      ],
+      [
+        "tl",
+        "Filipino"
+      ],
+      [
+        "fi",
+        "Finnish"
+      ],
+      [
+        "fr",
+        "French"
+      ],
+      [
+        "gl",
+        "Galician"
+      ],
+      [
+        "ka",
+        "Georgian"
+      ],
+      [
+        "de",
+        "German"
+      ],
+      [
+        "el",
+        "Greek"
+      ],
+      [
+        "gu",
+        "Gujarati"
+      ],
+      [
+        "he",
+        "Hebrew"
+      ],
+      [
+        "hi",
+        "Hindi"
+      ],
+      [
+        "hu",
+        "Hungarian"
+      ],
+      [
+        "is",
+        "Icelandic"
+      ],
+      [
+        "id",
+        "Indonesian"
+      ],
+      [
+        "ga",
+        "Irish"
+      ],
+      [
+        "it",
+        "Italian"
+      ],
+      [
+        "ja",
+        "Japanese"
+      ],
+      [
+        "kn",
+        "Kannada"
+      ],
+      [
+        "kk",
+        "Kazakh"
+      ],
+      [
+        "km",
+        "Khmer"
+      ],
+      [
+        "ko",
+        "Korean"
+      ],
+      [
+        "lo",
+        "Lao"
+      ],
+      [
+        "lv",
+        "Latvian"
+      ],
+      [
+        "lt",
+        "Lithuanian"
+      ],
+      [
+        "mk",
+        "Macedonian"
+      ],
+      [
+        "ms",
+        "Malay"
+      ],
+      [
+        "ml",
+        "Malayalam"
+      ],
+      [
+        "mt",
+        "Maltese"
+      ],
+      [
+        "mr",
+        "Marathi"
+      ],
+      [
+        "mn",
+        "Mongolian"
+      ],
+      [
+        "ne",
+        "Nepali"
+      ],
+      [
+        "no",
+        "Norwegian"
+      ],
+      [
+        "pa",
+        "Punjabi"
+      ],
+      [
+        "fa",
+        "Persian"
+      ],
+      [
+        "pl",
+        "Polish"
+      ],
+      [
+        "pt",
+        "Portuguese (Portugal)"
+      ],
+      [
+        "pt-br",
+        "Portuguese (Brazil)"
+      ],
+      [
+        "ro",
+        "Romanian"
+      ],
+      [
+        "ru",
+        "Russian"
+      ],
+      [
+        "sr",
+        "Serbian"
+      ],
+      [
+        "si",
+        "Sinhala"
+      ],
+      [
+        "sk",
+        "Slovak"
+      ],
+      [
+        "sl",
+        "Slovenian"
+      ],
+      [
+        "es",
+        "Spanish"
+      ],
+      [
+        "es-419",
+        "Spanish (Latin America)"
+      ],
+      [
+        "sw",
+        "Swahili"
+      ],
+      [
+        "sv",
+        "Swedish"
+      ],
+      [
+        "ta",
+        "Tamil"
+      ],
+      [
+        "te",
+        "Telugu"
+      ],
+      [
+        "th",
+        "Thai"
+      ],
+      [
+        "tr",
+        "Turkish"
+      ],
+      [
+        "uk",
+        "Ukrainian"
+      ],
+      [
+        "ur",
+        "Urdu"
+      ],
+      [
+        "uz",
+        "Uzbek"
+      ],
+      [
+        "vi",
+        "Vietnamese"
+      ],
+      [
+        "cy",
+        "Welsh"
+      ],
+      [
+        "zu",
+        "Zulu"
+      ],
+      [
+        "en-AU",
+        "English (Australia)"
+      ],
+      [
+        "en-CA",
+        "English (Canada)"
+      ],
+      [
+        "en-GB",
+        "English (United Kingdom)"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:subtitle_secondary_language",
+    "feature": "player_settings",
+    "preference": "subtitle_secondary_language",
+    "kind": "string",
+    "group": "Subtitles",
+    "label": "Secondary Preferred Language",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:577",
+    "type": "select",
+    "options": [
+      [
+        "",
+        "None"
+      ],
+      [
+        "device",
+        "System default"
+      ],
+      [
+        "af",
+        "Afrikaans"
+      ],
+      [
+        "sq",
+        "Albanian"
+      ],
+      [
+        "am",
+        "Amharic"
+      ],
+      [
+        "ar",
+        "Arabic"
+      ],
+      [
+        "hy",
+        "Armenian"
+      ],
+      [
+        "az",
+        "Azerbaijani"
+      ],
+      [
+        "eu",
+        "Basque"
+      ],
+      [
+        "be",
+        "Belarusian"
+      ],
+      [
+        "bn",
+        "Bengali"
+      ],
+      [
+        "bs",
+        "Bosnian"
+      ],
+      [
+        "bg",
+        "Bulgarian"
+      ],
+      [
+        "my",
+        "Burmese"
+      ],
+      [
+        "ca",
+        "Catalan"
+      ],
+      [
+        "zh",
+        "Chinese"
+      ],
+      [
+        "zh-CN",
+        "Chinese (Simplified)"
+      ],
+      [
+        "zh-TW",
+        "Chinese (Traditional)"
+      ],
+      [
+        "hr",
+        "Croatian"
+      ],
+      [
+        "cs",
+        "Czech"
+      ],
+      [
+        "da",
+        "Danish"
+      ],
+      [
+        "nl",
+        "Dutch"
+      ],
+      [
+        "en",
+        "English"
+      ],
+      [
+        "et",
+        "Estonian"
+      ],
+      [
+        "tl",
+        "Filipino"
+      ],
+      [
+        "fi",
+        "Finnish"
+      ],
+      [
+        "fr",
+        "French"
+      ],
+      [
+        "gl",
+        "Galician"
+      ],
+      [
+        "ka",
+        "Georgian"
+      ],
+      [
+        "de",
+        "German"
+      ],
+      [
+        "el",
+        "Greek"
+      ],
+      [
+        "gu",
+        "Gujarati"
+      ],
+      [
+        "he",
+        "Hebrew"
+      ],
+      [
+        "hi",
+        "Hindi"
+      ],
+      [
+        "hu",
+        "Hungarian"
+      ],
+      [
+        "is",
+        "Icelandic"
+      ],
+      [
+        "id",
+        "Indonesian"
+      ],
+      [
+        "ga",
+        "Irish"
+      ],
+      [
+        "it",
+        "Italian"
+      ],
+      [
+        "ja",
+        "Japanese"
+      ],
+      [
+        "kn",
+        "Kannada"
+      ],
+      [
+        "kk",
+        "Kazakh"
+      ],
+      [
+        "km",
+        "Khmer"
+      ],
+      [
+        "ko",
+        "Korean"
+      ],
+      [
+        "lo",
+        "Lao"
+      ],
+      [
+        "lv",
+        "Latvian"
+      ],
+      [
+        "lt",
+        "Lithuanian"
+      ],
+      [
+        "mk",
+        "Macedonian"
+      ],
+      [
+        "ms",
+        "Malay"
+      ],
+      [
+        "ml",
+        "Malayalam"
+      ],
+      [
+        "mt",
+        "Maltese"
+      ],
+      [
+        "mr",
+        "Marathi"
+      ],
+      [
+        "mn",
+        "Mongolian"
+      ],
+      [
+        "ne",
+        "Nepali"
+      ],
+      [
+        "no",
+        "Norwegian"
+      ],
+      [
+        "pa",
+        "Punjabi"
+      ],
+      [
+        "fa",
+        "Persian"
+      ],
+      [
+        "pl",
+        "Polish"
+      ],
+      [
+        "pt",
+        "Portuguese (Portugal)"
+      ],
+      [
+        "pt-br",
+        "Portuguese (Brazil)"
+      ],
+      [
+        "ro",
+        "Romanian"
+      ],
+      [
+        "ru",
+        "Russian"
+      ],
+      [
+        "sr",
+        "Serbian"
+      ],
+      [
+        "si",
+        "Sinhala"
+      ],
+      [
+        "sk",
+        "Slovak"
+      ],
+      [
+        "sl",
+        "Slovenian"
+      ],
+      [
+        "es",
+        "Spanish"
+      ],
+      [
+        "es-419",
+        "Spanish (Latin America)"
+      ],
+      [
+        "sw",
+        "Swahili"
+      ],
+      [
+        "sv",
+        "Swedish"
+      ],
+      [
+        "ta",
+        "Tamil"
+      ],
+      [
+        "te",
+        "Telugu"
+      ],
+      [
+        "th",
+        "Thai"
+      ],
+      [
+        "tr",
+        "Turkish"
+      ],
+      [
+        "uk",
+        "Ukrainian"
+      ],
+      [
+        "ur",
+        "Urdu"
+      ],
+      [
+        "uz",
+        "Uzbek"
+      ],
+      [
+        "vi",
+        "Vietnamese"
+      ],
+      [
+        "cy",
+        "Welsh"
+      ],
+      [
+        "zu",
+        "Zulu"
+      ],
+      [
+        "en-AU",
+        "English (Australia)"
+      ],
+      [
+        "en-CA",
+        "English (Canada)"
+      ],
+      [
+        "en-GB",
+        "English (United Kingdom)"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:subtitle_show_only_preferred_languages",
+    "feature": "player_settings",
+    "preference": "subtitle_show_only_preferred_languages",
+    "kind": "boolean",
+    "group": "Subtitles",
+    "label": "Show Only Preferred Languages",
+    "help": "Hide all other subtitles languages from selection list",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:579",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:subtitle_size",
+    "feature": "player_settings",
+    "preference": "subtitle_size",
+    "kind": "integer",
+    "group": "Subtitles",
+    "label": "Size",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:581",
+    "type": "number",
+    "min": 50.0,
+    "max": 200.0,
+    "step": 10.0,
+    "scale": 1,
+    "unit": "",
+    "integer": true
+  },
+  {
+    "key": "pref:player_settings:subtitle_strip_sdh",
+    "feature": "player_settings",
+    "preference": "subtitle_strip_sdh",
+    "kind": "boolean",
+    "group": "Subtitles",
+    "label": "Strip SDH subtitles",
+    "help": "Hide sound descriptions and speaker labels from text subtitles",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:580",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:subtitle_outline_width",
+    "feature": "player_settings",
+    "preference": "subtitle_outline_width",
+    "kind": "integer",
+    "group": "Subtitles",
+    "label": "Subtitle Outline Width",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:588",
+    "type": "number",
+    "min": 1,
+    "max": 5,
+    "step": 1,
+    "scale": 1,
+    "unit": "",
+    "integer": true
+  },
+  {
+    "key": "pref:player_settings:subtitle_text_color",
+    "feature": "player_settings",
+    "preference": "subtitle_text_color",
+    "kind": "integer",
+    "group": "Subtitles",
+    "label": "Text Color",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:584",
+    "type": "select",
+    "options": [
+      [
+        -1,
+        "White"
+      ],
+      [
+        -2500135,
+        "Light grey"
+      ],
+      [
+        -256,
+        "Yellow"
+      ],
+      [
+        -16711681,
+        "Cyan"
+      ],
+      [
+        -16711936,
+        "Green"
+      ],
+      [
+        -65281,
+        "Magenta"
+      ],
+      [
+        -38037,
+        "Red"
+      ],
+      [
+        -23296,
+        "Orange"
+      ],
+      [
+        -7278960,
+        "Light green"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:subtitle_use_forced_subtitles",
+    "feature": "player_settings",
+    "preference": "subtitle_use_forced_subtitles",
+    "kind": "boolean",
+    "group": "Subtitles",
+    "label": "Use Forced Subtitles",
+    "help": "Prefer forced subtitles when audio matches subtitle language; if unavailable, select nothing",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:578",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:player_settings:use_libass",
+    "feature": "player_settings",
+    "preference": "use_libass",
+    "kind": "boolean",
+    "group": "Subtitles",
+    "label": "Use libass for ASS/SSA subtitles",
+    "help": "Experimental: advanced ASS/SSA rendering (styles, positioning, animations)",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:487",
+    "type": "boolean",
+    "appDefault": true
+  },
+  {
+    "key": "pref:player_settings:subtitle_vertical_offset",
+    "feature": "player_settings",
+    "preference": "subtitle_vertical_offset",
+    "kind": "integer",
+    "group": "Subtitles",
+    "label": "Vertical Offset",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:582",
+    "type": "number",
+    "min": -20.0,
+    "max": 50.0,
+    "step": 1.0,
+    "scale": 1,
+    "unit": "",
+    "integer": true
+  },
+  {
+    "key": "pref:trailer_settings:trailer_enabled",
+    "feature": "trailer_settings",
+    "preference": "trailer_enabled",
+    "kind": "boolean",
+    "group": "Trailers",
+    "label": "Auto-play Trailers",
+    "help": "Automatically play trailers on detail and post-play screens",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TrailerSettingsDataStore.kt:31",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:trailer_settings:trailer_pause_on_scroll",
+    "feature": "trailer_settings",
+    "preference": "trailer_pause_on_scroll",
+    "kind": "boolean",
+    "group": "Trailers",
+    "label": "Pause When Scrolling",
+    "help": "Pause the trailer when you scroll down and resume it when you return to the top.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TrailerSettingsDataStore.kt:34",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:trailer_settings:trailer_play_in_background",
+    "feature": "trailer_settings",
+    "preference": "trailer_play_in_background",
+    "kind": "boolean",
+    "group": "Trailers",
+    "label": "Play in Background",
+    "help": "Play the trailer in place of the backdrop while the page stays visible.",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TrailerSettingsDataStore.kt:33",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:trailer_settings:trailer_delay_seconds",
+    "feature": "trailer_settings",
+    "preference": "trailer_delay_seconds",
+    "kind": "integer",
+    "group": "Trailers",
+    "label": "Trailer Delay",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TrailerSettingsDataStore.kt:32",
+    "type": "number",
+    "min": 3,
+    "max": 15,
+    "step": 1,
+    "scale": 1,
+    "unit": "seconds",
+    "integer": true
+  },
+  {
+    "key": "pref:trailer_settings:trailer_allow_4k",
+    "feature": "trailer_settings",
+    "preference": "trailer_allow_4k",
+    "kind": "boolean",
+    "group": "Trailers",
+    "label": "Trailer allow 4k",
+    "help": "",
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/TrailerSettingsDataStore.kt:35",
+    "type": "boolean"
+  },
+  {
+    "key": "pref:collections:collections_json",
+    "feature": "collections",
+    "preference": "collections_json",
+    "kind": "string",
+    "group": "Kaptain & collections",
+    "label": "Kaptain\u2019s Collection",
+    "help": "Import a Nuvio collection JSON from Kaptain to manage its home rows.",
+    "type": "collection",
+    "maxLength": 1000000,
+    "optional": true,
+    "source": "app/src/main/java/com/nuvio/tv/data/local/CollectionsDataStore.kt"
+  },
+  {
+    "key": "addon:cncverse",
+    "feature": "managed_addons",
+    "preference": "cncverse",
+    "kind": "string",
+    "type": "addon",
+    "maxLength": 4000,
+    "optional": true,
+    "group": "Optional addons",
+    "label": "CNCVerse Bridge",
+    "help": "Add a configured CNCVerse Stremio addon alongside the shared provider.",
+    "source": "app/src/main/java/com/nuvio/tv/data/local/AddonPreferences.kt"
+  },
+  {
+    "key": "addon:kaptain",
+    "feature": "managed_addons",
+    "preference": "kaptain_manifest",
+    "kind": "string",
+    "type": "addon",
+    "maxLength": 4000,
+    "optional": true
+  },
+  {
+    "key": "pref:layout_settings:service_hub_deduplicate",
+    "feature": "layout_settings",
+    "preference": "service_hub_deduplicate",
+    "kind": "boolean",
+    "type": "boolean",
+    "optional": true
+  }
+]

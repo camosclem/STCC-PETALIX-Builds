@@ -1,0 +1,17 @@
+{
+  "status": "Metadata-configured APK compiled successfully; 32 Petalix tests passed on 2026-10-29",
+  "branch": "test/petalix-2-fullscreen",
+  "implementationCommit": "fd03007a92cc1fec5c088c326e48d267f1586c3a",
+  "baselineSource": "Petalix-1793124972-Source.zip",
+  "baselineSourceSha256": "3131640e3324b5d2fc3fa5e016379aee834266fcf2900ed2c8066af9184ad518",
+  "upstreamCommit": "50e713e33b9ed6fc48bd3bdec5a773e0a552d160",
+  "applicationId": "com.petalix.iptv.ui2test",
+  "versionName": "2.0.0-ui-test.2",
+  "versionCode": 200002,
+  "metadataConfiguredInDistributedApk": true,
+  "metadataCredentialIncludedInSource": false,
+  "modifiedFiles": 32,
+  "deletedFiles": [
+    "app/src/main/generated/baselineProfiles/.baseline-prof.txt.GDZF89"
+  ]
+}
