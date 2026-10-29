@@ -84,7 +84,12 @@ def apply(work,cache):
     for name,target in [('SeekPreviewTestControls.kt',work/ROOT/'petalix/SeekPreviewTestControls.kt'),('SeekPreviewPlayerSession.kt',player/'SeekPreviewPlayerSession.kt')]:shutil.copyfile(local/name,target)
     screen=player/'PlayerScreen.kt'
     replace_once(screen,'    val activity = LocalContext.current as? android.app.Activity','    SeekPreviewPlayerSession(viewModel, uiState)\n    val activity = LocalContext.current as? android.app.Activity')
-    replace_once(screen,'            SeekOverlayHost(viewModel = viewModel, chapters = uiState.chapters)','            SeekOverlayHost(viewModel = viewModel, chapters = uiState.chapters)\n            SeekPreviewOverlays(uiState, viewModel)')
+    replace_once(screen,'        // Seek-only overlay (progress bar + time) when controls are hidden','        SeekPreviewOverlays(uiState, viewModel)\n\n        // Seek-only overlay (progress bar + time) when controls are hidden')
+    replace_once(screen,'                // Consume the confirm KEY_UP that opened the subtitle timing dialog before','''                if (com.nuvio.tv.core.player.thumbnail.SeekThumbnails.prepareUi.value !is com.nuvio.tv.core.player.thumbnail.SeekThumbnails.PrepareUi.Hidden) {
+                    if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_UP && keyEvent.nativeKeyEvent.keyCode in listOf(KeyEvent.KEYCODE_DPAD_CENTER,KeyEvent.KEYCODE_ENTER,KeyEvent.KEYCODE_NUMPAD_ENTER,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)) com.nuvio.tv.core.player.thumbnail.SeekThumbnails.startWatchingNow()
+                    return@onPreviewKeyEvent true
+                }
+                // Consume the confirm KEY_UP that opened the subtitle timing dialog before''')
     vm=player/'PlayerViewModel.kt'
     replace_once(vm,'    fun getCurrentHeaders(): Map<String, String> = controller.getCurrentHeaders()','''    fun getCurrentHeaders(): Map<String, String> = controller.getCurrentHeaders()
     fun seekPreviewIdentity(): String = controller.currentVideoId?.takeIf { it.isNotBlank() } ?: getCurrentStreamUrl()

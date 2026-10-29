@@ -97,6 +97,7 @@ internal fun SeekPreviewPlayerSession(viewModel:PlayerViewModel,uiState:PlayerUi
 @Composable
 internal fun SeekPreviewOverlays(uiState:PlayerUiState,viewModel:PlayerViewModel) {
     val preparation by SeekThumbnails.prepareUi
+    androidx.activity.compose.BackHandler(enabled=preparation !is SeekThumbnails.PrepareUi.Hidden) { SeekThumbnails.startWatchingNow() }
     SeekThumbnailOverlayHost(uiState,viewModel,Modifier.zIndex(2.7f))
     if(preparation is SeekThumbnails.PrepareUi.Hidden)SeekThumbnailProgressHint(uiState,Modifier.zIndex(2.7f))
     else Box(Modifier.fillMaxSize().zIndex(8f).background(Color.Black.copy(alpha=.92f)),contentAlignment=Alignment.Center) {
