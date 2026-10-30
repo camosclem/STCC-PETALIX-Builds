@@ -32,6 +32,8 @@ def claim():
         request=json.loads(repair.read_text())
         panel('repair',request)
     rebuild=os.environ.get('REBUILD_BUILD_ID','').strip()
+    if os.environ.get('PETALIX_UI2_TEST')=='true' and not rebuild:
+        raise RuntimeError('Petalix 2 UI can only use an explicitly authorized manual panel rebuild ID')
     if rebuild:
         if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch' or not re.fullmatch(r'[a-f0-9-]{36}',rebuild):raise RuntimeError('Choose a valid finished panel build for a manual rebuild.')
         panel('rebuild',{'id':rebuild})
