@@ -1,0 +1,73 @@
+name: Petalix 2 customer UI preview Android emulator smoke test
+on:
+  push:
+    branches: [fix/petalix2-test-delivery]
+    paths:
+      - .github/workflows/petalix2-preview-smoke.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-tv-ui-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch verified GitHub UI preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p preview-test
+          gh release download petalix-2.0-ui-preview.4 --repo "$GITHUB_REPOSITORY" \
+            --dir preview-test --pattern '*.apk' --pattern '*.sha256'
+          cd preview-test
+          sed -i 's#preview-artifacts/##g' Petalix-2.0-UI-Preview.4.apk.sha256
+          sha256sum --check Petalix-2.0-UI-Preview.4.apk.sha256
+      - name: Run UI preview on clean Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            set -e
+            mkdir -p screenshots
+            adb install -r preview-test/Petalix-2.0-UI-Preview.4.apk
+            adb logcat -c || true
+            adb shell am start -W -n com.petalix.iptv.uipreview4/com.nuvio.tv.petalix.ui2.CustomerPreviewActivity || true
+            sleep 12
+            adb logcat -d -v time > screenshots/logcat.txt || true
+            adb shell dumpsys activity activities > screenshots/activities.txt || true
+            adb shell pidof com.petalix.iptv.uipreview4 > screenshots/pid.txt || true
+            adb shell screencap -p /sdcard/petalix-home.png && adb pull /sdcard/petalix-home.png screenshots/petalix-home.png || true
+            echo "========== APP CRASH DIAGNOSTICS =========="
+            grep -E -A 35 -B 3 'FATAL EXCEPTION|AndroidRuntime|Unable to instantiate|Process .* died' screenshots/logcat.txt | tail -180 || true
+            if ! grep -Eq "^[0-9]+$" screenshots/pid.txt; then
+              echo 'PREVIEW STARTUP FAILED: application process not alive'
+              exit 1
+            fi
+            adb shell input keyevent KEYCODE_DPAD_DOWN
+            adb shell input keyevent KEYCODE_DPAD_RIGHT
+            adb shell input keyevent KEYCODE_DPAD_CENTER
+            sleep 3
+            adb shell screencap -p /sdcard/petalix-navigation.png && adb pull /sdcard/petalix-navigation.png screenshots/petalix-navigation.png || true
+            adb logcat -d -v time > screenshots/logcat.txt || true
+            if ! adb shell pidof com.petalix.iptv.uipreview4; then
+              echo 'PREVIEW NAVIGATION FAILED'
+              exit 1
+            fi
+      - name: Publish screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: petalix2-ui-preview-emulator-evidence
+          path: screenshots/*
+          retention-days: 7
+          if-no-files-found: warn
