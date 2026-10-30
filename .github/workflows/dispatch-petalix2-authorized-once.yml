@@ -1,0 +1,35 @@
+name: One-time request for original-signing Petalix 2 test build
+
+on:
+  push:
+    branches: [fix/petalix2-authorized-pipeline]
+    paths:
+      - .github/workflows/dispatch-petalix2-authorized-once.yml
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify existing main pipeline includes guarded Petalix 2 source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "camosclem/STCC-PETALIX-Builds"
+          gh api "repos/$GITHUB_REPOSITORY/contents/tooling/android-build/petalix_ui2_patch.py?ref=main" --jq '.sha' > /tmp/ui2-source.sha
+          test -s /tmp/ui2-source.sha
+          echo "Found approved Petalix 2 source adapter on the production pipeline branch."
+      - name: Request one explicit authorized *test* rebuild
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run panel-build.yml --ref main \
+            -f rebuild_build=a169ba3b-3792-473a-8b3a-b0ade721fdd9 \
+            -f ui2_test=true
+          echo 'Authorized test rebuild was requested. Backend still must grant a build job and signing credentials.'
