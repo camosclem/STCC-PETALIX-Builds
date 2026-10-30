@@ -10,6 +10,11 @@ on:
         description: 'Recover an already published build without recompiling (panel build ID)'
         required: false
         type: string
+      ui2_test:
+        description: 'Manual only: build Petalix 2 UI using approved original package and signing via a panel-authorized rebuild ID. Does NOT deploy to customers.'
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [main]
     paths: [.github/workflows/panel-build.yml, tooling/android-build/**]
@@ -37,6 +42,7 @@ jobs:
       - id: claim
         env:
           REBUILD_BUILD_ID: ${{ inputs.rebuild_build }}
+          PETALIX_UI2_TEST: ${{ inputs.ui2_test }}
         run: python3 tooling/android-build/runner.py claim
   sync-current:
     needs: claim
@@ -74,6 +80,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Pinned Petalix 2 full-screen UI source
+        if: ${{ inputs.ui2_test && matrix.brand == 'petalix' }}
+        uses: actions/checkout@v4
+        with:
+          repository: camosclem/STCC-PETALIX-Builds
+          ref: 7f716eab5c80b156f26ad238762f683b807591f4
+          path: ui2-sources
+          persist-credentials: false
       - name: Android SDK
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
@@ -82,6 +96,7 @@ jobs:
       - name: Merge, test and build
         env:
           SERVICE_BRAND: ${{ matrix.brand }}
+          PETALIX_UI2_TEST: ${{ inputs.ui2_test }}
         run: python3 tooling/android-build/build.py "$SERVICE_BRAND"
       - uses: actions/upload-artifact@v4
         with:
@@ -102,6 +117,7 @@ jobs:
     env:
       PANEL_JOB: ${{ needs.claim.outputs.job }}
       GH_TOKEN: ${{ github.token }}
+      PETALIX_UI2_TEST: ${{ inputs.ui2_test }}
     steps:
       - uses: actions/checkout@v4
         with:
