@@ -63,7 +63,7 @@ private fun PetalixPreview(onActivate: () -> Unit) {
         if(service != null) {
             ServiceWalkthrough(service, onBack = { serviceId = "" })
         } else when(tab) {
-            "Home" -> PreviewHome(onService = { serviceId = it }, onSection = { tab = it }, onActivate)
+            "Home" -> PreviewHome(onService = { serviceId = it }, onSection = { tab = it }, onActivate = onActivate)
             "Live TV" -> PreviewLiveTv()
             "Movies", "TV Shows" -> PreviewLibrary(tab)
             "Search" -> {
