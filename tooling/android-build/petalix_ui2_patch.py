@@ -54,6 +54,16 @@ def patch_authorized_identity(work, version_code, version_name):
     src = replace_exact(src, 'android:label="Petalix 2 Test"', 'android:label="Petalix"', "manifest label")
     manifest.write_text(src, encoding="utf-8")
 
+    # Preserve the customer-facing launcher name on updates over Petalix 8.3.
+    strings = root / "app/src/main/res/values/strings.xml"
+    xml = strings.read_text(encoding="utf-8")
+    xml = replace_exact(
+        xml, '<string name="app_name">Petalix 2 Test</string>',
+        '<string name="app_name">Petalix</string>',
+        "original customer launcher name",
+    )
+    strings.write_text(xml, encoding="utf-8")
+
     coordinator = root / "app/src/main/java/com/nuvio/tv/petalix/ManagedCoordinator.kt"
     content = coordinator.read_text(encoding="utf-8")
     if '.put("packageName",BuildConfig.APPLICATION_ID)' not in content:
