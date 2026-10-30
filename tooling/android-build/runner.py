@@ -38,6 +38,8 @@ def claim():
         if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch' or not re.fullmatch(r'[a-f0-9-]{36}',rebuild):raise RuntimeError('Choose a valid finished panel build for a manual rebuild.')
         panel('rebuild',{'id':rebuild})
     value=panel('claim',{})['job']
+    if os.environ.get('PETALIX_UI2_TEST')=='true' and not value:
+        raise RuntimeError('The Petalix Control server did not authorize a rebuild job; no APK was signed.')
     with open(os.environ['GITHUB_OUTPUT'],'a') as output:
         output.write('has_job='+('true' if value else 'false')+'\n')
         output.write('job='+json.dumps(value,separators=(',',':'))+'\n')
