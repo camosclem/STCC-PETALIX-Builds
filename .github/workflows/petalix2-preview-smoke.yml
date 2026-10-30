@@ -22,11 +22,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p preview-test
-          gh release download petalix-2.0-ui-preview.3 --repo "$GITHUB_REPOSITORY" \
+          gh release download petalix-2.0-ui-preview.4 --repo "$GITHUB_REPOSITORY" \
             --dir preview-test --pattern '*.apk' --pattern '*.sha256'
           cd preview-test
-          sed -i 's#preview-artifacts/##g' Petalix-2.0-UI-Preview.3.apk.sha256
-          sha256sum --check Petalix-2.0-UI-Preview.3.apk.sha256
+          sed -i 's#preview-artifacts/##g' Petalix-2.0-UI-Preview.4.apk.sha256
+          sha256sum --check Petalix-2.0-UI-Preview.4.apk.sha256
       - name: Run UI preview on clean Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -39,13 +39,13 @@ jobs:
           script: |
             set -e
             mkdir -p screenshots
-            adb install -r preview-test/Petalix-2.0-UI-Preview.3.apk
+            adb install -r preview-test/Petalix-2.0-UI-Preview.4.apk
             adb logcat -c || true
-            adb shell am start -W -n com.petalix.iptv.uipreview/com.nuvio.tv.petalix.ui2.CustomerPreviewActivity || true
+            adb shell am start -W -n com.petalix.iptv.uipreview4/com.nuvio.tv.petalix.ui2.CustomerPreviewActivity || true
             sleep 12
             adb logcat -d -v time > screenshots/logcat.txt || true
             adb shell dumpsys activity activities > screenshots/activities.txt || true
-            adb shell pidof com.petalix.iptv.uipreview > screenshots/pid.txt || true
+            adb shell pidof com.petalix.iptv.uipreview4 > screenshots/pid.txt || true
             adb shell screencap -p /sdcard/petalix-home.png && adb pull /sdcard/petalix-home.png screenshots/petalix-home.png || true
             echo "========== APP CRASH DIAGNOSTICS =========="
             grep -E -A 35 -B 3 'FATAL EXCEPTION|AndroidRuntime|Unable to instantiate|Process .* died' screenshots/logcat.txt | tail -180 || true
@@ -59,7 +59,7 @@ jobs:
             sleep 3
             adb shell screencap -p /sdcard/petalix-navigation.png && adb pull /sdcard/petalix-navigation.png screenshots/petalix-navigation.png || true
             adb logcat -d -v time > screenshots/logcat.txt || true
-            if ! adb shell pidof com.petalix.iptv.uipreview; then
+            if ! adb shell pidof com.petalix.iptv.uipreview4; then
               echo 'PREVIEW NAVIGATION FAILED'
               exit 1
             fi
