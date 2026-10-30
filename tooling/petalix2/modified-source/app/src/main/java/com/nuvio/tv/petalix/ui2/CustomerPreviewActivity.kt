@@ -1,6 +1,5 @@
 package com.nuvio.tv.petalix.ui2
 
-import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -21,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.tv.material3.Text
-import com.nuvio.tv.petalix.ActivationActivity
 
 /**
  * UI-only walkthrough while the Petalix Control server refuses a distinct test package.
@@ -31,14 +29,12 @@ class CustomerPreviewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        setContent { PetalixPreview(onActivate = {
-            startActivity(Intent(this, ActivationActivity::class.java))
-        }) }
+        setContent { PetalixPreview() }
     }
 }
 
 @Composable
-private fun PetalixPreview(onActivate: () -> Unit) {
+private fun PetalixPreview() {
     var tab by rememberSaveable { mutableStateOf("Home") }
     var serviceId by rememberSaveable { mutableStateOf("") }
     var query by rememberSaveable { mutableStateOf("") }
@@ -63,7 +59,21 @@ private fun PetalixPreview(onActivate: () -> Unit) {
         if(service != null) {
             ServiceWalkthrough(service, onBack = { serviceId = "" })
         } else when(tab) {
-            "Home" -> PreviewHome(onService = { serviceId = it }, onSection = { tab = it }, onActivate = onActivate)
+            "Home" -> PreviewHome(onService = { serviceId = it }, onSection = { tab = it }, onExplore = { tab = "Browse" })
+            "Browse" -> {
+                Column(Modifier.fillMaxSize().padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Text("Explore Streaming Services", fontSize = 26.sp, fontWeight = FontWeight.Bold,
+                        color = Color.White, modifier = Modifier.padding(horizontal = 26.dp))
+                    LazyRow(contentPadding = PaddingValues(horizontal = 26.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        items(PetalixServices.all, key = { it.id }) { s ->
+                            ServiceTile(s, onClick = { serviceId = s.id })
+                        }
+                    }
+                    Text("Select a service to preview its interface. Sample layouts only: no paid streams.",
+                        color = Color(0xFFD6E2ED), modifier = Modifier.padding(horizontal = 26.dp))
+                }
+            }
             "Live TV" -> PreviewLiveTv()
             "Movies", "TV Shows" -> PreviewLibrary(tab)
             "Search" -> {
@@ -85,7 +95,7 @@ private fun PetalixPreview(onActivate: () -> Unit) {
                     Text("Petalix 2.0 visual preview", color = Color.White, fontSize = 25.sp)
                     Text("Sample tiles only. This app does not access customer credentials, subscriptions, or live streams.",
                         color = Color(0xFFB8C8D9), fontSize = 14.sp)
-                    PetalixAction("Open secure activation screen", onClick = onActivate)
+                    PetalixAction("Explore the design", onClick = { tab = "Browse" })
                 }
             }
         }
@@ -93,7 +103,7 @@ private fun PetalixPreview(onActivate: () -> Unit) {
 }
 
 @Composable
-private fun PreviewHome(onService: (String) -> Unit, onSection: (String) -> Unit, onActivate: () -> Unit) {
+private fun PreviewHome(onService: (String) -> Unit, onSection: (String) -> Unit, onExplore: () -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item {
@@ -107,7 +117,7 @@ private fun PreviewHome(onService: (String) -> Unit, onSection: (String) -> Unit
                         fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     Text("Explore the full-screen design and streaming-service interfaces.",
                         color = Color(0xFFD6E2ED), fontSize = 13.sp)
-                    PetalixAction("Try activation", onClick = onActivate)
+                    PetalixAction("Enter UI preview", onClick = onExplore)
                 }
                 Text("DESIGN PREVIEW · NO VIDEO PLAYBACK", color = Color(0xFFB1DAFF),
                     fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomEnd).padding(14.dp))
