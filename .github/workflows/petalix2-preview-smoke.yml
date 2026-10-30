@@ -1,0 +1,69 @@
+name: Petalix 2 customer UI preview Android emulator smoke test
+
+on:
+  push:
+    branches: [fix/petalix2-test-delivery]
+    paths:
+      - .github/workflows/petalix2-preview-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-tv-ui-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch verified GitHub UI preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p preview-test
+          gh release download petalix-2.0-ui-preview.3 --repo "$GITHUB_REPOSITORY" \
+            --dir preview-test --pattern '*.apk' --pattern '*.sha256'
+          cd preview-test
+          sha256sum --check Petalix-2.0-UI-Preview.3.apk.sha256
+      - name: Run UI preview on clean Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            set -e
+            adb install -r preview-test/Petalix-2.0-UI-Preview.3.apk
+            adb shell am start -n com.petalix.iptv.uipreview/com.nuvio.tv.petalix.ui2.CustomerPreviewActivity
+            sleep 12
+            adb shell pidof com.petalix.iptv.uipreview
+            mkdir -p screenshots
+            adb shell screencap -p /sdcard/petalix-home.png
+            adb pull /sdcard/petalix-home.png screenshots/petalix-home.png
+            adb shell input keyevent KEYCODE_DPAD_DOWN
+            adb shell input keyevent KEYCODE_DPAD_RIGHT
+            adb shell input keyevent KEYCODE_DPAD_CENTER
+            sleep 3
+            adb shell pidof com.petalix.iptv.uipreview
+            adb shell screencap -p /sdcard/petalix-navigation.png
+            adb pull /sdcard/petalix-navigation.png screenshots/petalix-navigation.png
+            adb logcat -d -v brief > screenshots/logcat.txt
+            if grep -E 'FATAL EXCEPTION|Process: com.petalix.iptv.uipreview' screenshots/logcat.txt | tail -30 | grep -q 'FATAL EXCEPTION'; then
+              echo 'Potential fatal exception in emulator log.'
+              exit 1
+            fi
+      - name: Publish screenshots and diagnostic logs as CI artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: petalix2-ui-preview-emulator-evidence
+          path: screenshots/*
+          retention-days: 7
+          if-no-files-found: warn
