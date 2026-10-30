@@ -18,6 +18,9 @@ class AuthorizedUi2Tests(unittest.TestCase):
         self.manifest=root/"app/src/main/AndroidManifest.xml"
         self.manifest.parent.mkdir(parents=True)
         self.manifest.write_text('<application android:label="Petalix 2 Test"/>')
+        strings=root/"app/src/main/res/values/strings.xml"
+        strings.parent.mkdir(parents=True,exist_ok=True)
+        strings.write_text('<resources><string name="app_name">Petalix 2 Test</string></resources>')
         self.manager=root/"app/src/main/java/com/nuvio/tv/petalix/ManagedCoordinator.kt"
         self.manager.parent.mkdir(parents=True)
         self.manager.write_text(
@@ -34,6 +37,7 @@ class AuthorizedUi2Tests(unittest.TestCase):
         self.assertNotIn('com.petalix.iptv.ui2test',value)
         self.assertIn('android.defaultConfig.versionCode = 1793236988',value)
         self.assertIn('android:label="Petalix"',self.manifest.read_text())
+        self.assertIn('<string name="app_name">Petalix</string>',(pathlib.Path(self.tmp.name)/"app/src/main/res/values/strings.xml").read_text())
         self.assertIn('post("activate"',self.manager.read_text())
     def test_refuses_incorrect_version(self):
         with self.assertRaises(RuntimeError):
