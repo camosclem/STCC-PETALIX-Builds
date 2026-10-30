@@ -1,0 +1,66 @@
+name: Petalix 2 isolated test prerelease (no customer deploy)
+on:
+  push:
+    branches: [fix/petalix2-test-delivery]
+    paths:
+      - .github/workflows/petalix2-test-release.yml
+      - tooling/petalix2/verify_test_release.py
+      - tooling/petalix2/test_verify_test_release.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-and-publish-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Regression tests for release validation
+        run: python -m unittest discover -s tooling/petalix2 -p 'test_verify_test_release.py' -v
+      - name: Install Android build tools
+        run: |
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0'
+      - name: Download pinned UI2 APK without rebuilding
+        env:
+          APK_URL: https://petalix-ui2-download.caroliinaconsultant.chatgpt.site/Petalix-2.0.0-ui-test.2.apk
+        run: |
+          curl --fail --location --retry 3 --retry-delay 2 --proto '=https' --tlsv1.2 --output "$RUNNER_TEMP/Petalix-2.0.0-ui-test.2.apk" "$APK_URL"
+      - name: Verify APK identity, SHA-256, and signing certificate
+        run: |
+          python tooling/petalix2/verify_test_release.py \
+            --apk "$RUNNER_TEMP/Petalix-2.0.0-ui-test.2.apk" \
+            --aapt "$ANDROID_HOME/build-tools/36.0.0/aapt" \
+            --apksigner "$ANDROID_HOME/build-tools/36.0.0/apksigner" \
+            --output "$RUNNER_TEMP/petalix-ui2-test-release.json"
+      - name: Publish prerelease only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=petalix-2.0.0-ui-test.2
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; refusing to replace a published binary."
+            exit 0
+          fi
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          # Petalix 2.0 Test 2 — isolated APK
+          
+          **ACTIVATION BLOCKED. NOT APPROVED FOR CUSTOMER ROLLOUT.**
+          
+          Test package: `com.petalix.iptv.ui2test` (200002).
+          Source: `test/petalix-2-fullscreen` at `7f716ea`.
+          This is a debug-signed test binary. Existing Petalix 8.3 and STCC are untouched.
+          Backend must explicitly authorize the test package/signing identity for
+          test devices; never bypass production validation.
+          
+          GitHub Issue #1 tracks backend registration and real-device testing.
+          NOTES
+          gh release create "$tag" \
+            "$RUNNER_TEMP/Petalix-2.0.0-ui-test.2.apk#Petalix-2.0.0-ui-test.2.apk" \
+            "$RUNNER_TEMP/petalix-ui2-test-release.json#petalix-ui2-test-release.json" \
+            --repo "$GITHUB_REPOSITORY" --title 'Petalix 2.0 UI Test 2 (activation blocked)' \
+            --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease
