@@ -1,0 +1,112 @@
+name: Petalix 2 UI customer preview — no streaming or production rollout
+
+on:
+  push:
+    branches: [fix/petalix2-test-delivery]
+    paths:
+      - .github/workflows/petalix2-ui-preview.yml
+      - tooling/petalix2/modified-source/app/src/main/java/com/nuvio/tv/petalix/ui2/CustomerPreviewActivity.kt
+      - tooling/petalix2/modified-source/app/src/main/AndroidManifest.xml
+      - tooling/petalix2/modified-source/app/build.gradle.kts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android build dependencies
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+      - name: Reconstruct reviewed Petalix 2 UI source
+        run: |
+          python3 tooling/petalix2/prepare.py "$RUNNER_TEMP/petalix2-preview"
+      - name: Build isolated customer visual preview
+        run: |
+          cd "$RUNNER_TEMP/petalix2-preview"
+          ./gradlew :app:assembleFullDebug --no-daemon --stacktrace
+      - name: Verify signed preview APK identity
+        run: |
+          set -euo pipefail
+          mkdir -p preview-artifacts
+          APK=$(find "$RUNNER_TEMP/petalix2-preview/app/build/outputs/apk/full/debug" -type f -name '*.apk' -print -quit)
+          test -n "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/preview-apksigner.txt"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" > "$RUNNER_TEMP/preview-badging.txt"
+          grep -q "name='com.petalix.iptv.uipreview'" "$RUNNER_TEMP/preview-badging.txt"
+          grep -q "versionCode='200003'" "$RUNNER_TEMP/preview-badging.txt"
+          grep -q "versionName='2.0.0-ui-preview.3'" "$RUNNER_TEMP/preview-badging.txt"
+          grep -qi 'Verified using v2 scheme.*true' "$RUNNER_TEMP/preview-apksigner.txt"
+          cp "$APK" preview-artifacts/Petalix-2.0-UI-Preview.3.apk
+          sha256sum preview-artifacts/Petalix-2.0-UI-Preview.3.apk | tee preview-artifacts/Petalix-2.0-UI-Preview.3.apk.sha256
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          apk=pathlib.Path('preview-artifacts/Petalix-2.0-UI-Preview.3.apk')
+          manifest={
+            'name':'Petalix 2 UI Customer Preview',
+            'packageName':'com.petalix.iptv.uipreview',
+            'versionCode':200003,
+            'versionName':'2.0.0-ui-preview.3',
+            'sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),
+            'sizeBytes':apk.stat().st_size,
+            'sourceBranch':'fix/petalix2-test-delivery',
+            'uiPreviewOnly':True,
+            'canActivateLiveAccounts':False,
+            'canStreamLiveTv':False,
+            'canPlayMoviesOrEpisodes':False,
+            'productionRolloutApproved':False,
+            'physicalDeviceTested':False,
+            'notice':'Only a read-only visual preview. No customer subscriptions, live TV, VOD, or activated accounts.'
+          }
+          pathlib.Path('preview-artifacts/petalix-ui-preview.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: petalix2-ui-customer-preview
+          path: preview-artifacts/*
+          retention-days: 7
+      - name: Publish separate preview-only prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > preview-artifacts/release-notes.md <<'NOTES'
+          # Petalix 2 UI customer preview
+          
+          **VISUAL PREVIEW ONLY — NOT THE PAID STREAMING APP**
+          
+          This separate, debug-signed Android TV app lets testers evaluate the Petalix
+          2 full-screen Home design, service-inspired browsing layouts and D-pad navigation.
+          
+          - No active subscriber data, playlists, live TV, EPG, movies or playback.
+          - Do not replace the working Petalix 8.3 or STCC apps.
+          - Uses unique package ID `com.petalix.iptv.uipreview`; can install beside Petalix 8.3 and broken Test 2.
+          - Physical device validation has **not** been performed.
+          - Real Test 2 activation still requires a secure Petalix Control backend authorization fix.
+          
+          Source: `fix/petalix2-test-delivery`, based on `test/petalix-2-fullscreen`.
+          GitHub Issue #1 tracks real activation.
+          NOTES
+          if gh release view petalix-2.0-ui-preview.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Preview tag already exists, refusing overwrite.'
+            exit 1
+          fi
+          gh release create petalix-2.0-ui-preview.3 \
+            preview-artifacts/Petalix-2.0-UI-Preview.3.apk \
+            preview-artifacts/Petalix-2.0-UI-Preview.3.apk.sha256 \
+            preview-artifacts/petalix-ui-preview.json \
+            --repo "$GITHUB_REPOSITORY" --prerelease \
+            --title 'Petalix 2 UI Preview 3 — navigation only, no streaming' \
+            --notes-file preview-artifacts/release-notes.md
