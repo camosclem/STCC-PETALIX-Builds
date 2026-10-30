@@ -42,22 +42,37 @@ jobs:
           script: |
             set -e
             adb install -r preview-test/Petalix-2.0-UI-Preview.3.apk
-            adb shell am start -n com.petalix.iptv.uipreview/com.nuvio.tv.petalix.ui2.CustomerPreviewActivity
-            sleep 12
-            adb shell pidof com.petalix.iptv.uipreview
             mkdir -p screenshots
-            adb shell screencap -p /sdcard/petalix-home.png
-            adb pull /sdcard/petalix-home.png screenshots/petalix-home.png
+            adb logcat -c || true
+            adb shell am start -W -n com.petalix.iptv.uipreview/com.nuvio.tv.petalix.ui2.CustomerPreviewActivity || true
+            sleep 12
+            adb logcat -d -v time > screenshots/logcat.txt || true
+            adb shell dumpsys activity activities > screenshots/activities.txt || true
+            adb shell pidof com.petalix.iptv.uipreview > screenshots/pid.txt || true
+            adb shell screencap -p /sdcard/petalix-home.png && adb pull /sdcard/petalix-home.png screenshots/petalix-home.png || true
+            echo '========== PREVIEW APP CRASHES AND STARTUP ERRORS =========='
+            grep -E -A 35 -B 3 'FATAL EXCEPTION|AndroidRuntime|com.petalix.iptv.uipreview|Unable to instantiate|Process .* died' screenshots/logcat.txt | tail -180 || true
+            if ! grep -Eq '^[0-9]+
+      - name: Publish screenshots and diagnostic logs as CI artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: petalix2-ui-preview-emulator-evidence
+          path: screenshots/*
+          retention-days: 7
+          if-no-files-found: warn
+ screenshots/pid.txt; then
+              echo 'PREVIEW STARTUP FAILED: application process not alive; see diagnostic log artifact.'
+              exit 1
+            fi
             adb shell input keyevent KEYCODE_DPAD_DOWN
             adb shell input keyevent KEYCODE_DPAD_RIGHT
             adb shell input keyevent KEYCODE_DPAD_CENTER
             sleep 3
-            adb shell pidof com.petalix.iptv.uipreview
-            adb shell screencap -p /sdcard/petalix-navigation.png
-            adb pull /sdcard/petalix-navigation.png screenshots/petalix-navigation.png
-            adb logcat -d -v brief > screenshots/logcat.txt
-            if grep -E 'FATAL EXCEPTION|Process: com.petalix.iptv.uipreview' screenshots/logcat.txt | tail -30 | grep -q 'FATAL EXCEPTION'; then
-              echo 'Potential fatal exception in emulator log.'
+            adb shell screencap -p /sdcard/petalix-navigation.png && adb pull /sdcard/petalix-navigation.png screenshots/petalix-navigation.png || true
+            adb logcat -d -v time > screenshots/logcat.txt || true
+            if ! adb shell pidof com.petalix.iptv.uipreview; then
+              echo 'PREVIEW NAVIGATION FAILED: process crashed during remote key events.'
               exit 1
             fi
       - name: Publish screenshots and diagnostic logs as CI artifact
