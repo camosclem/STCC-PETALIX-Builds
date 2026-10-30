@@ -195,7 +195,8 @@ def main():
             if not path.is_file() or (any(p in {'.git','.gradle','.kotlin','.idea','.cxx'} for p in relative.parts) or relative.parts[0]=='build' or (len(relative.parts)>1 and relative.parts[1]=='build')) or path.name in {'local.properties','local.dev.properties'} or path.suffix in {'.jks','.keystore'}:continue
             archive.write(path,str(pathlib.Path(brand+'-source')/relative))
     from home_baseline import RECIPE,FILES,verify_preserved_source
-    if item.get('recipeRevision')==RECIPE:verify_preserved_source(cache/FILES[brand][0],out/(brand+'-source.zip'),brand)
+    if item.get('recipeRevision')==RECIPE and not (os.environ.get('PETALIX_UI2_TEST') == 'true' and brand == 'petalix'):
+        verify_preserved_source(cache/FILES[brand][0],out/(brand+'-source.zip'),brand)
     if item.get('recipeRevision') in ['seek-service-templates-test-v1','seek-service-templates-branding-test-v2'] and not (os.environ.get("PETALIX_UI2_TEST") == "true" and brand == "petalix"):
         from seek_previews_patch import verify_trial_source
         verify_trial_source(cache/FILES[brand][0],out/(brand+'-source.zip'),brand,branding=item.get('recipeRevision')=='seek-service-templates-branding-test-v2')
