@@ -1,0 +1,58 @@
+name: Verify Petalix 2 source for existing authorized activation and signing
+
+on:
+  push:
+    branches: [fix/petalix2-authorized-pipeline]
+    paths:
+      - .github/workflows/petalix2-authorized-ci.yml
+      - tooling/android-build/petalix_ui2_patch.py
+      - tooling/android-build/test_petalix_ui2_patch.py
+      - tooling/android-build/build.py
+      - tooling/android-build/runner.py
+      - .github/workflows/panel-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-keyless-authorized-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pinned Petalix 2 source
+        uses: actions/checkout@v4
+        with:
+          repository: camosclem/STCC-PETALIX-Builds
+          ref: 7f716eab5c80b156f26ad238762f683b807591f4
+          path: ui2-sources
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+      - name: Authorization identity and fail-closed policy unit tests
+        run: python3 -m unittest discover -s tooling/android-build -p 'test_petalix_ui2_patch.py' -v
+      - name: Build and test authorized app identity with a *disposable* debug signing key
+        env:
+          PETALIX_UI2_TEST: 'true'
+          TMDB_API_KEY: '00000000000000000000000000000000'
+          PANEL_JOB: '{"id":"00000000-0000-0000-0000-000000000000","source":{"sha":"50e713e33b9ed6fc48bd3bdec5a773e0a552d160","tag":"1.1.0-beta.8.3"},"versionCode":1793236988,"recipeRevision":"home-baseline-pin-v1"}'
+        run: python3 tooling/android-build/build.py petalix
+      - name: Validate compiled app identity and pinned UI resources
+        run: |
+          set -euo pipefail
+          apk=out/petalix-unsigned.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > /tmp/ui2-badging.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" > /tmp/ui2-signature.txt
+          grep -q "name='com.petalix.iptv.preview'" /tmp/ui2-badging.txt
+          grep -q "versionCode='1793236988'" /tmp/ui2-badging.txt
+          grep -q "versionName='1.1.0-petalix.panel1793236988'" /tmp/ui2-badging.txt
+          unzip -l "$apk" | grep -q 'assets/petalix2/service-catalogs.json'
+          echo 'Source builds with original authorized package ID. Debug-signed test NOT for customer installation.'
