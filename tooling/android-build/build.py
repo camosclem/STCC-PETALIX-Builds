@@ -78,6 +78,11 @@ def prepare_home_baseline(item,brand,work,cache):
     apply_panel_connection(work)
     return version
 def prepare(item,brand,work,cache):
+    if os.environ.get("PETALIX_UI2_TEST") == "true" and brand == "petalix":
+        # Only a manually approved, panel-issued job may produce a branded 2.0
+        # update. Keep the exact same Petalix PIN code and signed package ID.
+        from petalix_ui2_patch import prepare_authorized_ui2
+        return prepare_authorized_ui2(item,work,cache)
     from home_baseline import RECIPE
     from seek_previews_patch import RECIPE as SEEK_RECIPE,apply as apply_seek
     from logo_trial_patch import RECIPE as BRAND_RECIPE,apply as apply_logo
@@ -191,8 +196,11 @@ def main():
             archive.write(path,str(pathlib.Path(brand+'-source')/relative))
     from home_baseline import RECIPE,FILES,verify_preserved_source
     if item.get('recipeRevision')==RECIPE:verify_preserved_source(cache/FILES[brand][0],out/(brand+'-source.zip'),brand)
-    if item.get('recipeRevision') in ['seek-service-templates-test-v1','seek-service-templates-branding-test-v2']:
+    if item.get('recipeRevision') in ['seek-service-templates-test-v1','seek-service-templates-branding-test-v2'] and not (os.environ.get("PETALIX_UI2_TEST") == "true" and brand == "petalix"):
         from seek_previews_patch import verify_trial_source
         verify_trial_source(cache/FILES[brand][0],out/(brand+'-source.zip'),brand,branding=item.get('recipeRevision')=='seek-service-templates-branding-test-v2')
+    if os.environ.get("PETALIX_UI2_TEST") == "true" and brand == "petalix":
+        from petalix_ui2_patch import verify_authorized_source_archive
+        verify_authorized_source_archive(cache/FILES[brand][0],out/(brand+'-source.zip'))
     print('Managed tests and APK build passed for '+brand,flush=True)
 if __name__=='__main__':main()
