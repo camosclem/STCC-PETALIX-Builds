@@ -28,6 +28,7 @@ jobs:
           gh release download petalix-2.0-ui-preview.3 --repo "$GITHUB_REPOSITORY" \
             --dir preview-test --pattern '*.apk' --pattern '*.sha256'
           cd preview-test
+          sed -i 's#preview-artifacts/##g' Petalix-2.0-UI-Preview.3.apk.sha256
           sha256sum --check Petalix-2.0-UI-Preview.3.apk.sha256
       - name: Run UI preview on clean Android emulator
         uses: reactivecircus/android-emulator-runner@v2
