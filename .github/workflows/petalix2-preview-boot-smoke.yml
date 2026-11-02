@@ -1,0 +1,80 @@
+name: Petalix 2 Preview — boot and visible-screen smoke test
+
+on:
+  push:
+    branches: [fix/petalix2-preview-black-screen]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android build dependencies
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+      - name: Prepare existing UI-only preview source
+        run: python3 tooling/petalix2/prepare.py "$RUNNER_TEMP/petalix2-preview"
+      - name: Build preview APK (no activation or streaming)
+        run: |
+          cd "$RUNNER_TEMP/petalix2-preview"
+          ./gradlew :app:assembleFullDebug --no-daemon
+      - name: Copy APK to workspace
+        run: |
+          cp "$(find "$RUNNER_TEMP/petalix2-preview/app/build/outputs/apk/full/debug" -type f -name '*.apk' -print -quit)" "$GITHUB_WORKSPACE/petalix-preview-smoke.apk"
+      - name: Cold-start UI preview in Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            mkdir -p smoke-output
+            adb install -r petalix-preview-smoke.apk
+            adb logcat -c
+            adb shell am force-stop com.petalix.iptv.uipreview4
+            adb shell am start -W -n com.petalix.iptv.uipreview4/com.nuvio.tv.petalix.ui2.CustomerPreviewActivity | tee smoke-output/launch.txt
+            sleep 12
+            adb shell dumpsys activity activities > smoke-output/activities.txt
+            adb logcat -d -v time > smoke-output/logcat.txt
+            adb shell screencap -p /sdcard/petalix-preview.png
+            adb pull /sdcard/petalix-preview.png smoke-output/screenshot.png
+            python3 -m pip install --quiet pillow
+            python3 - <<'PY'
+            from PIL import Image
+            from collections import Counter
+            from pathlib import Path
+            import subprocess
+            picture=Image.open('smoke-output/screenshot.png').convert('RGB')
+            pixels=picture.resize((120,68)).getdata()
+            rounded=Counter(tuple(int(v//16)*16 for v in pixel) for pixel in pixels)
+            top=rounded.most_common(1)[0][1]
+            print(f'Screenshot dimensions: {picture.size}; quantized colors: {len(rounded)}; largest color fraction: {top/8160:.3f}')
+            log=Path('smoke-output/logcat.txt').read_text(errors='replace')
+            if 'FATAL EXCEPTION' in log or 'Unable to start activity ComponentInfo{com.petalix.iptv.uipreview4' in log:
+                snippet=log[max(0,log.rfind('FATAL EXCEPTION')-300):]
+                print('STARTUP CRASH DETECTED:',snippet[:4500])
+                raise SystemExit('Preview startup crash')
+            if top/8160>.94:
+                raise SystemExit('Preview screen is nearly uniform: suspected black-screen failure')
+            if len(rounded)<15:
+                raise SystemExit('Insufficient UI visual variation: suspected black screen')
+            print('UI visibility smoke test passed on emulator (physical Android TV still required).')
+            PY
+      - name: Upload diagnostics regardless of result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: petalix2-preview-boot-diagnostics
+          path: smoke-output/
+          retention-days: 7
