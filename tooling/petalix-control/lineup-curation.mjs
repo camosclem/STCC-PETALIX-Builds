@@ -7,10 +7,11 @@ const value = x => String(x ?? '').trim();
 const byName = (a,b) => compare.compare(value(a), value(b));
 
 function western(channel) {
+  // Sports feeds always stay available under the Sports group in this preview.
+  if (/\bsports?\b/i.test(value(channel.group))) return false;
   const categories=[channel.genre,channel.category,...(Array.isArray(channel.tags)?channel.tags:[])];
   if (categories.some(x=>/\bwestern(s)?\b/i.test(value(x)))) return true;
-  // "AMC WEST" and Western sports brands are not Western movies / television.
-  if (/\bsports?\b/i.test(value(channel.group))) return false;
+  // "AMC WEST" and similar regional feeds are not Western movies.
   return /\b(western(s)?|cowboy\s+(movies|tv)|classic\s+westerns)\b/i.test(value(channel.name));
 }
 function tsn(name) {return /^(?:[A-Z]{2,5}\s*[|:-]\s*)?TSN\b/i.test(name);}
@@ -23,6 +24,8 @@ function fanSort(a,b) {
   return Number(tv(b.name))-Number(tv(a.name))||itemCompare(a,b);
 }
 function categorySort(a,b) {
+  if(a==='Favorites')return -1;
+  if(b==='Favorites')return 1;
   if(a==='Sports')return -1;
   if(b==='Sports')return 1;
   return byName(a,b);
