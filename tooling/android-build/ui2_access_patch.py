@@ -118,7 +118,7 @@ fun PetalixReferenceLogo(modifier:Modifier=Modifier) {
             val scale=minOf(size.width/image.width,size.height/image.height)
             val width=(image.width*scale).toInt()
             val height=(image.height*scale).toInt()
-            drawImage(image,dstOffset=IntOffset((size.width.toInt()-width)/2,(size.height.toInt()-height)/2),dstSize=IntSize(width,height),filterQuality=FilterQuality.High)
+            drawImage(image.asImageBitmap(),dstOffset=IntOffset((size.width.toInt()-width)/2,(size.height.toInt()-height)/2),dstSize=IntSize(width,height),filterQuality=FilterQuality.High)
         }
     }
 }'''
