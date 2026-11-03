@@ -1,4 +1,4 @@
-# Visible motion and audible original cues, source 6b047cbcaccefbc688d0925d16f50b524865cb9e
+# Distinct service experiences plus visible motion and audio, source 4cfedfa013721eb41648565a17227495b626d4ae
 name: Request Petalix-only signed test APK
 on:
   push:
