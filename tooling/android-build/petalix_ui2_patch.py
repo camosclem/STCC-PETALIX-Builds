@@ -123,6 +123,8 @@ def prepare_authorized_ui2(item, work, cache):
     patch_startup_completion(work)
     from ui2_access_patch import apply as apply_ui2_access
     apply_ui2_access(work)
+    from splash_screen_patch import apply as apply_startup_splash
+    apply_startup_splash(work, "petalix")
     api_key = os.environ.get("TMDB_API_KEY", "")
     if not re.fullmatch(r"[0-9a-fA-F]{32}", api_key):
         raise RuntimeError("Existing Petalix Control metadata settings were not supplied")
