@@ -1,4 +1,4 @@
-# Retry corrected Petalix UI2 test build after reporting the stopped run failed; trusted workflow 4afacd1dbce7d0145af522672711cf7c22378c3a.
+# Retry corrected Petalix UI2 test build after reporting the stopped run failed; trusted workflow a73bb27c35ba05635128f985a1725f2cd00585b9.
 name: One-time request for original-signing Petalix 2 test build
 
 on:
