@@ -1,4 +1,4 @@
-# Request final Petalix dynamic artwork and landscape trailer test build after compile fix c6e8bb48a8865d0b94749ef4c6623a71173fe1b8.
+# Request corrected Petalix dynamic artwork, focus-trailer, and landscape test build; trusted workflow 02298e0d9608686eea151ca43fe18f8b1fce6f6b.
 name: One-time request for original-signing Petalix 2 test build
 
 on:
