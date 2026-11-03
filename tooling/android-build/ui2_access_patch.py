@@ -312,3 +312,34 @@ fun PetalixReferenceLogo(modifier:Modifier=Modifier) {
                         }'''
     text=once(text,marker,replacement,'featured carousel controls')
     services.write_text(text)
+
+    # Restrict trailer playback to a selected service; Home artwork stays silent.
+    text=home.read_text()
+    text=text.replace('landscape:Boolean=false,rank:Int?=null,modifier:Modifier=Modifier,onClick:()->Unit)', 'landscape:Boolean=false,rank:Int?=null,previewEnabled:Boolean=false,modifier:Modifier=Modifier,onClick:()->Unit)')
+    text=once(text,'if(focused) { trailerVm.setFocusedBackdrop(meta.backdropUrl);delay(900);trailerVm.resolve(meta) }',
+        'if(focused) { trailerVm.setFocusedBackdrop(meta.backdropUrl);if(previewEnabled) {delay(900);trailerVm.resolve(meta)} }','service-only preview resolution')
+    text=text.replace('if(source!=null && focused) TrailerPlayer','if(previewEnabled && source!=null && focused) TrailerPlayer')
+    home.write_text(text)
+    text=services.read_text()
+    text=text.replace('MetadataTile(meta,service.accent,landscape=', 'MetadataTile(meta,service.accent,previewEnabled=true,landscape=')
+    # Netflix collection destinations use compact art and red selected treatment.
+    marker='                        "prime" -> PetalixTile'
+    netflix='''                        "netflix" -> PetalixTile(Modifier.width(175.dp).height(94.dp),service.accent,
+                            onClick={collectionTitle=collection.catalogName;query=""}) {
+                            AsyncImage(collection.items.firstOrNull()?.backdropUrl,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black))))
+                            Box(Modifier.align(Alignment.TopStart).width(5.dp).fillMaxHeight().background(service.accent))
+                            Text(collection.catalogName,color=Color.White,fontSize=14.sp,fontWeight=FontWeight.Bold,
+                                modifier=Modifier.align(Alignment.BottomStart).padding(12.dp),maxLines=2)
+                        }
+'''
+    text=once(text,marker,netflix+marker,'Netflix collection art navigation')
+    text=once(text,'    BackHandler(searchOpen) { searchOpen=false;query="" }',
+        '''    BackHandler(searchOpen || collectionTitle!=null || kind!="All") {
+        when {
+            searchOpen -> {searchOpen=false;query=""}
+            collectionTitle!=null -> collectionTitle=null
+            else -> kind="All"
+        }
+    }''','service Back navigation')
+    services.write_text(text)
