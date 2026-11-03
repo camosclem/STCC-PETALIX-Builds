@@ -33,7 +33,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref main \
-            -f rebuild_build=a169ba3b-3792-473a-8b3a-b0ade721fdd9 \
-            -f ui2_test=true
-          echo 'Test-only build request submitted. Signing remains controlled by the existing Android-signing environment.'
+          gh run cancel 41708651012 --repo "$GITHUB_REPOSITORY"
+          for attempt in {1..30}; do
+            state=$(gh run view 41708651012 --repo "$GITHUB_REPOSITORY" --json status --jq '.status')
+            if [ "$state" = "completed" ]; then break; fi
+            sleep 2
+          done
+          gh api --method POST "repos/$GITHUB_REPOSITORY/actions/jobs/126170810901/rerun"
