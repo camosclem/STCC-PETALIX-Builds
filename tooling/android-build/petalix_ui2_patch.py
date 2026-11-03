@@ -10,7 +10,7 @@ import re
 import subprocess
 import sys
 
-PINNED_UI2_SOURCE = "610061c22b2a0034c08ce417a5886b737160aa31"
+PINNED_UI2_SOURCE = "906bdb444b911b9f5eb105d4f9f9ae37839e1f2f"
 AUTHORIZED_PACKAGE = "com.petalix.iptv.preview"
 
 def replace_exact(original, old, new, label):
