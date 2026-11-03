@@ -39,7 +39,8 @@ def apply(work):
         # A delayed, focus-only trailer preview. TrailerService honors the existing trailer enable setting.
         text = once(text, 'import com.nuvio.tv.ui.screens.home.*',
             'import com.nuvio.tv.ui.screens.home.*\nimport com.nuvio.tv.data.trailer.TrailerService\nimport com.nuvio.tv.core.player.LocalTrailerPlayerPool\nimport com.nuvio.tv.ui.components.TrailerPlayer\nimport androidx.lifecycle.ViewModel\nimport androidx.lifecycle.viewModelScope\nimport dagger.hilt.android.lifecycle.HiltViewModel\nimport javax.inject.Inject\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.flow.MutableStateFlow\nimport kotlinx.coroutines.flow.asStateFlow\nimport kotlinx.coroutines.flow.update', 'trailer imports')
-        old='''fun MetadataTile(meta:MetaPreview,accent:Color=PetalixBlue,landscape:Boolean=false,rank:Int?=null,modifier:Modifier=Modifier,onClick:()->Unit) {
+        old='''@Composable
+fun MetadataTile(meta:MetaPreview,accent:Color=PetalixBlue,landscape:Boolean=false,rank:Int?=null,modifier:Modifier=Modifier,onClick:()->Unit) {
     PetalixTile(modifier.width(if(landscape)220.dp else 116.dp).height(if(landscape)124.dp else 176.dp),accent,onClick) {
         AsyncImage(if(landscape)meta.backdropUrl else meta.poster,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black.copy(alpha=.95f)))))
