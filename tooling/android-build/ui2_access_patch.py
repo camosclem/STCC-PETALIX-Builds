@@ -33,6 +33,9 @@ def apply(work):
             'import androidx.compose.runtime.*\nimport androidx.compose.animation.core.animateFloatAsState\nimport androidx.compose.animation.core.tween\nimport androidx.compose.ui.graphics.graphicsLayer', 'tile animation imports')
         text = once(text, '    var focused by remember { mutableStateOf(false) }\n    Box(modifier.onFocusChanged { focused=it.isFocused }.clip(RoundedCornerShape(8.dp))',
             '    var focused by remember { mutableStateOf(false) }\n    val petalixTileScale by animateFloatAsState(if(focused)1.045f else 1f,tween(170),label="petalixTileScale")\n    Box(modifier.graphicsLayer { scaleX=petalixTileScale;scaleY=petalixTileScale }.onFocusChanged { focused=it.isFocused }.clip(RoundedCornerShape(8.dp))', 'shared tile focus animation')
+        marker='    val state by viewModel.uiState.collectAsStateWithLifecycle()'
+        text=once(text, marker, '    val tileTrailerVm:PetalixTileTrailerViewModel=hiltViewModel()\n    val focusedArtwork by tileTrailerVm.focusedBackdrop.collectAsStateWithLifecycle()\n'+marker, 'Home dynamic artwork state')
+        text=text.replace('AsyncImage(model=if(channel!=null)backdrop else hero?.backdropUrl,contentDescription=null', 'AsyncImage(model=focusedArtwork ?: if(channel!=null)backdrop else hero?.backdropUrl,contentDescription=null')
         # A delayed, focus-only trailer preview. TrailerService honors the existing trailer enable setting.
         text = once(text, 'import com.nuvio.tv.ui.screens.home.*',
             'import com.nuvio.tv.ui.screens.home.*\nimport com.nuvio.tv.data.trailer.TrailerService\nimport com.nuvio.tv.core.player.LocalTrailerPlayerPool\nimport com.nuvio.tv.ui.components.TrailerPlayer\nimport androidx.lifecycle.ViewModel\nimport androidx.lifecycle.viewModelScope\nimport dagger.hilt.android.lifecycle.HiltViewModel\nimport javax.inject.Inject\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.flow.MutableStateFlow\nimport kotlinx.coroutines.flow.asStateFlow\nimport kotlinx.coroutines.flow.update', 'trailer imports')
@@ -48,6 +51,9 @@ def apply(work):
 class PetalixTileTrailerViewModel @Inject constructor(private val trailers:TrailerService):ViewModel() {
     private val _sources=MutableStateFlow<Map<String,com.nuvio.tv.data.trailer.TrailerPlaybackSource>>(emptyMap())
     val sources=_sources.asStateFlow()
+    private val _focusedBackdrop=MutableStateFlow<String?>(null)
+    val focusedBackdrop=_focusedBackdrop.asStateFlow()
+    fun setFocusedBackdrop(url:String?) { if(!url.isNullOrBlank()) _focusedBackdrop.value=url }
     fun resolve(meta:MetaPreview) {
         if(_sources.value.containsKey(meta.id))return
         viewModelScope.launch {
@@ -66,7 +72,7 @@ fun MetadataTile(meta:MetaPreview,accent:Color=PetalixBlue,landscape:Boolean=fal
     var focused by remember(meta.id) { mutableStateOf(false) }
     val source=sources[meta.id]
     LaunchedEffect(focused,meta.id) {
-        if(focused) { delay(900);trailerVm.resolve(meta) }
+        if(focused) { trailerVm.setFocusedBackdrop(meta.backdropUrl);delay(900);trailerVm.resolve(meta) }
     }
     PetalixTile(modifier.width(if(landscape)220.dp else 116.dp).height(if(landscape)124.dp else 176.dp).onFocusChanged { focused=it.isFocused },accent,onClick) {
         AsyncImage(if(landscape)meta.backdropUrl else meta.poster,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
@@ -100,13 +106,18 @@ fun MetadataTile(meta:MetaPreview,accent:Color=PetalixBlue,landscape:Boolean=fal
         text = once(text, old, new, 'service tile focus effects')
         services.write_text(text)
     text = services.read_text()
-    if 'Crossfade(targetState=hero?.backdropUrl' not in text:
+    if 'val focusedArtwork by tileTrailerVm.focusedBackdrop.collectAsStateWithLifecycle()' not in text:
+        text=once(text, '    val state by viewModel.state.collectAsStateWithLifecycle()', '    val tileTrailerVm:PetalixTileTrailerViewModel=hiltViewModel()\n    val focusedArtwork by tileTrailerVm.focusedBackdrop.collectAsStateWithLifecycle()\n    val state by viewModel.state.collectAsStateWithLifecycle()', 'service dynamic artwork state')
+    # Use brand-accurate display names while retaining the service-specific styles and provider IDs.
+    for old,new in [('PetalixService("netflix","NETFLIX"','PetalixService("netflix","Netflix"'),('PetalixService("prime","prime video"','PetalixService("prime","Prime Video"'),('PetalixService("hulu","hulu"','PetalixService("hulu","Hulu"'),('PetalixService("apple","Apple TV"','PetalixService("apple","Apple TV+"'),('PetalixService("peacock","peacock"','PetalixService("peacock","Peacock"'),('PetalixService("tubi","tubi"','PetalixService("tubi","Tubi"'),('PetalixService("pluto","pluto tv"','PetalixService("pluto","Pluto TV"')]:
+        if old in text:text=text.replace(old,new,1)
+    if 'Crossfade(targetState=focusedArtwork ?: hero?.backdropUrl' not in text:
         text = once(text,
             'import androidx.compose.runtime.*',
             'import androidx.compose.runtime.*\nimport androidx.compose.animation.Crossfade',
             'dynamic artwork transition import')
         text = once(text,
             '                    AsyncImage(hero?.backdropUrl,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)',
-            '                    Crossfade(targetState=hero?.backdropUrl,modifier=Modifier.fillMaxSize(),label=\"serviceBackdrop\") { art -> AsyncImage(art,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop) }',
+            '                    Crossfade(targetState=focusedArtwork ?: hero?.backdropUrl,modifier=Modifier.fillMaxSize(),label=\"serviceBackdrop\") { art -> AsyncImage(art,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop) }',
             'service artwork crossfade')
         services.write_text(text)
