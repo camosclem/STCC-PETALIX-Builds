@@ -120,6 +120,13 @@ def sign_and_release():
                 if not home and not is_ui2 and not any(b'pengu-play-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Pengu Play access capability missing')
                 if not home and not is_ui2 and not any(b'home-services-first-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Streaming Services first-row capability missing')
                 if is_ui2:
+                    dex_files=[n for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)]
+                    for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2']:
+                        if not any(marker in z.read(n) for n in dex_files):
+                            raise RuntimeError('Visible Petalix motion capability missing: '+marker.decode())
+                    for cue in ['netflix','prime','hulu','disney','max','paramount','apple','peacock','tubi','pluto','startup']:
+                        if 'res/raw/petalix_cue_'+cue+'.wav' not in z.namelist():
+                            raise RuntimeError('Packaged Petalix sound cue missing: '+cue)
                     from petalix_ui2_patch import AUTHORIZED_PACKAGE
                     if package != AUTHORIZED_PACKAGE:
                         raise RuntimeError('Petalix 2 was not built with the original approved package')
