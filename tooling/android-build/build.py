@@ -76,6 +76,8 @@ def prepare_home_baseline(item,brand,work,cache):
     apply_activation(work,brand)
     from panel_connection_patch import apply as apply_panel_connection
     apply_panel_connection(work)
+    from splash_screen_patch import apply as apply_startup_splash
+    apply_startup_splash(work,brand)
     return version
 def prepare(item,brand,work,cache):
     if os.environ.get("PETALIX_UI2_TEST") == "true" and brand == "petalix":
@@ -174,6 +176,8 @@ def prepare(item,brand,work,cache):
     apply_service_hubs(work)
     from panel_connection_patch import apply as apply_panel_connection
     apply_panel_connection(work)
+    from splash_screen_patch import apply as apply_startup_splash
+    apply_startup_splash(work,brand)
     required=['ManagedCoordinator.kt','ManagedNativeSettings.kt','ManagedPolicy.kt','ActivationActivity.kt']
     for file in required:
         if not list((work/'app/src').rglob(file)):raise RuntimeError('Managed client source missing: '+file)
