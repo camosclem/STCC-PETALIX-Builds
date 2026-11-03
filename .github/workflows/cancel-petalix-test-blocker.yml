@@ -1,0 +1,21 @@
+name: Cancel the obsolete Petalix test build
+
+on:
+  push:
+    branches: [ops/cancel-petalix-test-blocker]
+    paths:
+      - .github/workflows/cancel-petalix-test-blocker.yml
+
+concurrency:
+  group: stcc-petalix-panel-build
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  clear-blocking-test-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release the shared build slot
+        run: echo "Releasing the obsolete Petalix test build slot."
