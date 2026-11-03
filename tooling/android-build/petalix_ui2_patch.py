@@ -79,6 +79,21 @@ def patch_authorized_identity(work, version_code, version_name):
         raise RuntimeError("Isolated test package survived the Gradle override")
     return AUTHORIZED_PACKAGE
 
+
+def patch_startup_completion(work):
+    home = pathlib.Path(work) / "app/src/main/java/com/nuvio/tv/petalix/ui2/Petalix2Home.kt"
+    text = home.read_text(encoding="utf-8")
+    marker = "    val state by viewModel.uiState.collectAsStateWithLifecycle()"
+    if "val startupLoadingState = com.nuvio.tv.ui.components.LocalStartupLoadingState.current" in text:
+        return
+    text = replace_exact(text, marker, """    // Home is now composed; catalog/network loading continues inside the usable UI.
+    val startupLoadingState = com.nuvio.tv.ui.components.LocalStartupLoadingState.current
+    LaunchedEffect(startupLoadingState) {
+        startupLoadingState?.complete = true
+    }
+""" + marker, "Home startup completion")
+    home.write_text(text, encoding="utf-8")
+
 def prepare_authorized_ui2(item, work, cache):
     """Reconstruct pinned UI2 source and replace only version, ID and app label."""
     src = pathlib.Path("ui2-sources").resolve()
@@ -105,6 +120,7 @@ def prepare_authorized_ui2(item, work, cache):
     code = int(item["versionCode"])
     name = f"1.1.0-petalix.panel{code}"
     patch_authorized_identity(work, code, name)
+    patch_startup_completion(work)
     api_key = os.environ.get("TMDB_API_KEY", "")
     if not re.fullmatch(r"[0-9a-fA-F]{32}", api_key):
         raise RuntimeError("Existing Petalix Control metadata settings were not supplied")
