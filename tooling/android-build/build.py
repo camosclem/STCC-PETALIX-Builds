@@ -76,8 +76,9 @@ def prepare_home_baseline(item,brand,work,cache):
     apply_activation(work,brand)
     from panel_connection_patch import apply as apply_panel_connection
     apply_panel_connection(work)
-    from splash_screen_patch import apply as apply_startup_splash
-    apply_startup_splash(work,brand)
+    if os.environ.get('PETALIX_UI2_TEST') == 'true':
+        from splash_screen_patch import apply as apply_startup_splash
+        apply_startup_splash(work,brand)
     return version
 def prepare(item,brand,work,cache):
     if os.environ.get("PETALIX_UI2_TEST") == "true" and brand == "petalix":
