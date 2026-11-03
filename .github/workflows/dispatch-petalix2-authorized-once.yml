@@ -1,42 +1,20 @@
-# Service layout replacement build 9fc03356
-# Request the combined Petalix UI and STCC/Petalix splash test build.
-name: Request Petalix motion and branded splash test build
-
+name: Request Petalix-only signed test APK
 on:
   push:
     branches: [fix/petalix2-authorized-pipeline]
-    paths:
-      - .github/workflows/dispatch-petalix2-authorized-once.yml
-
+    paths: [.github/workflows/dispatch-petalix2-authorized-once.yml]
 permissions:
   contents: read
   actions: write
-
 jobs:
   request:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify existing main pipeline includes guarded Petalix 2 source
+      - name: Request fresh authorized Petalix-only test
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = "camosclem/STCC-PETALIX-Builds"
-          TEST_REF="fix/petalix-motion-splash-test"
-          gh api "repos/$GITHUB_REPOSITORY/contents/tooling/android-build/petalix_ui2_patch.py?ref=$TEST_REF" --jq '.sha' > /tmp/ui2-source.sha
-          gh api "repos/$GITHUB_REPOSITORY/contents/tooling/android-build/splash_screen_patch.py?ref=$TEST_REF" --jq '.sha' > /tmp/splash-source.sha
-          test -s /tmp/ui2-source.sha && test -s /tmp/splash-source.sha
-          echo "Found the combined Petalix motion and shared STCC/Petalix splash source on the test branch."
-      - name: Request one explicit authorized *test* rebuild
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh run cancel 41708651012 --repo "$GITHUB_REPOSITORY"
-          for attempt in {1..30}; do
-            state=$(gh run view 41708651012 --repo "$GITHUB_REPOSITORY" --json status --jq '.status')
-            if [ "$state" = "completed" ]; then break; fi
-            sleep 2
-          done
-          gh api --method POST "repos/$GITHUB_REPOSITORY/actions/jobs/126170810901/rerun"
+          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref main -f rebuild_build=a169ba3b-3792-473a-8b3a-b0ade721fdd9 -f ui2_test=true -f petalix_only=true
