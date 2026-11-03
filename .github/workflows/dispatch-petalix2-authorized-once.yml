@@ -29,7 +29,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh workflow run panel-build.yml --ref main \
+          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref main \
             -f rebuild_build=a169ba3b-3792-473a-8b3a-b0ade721fdd9 \
             -f ui2_test=true
           echo 'Authorized test rebuild was requested. Backend still must grant a build job and signing credentials.'
