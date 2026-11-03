@@ -32,7 +32,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref fix/petalix-motion-splash-test \
+          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref main \
             -f rebuild_build=a169ba3b-3792-473a-8b3a-b0ade721fdd9 \
             -f ui2_test=true
-          echo 'Test-only build request submitted. Signing remains controlled by the repository's existing Android-signing environment.'
+          echo 'Test-only build request submitted. Signing remains controlled by the existing Android-signing environment.'
