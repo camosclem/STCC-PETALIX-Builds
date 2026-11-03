@@ -1,3 +1,4 @@
+# Explicit signed test request after deploying the reviewed UI2 queue (8cd18f221b0ee6af3a8171984eb9dc16779c9220).
 name: One-time request for original-signing Petalix 2 test build
 
 on:
