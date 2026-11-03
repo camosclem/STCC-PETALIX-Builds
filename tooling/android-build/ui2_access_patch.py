@@ -249,6 +249,42 @@ fun PetalixReferenceLogo(modifier:Modifier=Modifier) {
                             Text(collection.catalogName.uppercase(),color=service.accent,fontWeight=FontWeight.Black,fontSize=13.sp,
                                 modifier=Modifier.align(Alignment.Center).padding(12.dp),maxLines=2)
                         }
+                        "prime" -> PetalixTile(Modifier.width(210.dp).height(68.dp),service.accent,
+                            onClick={collectionTitle=collection.catalogName;query=""}) {
+                            Row(Modifier.fillMaxSize().background(Color(0xFF152738)).padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
+                                AsyncImage(collection.items.firstOrNull()?.backdropUrl,null,Modifier.width(82.dp).fillMaxHeight(),contentScale=ContentScale.Crop)
+                                Text(collection.catalogName,color=Color.White,fontSize=13.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=10.dp),maxLines=2)
+                            }
+                        }
+                        "apple" -> PetalixTile(Modifier.width(290.dp).height(112.dp),Color.White,
+                            onClick={collectionTitle=collection.catalogName;query=""}) {
+                            AsyncImage(collection.items.firstOrNull()?.backdropUrl,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black))))
+                            Text(collection.catalogName,color=Color.White,fontSize=18.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.BottomStart).padding(14.dp),maxLines=2)
+                        }
+                        "paramount" -> PetalixTile(Modifier.width(170.dp).height(76.dp),service.accent,
+                            onClick={collectionTitle=collection.catalogName;query=""}) {
+                            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1264E8),Color(0xFF082C73)))))
+                            Text(collection.catalogName,color=Color.White,fontSize=15.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center).padding(12.dp),maxLines=2)
+                        }
+                        "peacock" -> PetalixTile(Modifier.width(190.dp).height(64.dp),service.accent,
+                            onClick={collectionTitle=collection.catalogName;query=""}) {
+                            Box(Modifier.fillMaxSize().background(Color(0xFF202024)))
+                            Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(service.accent))
+                            Text(collection.catalogName,color=Color.White,fontSize=14.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.Center).padding(12.dp),maxLines=2)
+                        }
+                        "tubi" -> PetalixTile(Modifier.width(180.dp).height(86.dp),service.accent,
+                            onClick={collectionTitle=collection.catalogName;query=""}) {
+                            Box(Modifier.fillMaxSize().background(Color(0xFF5721A3)))
+                            Text(collection.catalogName.uppercase(),color=service.accent,fontSize=16.sp,fontWeight=FontWeight.Black,modifier=Modifier.align(Alignment.Center).padding(12.dp),maxLines=2)
+                        }
+                        "pluto" -> PetalixTile(Modifier.width(230.dp).height(72.dp),service.accent,
+                            onClick={collectionTitle=collection.catalogName;query=""}) {
+                            Row(Modifier.fillMaxSize().background(Color(0xFF181818)).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+                                Text("▶",color=service.accent,fontSize=24.sp)
+                                Text(collection.catalogName,color=Color.White,fontSize=14.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(start=12.dp),maxLines=2)
+                            }
+                        }
                         else -> PetalixAction(collection.catalogName,selected=collectionTitle==collection.catalogName,
                             accent=service.accent) {collectionTitle=collection.catalogName;query=""}
                     }
