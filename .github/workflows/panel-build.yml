@@ -10,6 +10,11 @@ on:
         description: 'Recover an already published build without recompiling (panel build ID)'
         required: false
         type: string
+      petalix_only:
+        description: 'Build and publish only the signed Petalix UI2 test APK; STCC is deferred.'
+        required: false
+        default: false
+        type: boolean
       ui2_test:
         description: 'Manual only: build Petalix 2 UI using approved original package and signing via a panel-authorized rebuild ID. Does NOT deploy to customers.'
         required: false
@@ -64,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        brand: [petalix, stcc]
+        brand: ${{ fromJSON(inputs.petalix_only && '["petalix"]' || '["petalix","stcc"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -118,6 +123,7 @@ jobs:
       PANEL_JOB: ${{ needs.claim.outputs.job }}
       GH_TOKEN: ${{ github.token }}
       PETALIX_UI2_TEST: ${{ inputs.ui2_test }}
+      PETALIX_ONLY_TEST: ${{ inputs.petalix_only }}
     steps:
       - uses: actions/checkout@v4
         with:
