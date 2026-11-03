@@ -1,4 +1,4 @@
-# Retry after correcting Bitmap-to-ImageBitmap logo rendering; trusted workflow ba9f245227fd236473c10040869c81171de7e294.
+# Retry with corrected Sports navigation test; trusted workflow fd6ef184286a1ba4e4c3662b5b24a0360aba18d2.
 name: One-time request for original-signing Petalix 2 test build
 
 on:
