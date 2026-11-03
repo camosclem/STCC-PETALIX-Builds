@@ -176,9 +176,9 @@ fun PetalixReferenceLogo(modifier:Modifier=Modifier) {
     # Each service gets an original synthesized focus tone; service-owned audio is not copied.
     if 'ToneGenerator(AudioManager.STREAM_MUSIC' not in text:
         text = once(text, 'import androidx.activity.compose.BackHandler',
-            'import androidx.activity.compose.BackHandler\\nimport android.media.AudioManager\\nimport android.media.ToneGenerator', 'service focus sound imports')
+            'import androidx.activity.compose.BackHandler\nimport android.media.AudioManager\nimport android.media.ToneGenerator', 'service focus sound imports')
         text = once(text, '    var serviceFocused by remember { mutableStateOf(false) }',
-            '    val tone=remember { ToneGenerator(AudioManager.STREAM_MUSIC,35) }\\n    DisposableEffect(tone) { onDispose { tone.release() } }\\n    var serviceFocused by remember { mutableStateOf(false) }',
+            '    val tone=remember { ToneGenerator(AudioManager.STREAM_MUSIC,35) }\n    DisposableEffect(tone) { onDispose { tone.release() } }\n    var serviceFocused by remember { mutableStateOf(false) }',
             'service focus tone lifecycle')
         old_focus = '.onFocusChanged { serviceFocused=it.hasFocus }'
         new_focus = '''.onFocusChanged { state ->
@@ -211,7 +211,7 @@ fun PetalixReferenceLogo(modifier:Modifier=Modifier) {
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(service.background.copy(alpha=.48f),service.background.copy(alpha=.82f),service.background))))
         Column(Modifier.fillMaxSize()) {'''
         text=once(text,old,new,'service full-screen dynamic background')
-        old_end = '    }\\n}\\n\\n/** Import the saved, service-specific queries.'
-        new_end = '    }\\n    }\\n}\\n\\n/** Import the saved, service-specific queries.'
+        old_end = '    }\n}\n\n/** Import the saved, service-specific queries.'
+        new_end = '    }\n    }\n}\n\n/** Import the saved, service-specific queries.'
         text=once(text,old_end,new_end,'service full-screen background container')
     services.write_text(text)
