@@ -35,7 +35,7 @@ class Petalix2CatalogTest {
         assertTrue(PetalixCategoryLaunch.matches("Kids","Children & Family"))
     }
     @Test fun navigationHasMoviesAndShowsWithoutOnDemand() {
-        assertEquals(listOf("Home","Live TV","Movies","TV Shows","Search","Settings"),petalixTabs.map { it.label })
+        assertEquals(listOf("Home","Live TV","Movies","TV Shows","Sports","Search","Settings"),petalixTabs.map { it.label })
         assertEquals(6,petalixTabs.map {it.route}.distinct().size)
     }
 }
