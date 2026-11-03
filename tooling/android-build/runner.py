@@ -69,6 +69,9 @@ def android_tools():
 def sign_and_release():
     item=job();out=pathlib.Path('release');out.mkdir(exist_ok=True)
     ui2=os.environ.get('PETALIX_UI2_TEST')=='true'
+    petalix_only=os.environ.get('PETALIX_ONLY_TEST')=='true'
+    if petalix_only and not ui2:
+        raise RuntimeError('Petalix-only publication requires the authorized UI2 test mode')
     if ui2:
         from home_baseline import UPSTREAM
         if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch':
@@ -89,7 +92,8 @@ def sign_and_release():
     tools=android_tools();artifacts=pathlib.Path('artifacts')
     with tempfile.TemporaryDirectory(prefix='android-signing-') as private:
         key=pathlib.Path(private)/'release.jks';key.write_bytes(base64.b64decode(credentials['key']));key.chmod(0o600)
-        for brand,label,package,offset in [('petalix','Petalix','com.petalix.iptv.preview',0),('stcc','STCC','com.stcc.iptv',1)]:
+        brands=[('petalix','Petalix','com.petalix.iptv.preview',0)] if petalix_only else [('petalix','Petalix','com.petalix.iptv.preview',0),('stcc','STCC','com.stcc.iptv',1)]
+        for brand,label,package,offset in brands:
             number=item['versionCode']+offset;version='1.1.0-'+brand+'.panel'+str(number)
             is_ui2=ui2 and brand=='petalix'
             apk_name=(label+'-UI2-Authorized-Test-'+str(number)+'.apk') if is_ui2 else ((label+'-Seek-Previews-and-Service-Templates-Test.apk') if trial else label+'-'+str(number)+'.apk')
@@ -178,6 +182,12 @@ def sign_and_release():
     if existing.returncode==0:raise RuntimeError('This build release already exists. Verify its state before retrying publication.')
     run(['gh','release','create',tag,'--repo',REPOSITORY,'--title','STCC + Petalix · '+(item['source']['tag'] or item['source']['sha'][:10]),'--notes-file',notes,'--prerelease',*assets])
     release=json.loads(run(['gh','api','repos/'+REPOSITORY+'/releases/tags/'+tag],capture_output=True,text=True).stdout)
+    if petalix_only:
+        # The paired panel request remains incomplete because STCC was explicitly deferred.
+        # Publish the verified Petalix prerelease without offering a customer update.
+        panel('failed',{'id':item['id'],'error':'Petalix-only signed test APK published for manual testing: '+release['html_url']+'. STCC deferred; the paired panel request is not complete.'})
+        print('Petalix signed test APK published: '+release['html_url'],flush=True)
+        return
     panel('complete',{'id':item['id'],'release':release,'metadata':{brand:json.loads((out/(brand+'-release.json')).read_text()) for brand in ['petalix','stcc']}})
     print('Both signed builds were published for review. Customer deployment remains a separate panel action.')
 def recover():
