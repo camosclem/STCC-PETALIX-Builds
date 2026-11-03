@@ -85,7 +85,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: camosclem/STCC-PETALIX-Builds
-          ref: 610061c22b2a0034c08ce417a5886b737160aa31
+          ref: 906bdb444b911b9f5eb105d4f9f9ae37839e1f2f
           path: ui2-sources
           persist-credentials: false
       - name: Android SDK
