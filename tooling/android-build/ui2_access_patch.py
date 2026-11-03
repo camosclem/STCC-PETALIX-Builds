@@ -215,3 +215,64 @@ fun PetalixReferenceLogo(modifier:Modifier=Modifier) {
         new_end = '    }\n    }\n}\n\n/** Import the saved, service-specific queries.'
         text=once(text,old_end,new_end,'service full-screen background container')
     services.write_text(text)
+
+    # Distinct service browsing structures backed by each service's actual filtered rows.
+    text = services.read_text()
+    text=once(text,'    val hero=visible.firstOrNull()', '''    var featureIndex by rememberSaveable(service.id) { mutableStateOf(0) }
+    LaunchedEffect(query,kind,collectionTitle) { featureIndex=0 }
+    val hero=visible.getOrNull(featureIndex.coerceIn(0,(visible.size-1).coerceAtLeast(0)))''','service featured selection')
+    marker='        LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(bottom=30.dp),verticalArrangement=Arrangement.spacedBy(22.dp)) {'
+    replacement='''        // These destinations use real provider-filtered collections and retain their titles.
+        if(query.isBlank() && state.rows.isNotEmpty()) {
+            val collectionHeight=when(service.style) {
+                "disney"->76.dp
+                "apple"->54.dp
+                "max"->88.dp
+                "hulu"->60.dp
+                else->48.dp
+            }
+            LazyRow(contentPadding=PaddingValues(horizontal=26.dp,vertical=8.dp),
+                horizontalArrangement=Arrangement.spacedBy(if(service.style=="hulu")18.dp else 10.dp),
+                modifier=Modifier.focusRestorer()) {
+                items(state.rows,key={it.catalogName}) { collection ->
+                    when(service.style) {
+                        "disney","max" -> PetalixTile(Modifier.width(if(service.style=="max")230.dp else 175.dp).height(collectionHeight),
+                            service.accent,onClick={collectionTitle=collection.catalogName;query=""}) {
+                            AsyncImage(collection.items.firstOrNull()?.backdropUrl,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,service.background.copy(alpha=.95f)))))
+                            Text(collection.catalogName,color=Color.White,fontWeight=FontWeight.Bold,fontSize=14.sp,
+                                modifier=Modifier.align(Alignment.BottomStart).padding(12.dp),maxLines=2)
+                        }
+                        "hulu" -> PetalixTile(Modifier.width(190.dp).height(collectionHeight),service.accent,
+                            onClick={collectionTitle=collection.catalogName;query=""}) {
+                            Box(Modifier.fillMaxSize().background(service.accent.copy(alpha=.15f)))
+                            Text(collection.catalogName.uppercase(),color=service.accent,fontWeight=FontWeight.Black,fontSize=13.sp,
+                                modifier=Modifier.align(Alignment.Center).padding(12.dp),maxLines=2)
+                        }
+                        else -> PetalixAction(collection.catalogName,selected=collectionTitle==collection.catalogName,
+                            accent=service.accent) {collectionTitle=collection.catalogName;query=""}
+                    }
+                }
+            }
+        }
+        if(collectionTitle!=null) {
+            Row(Modifier.padding(horizontal=26.dp),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
+                PetalixAction("All collections",accent=service.accent) {collectionTitle=null}
+                Text(collectionTitle.orEmpty(),color=Color.White,fontSize=16.sp,fontWeight=FontWeight.Bold)
+            }
+        }
+''' + marker
+    text=once(text,marker,replacement,'service collection destinations')
+    marker='                        if(hero!=null)PetalixAction("View Details",accent=service.accent) { onDetail(hero.id,hero.apiType,hero.sourceAddonBaseUrl.orEmpty()) }'
+    replacement='''                        if(hero!=null) {
+                            Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
+                                PetalixAction("View Details",accent=service.accent) { onDetail(hero.id,hero.apiType,hero.sourceAddonBaseUrl.orEmpty()) }
+                                if(visible.size>1) {
+                                    PetalixAction("Previous",accent=service.accent) {featureIndex=(featureIndex-1+visible.size)%visible.size}
+                                    Text("${featureIndex+1} / ${visible.size}",color=Color.White,fontSize=12.sp)
+                                    PetalixAction("Next",accent=service.accent) {featureIndex=(featureIndex+1)%visible.size}
+                                }
+                            }
+                        }'''
+    text=once(text,marker,replacement,'featured carousel controls')
+    services.write_text(text)
