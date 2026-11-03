@@ -1,5 +1,7 @@
 """Petalix test UI polish: Sports route, animated tiles, dynamic art and focus trailers."""
 from pathlib import Path
+import hashlib
+import shutil
 
 
 def once(text, old, new, label):
@@ -85,6 +87,43 @@ fun MetadataTile(meta:MetaPreview,accent:Color=PetalixBlue,landscape:Boolean=fal
 }'''
         text = once(text, old, new, 'metadata tile trailer preview')
         home.write_text(text)
+
+    # Use the exact Petalix wordmark already approved for the panel branding.
+    logo = Path(__file__).with_name('petalix_metallic_logo.png')
+    if hashlib.sha256(logo.read_bytes()).hexdigest() != 'ef789202dbef793eadc6af20840f4beeed241802bbf0167a756ed1e92264a30f':
+        raise RuntimeError('The Petalix panel logo checksum does not match')
+    resources = Path(work) / 'app/src/main/res'
+    (resources / 'drawable-nodpi').mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(logo, resources / 'drawable-nodpi/petalix_panel_logo.png')
+    for target in (resources / 'drawable').glob('app_logo_wordmark*.png'):
+        shutil.copyfile(logo, target)
+    logo_home = root / 'Petalix2Home.kt'
+    logo_text = logo_home.read_text()
+    old_logo = '''@Composable
+fun PetalixReferenceLogo(modifier:Modifier=Modifier) {
+    val context=LocalContext.current
+    val bitmap=remember(context) { PetalixReference.bitmap(context) }
+    Canvas(modifier.semantics {contentDescription="Petalix"}) {
+        val height=(size.width*42/285).toInt()
+        drawImage(bitmap,srcOffset=IntOffset(37,32),srcSize=IntSize(285,42),dstOffset=IntOffset(0,(size.height.toInt()-height)/2),dstSize=IntSize(size.width.toInt(),height),filterQuality=FilterQuality.High)
+    }
+}'''
+    new_logo = '''@Composable
+fun PetalixReferenceLogo(modifier:Modifier=Modifier) {
+    val context=LocalContext.current
+    val logoId=remember(context) { context.resources.getIdentifier("petalix_panel_logo","drawable",context.packageName) }
+    val bitmap=remember(context,logoId) { BitmapFactory.decodeResource(context.resources,logoId) }
+    Canvas(modifier.semantics {contentDescription="Petalix"}) {
+        bitmap?.let { image ->
+            val scale=minOf(size.width/image.width,size.height/image.height)
+            val width=(image.width*scale).toInt()
+            val height=(image.height*scale).toInt()
+            drawImage(image,dstOffset=IntOffset((size.width.toInt()-width)/2,(size.height.toInt()-height)/2),dstSize=IntSize(width,height),filterQuality=FilterQuality.High)
+        }
+    }
+}'''
+    logo_text = once(logo_text, old_logo, new_logo, 'use approved panel Petalix logo in top navigation')
+    logo_home.write_text(logo_text)
 
     services = root / 'Petalix2Services.kt'
     text = services.read_text()
