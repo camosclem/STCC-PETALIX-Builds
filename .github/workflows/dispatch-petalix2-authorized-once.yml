@@ -1,5 +1,5 @@
-# Retry with corrected Sports navigation test; trusted workflow fd6ef184286a1ba4e4c3662b5b24a0360aba18d2.
-name: One-time request for original-signing Petalix 2 test build
+# Request the combined Petalix UI and STCC/Petalix splash test build.
+name: Request Petalix motion and branded splash test build
 
 on:
   push:
@@ -22,15 +22,17 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = "camosclem/STCC-PETALIX-Builds"
-          gh api "repos/$GITHUB_REPOSITORY/contents/tooling/android-build/petalix_ui2_patch.py?ref=main" --jq '.sha' > /tmp/ui2-source.sha
-          test -s /tmp/ui2-source.sha
-          echo "Found approved Petalix 2 source adapter on the production pipeline branch."
+          TEST_REF="fix/petalix-motion-splash-test"
+          gh api "repos/$GITHUB_REPOSITORY/contents/tooling/android-build/petalix_ui2_patch.py?ref=$TEST_REF" --jq '.sha' > /tmp/ui2-source.sha
+          gh api "repos/$GITHUB_REPOSITORY/contents/tooling/android-build/splash_screen_patch.py?ref=$TEST_REF" --jq '.sha' > /tmp/splash-source.sha
+          test -s /tmp/ui2-source.sha && test -s /tmp/splash-source.sha
+          echo "Found the combined Petalix motion and shared STCC/Petalix splash source on the test branch."
       - name: Request one explicit authorized *test* rebuild
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref main \
+          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref fix/petalix-motion-splash-test \
             -f rebuild_build=a169ba3b-3792-473a-8b3a-b0ade721fdd9 \
             -f ui2_test=true
-          echo 'Authorized test rebuild was requested. Backend still must grant a build job and signing credentials.'
+          echo 'Test-only build request submitted. Signing remains controlled by the repository's existing Android-signing environment.'
