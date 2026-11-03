@@ -1,4 +1,4 @@
-# Final retry after stale build state cleanup; trusted workflow da6114849a1607149def32c92b06b02b0927e961.
+# Retry after correcting Bitmap-to-ImageBitmap logo rendering; trusted workflow ba9f245227fd236473c10040869c81171de7e294.
 name: One-time request for original-signing Petalix 2 test build
 
 on:
