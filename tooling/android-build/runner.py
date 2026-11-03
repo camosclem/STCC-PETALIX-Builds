@@ -4,6 +4,25 @@ import base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile
 ORIGIN='https://petalix-control.caroliinaconsultant.chatgpt.site'
 REPOSITORY=os.environ.get('GITHUB_REPOSITORY','')
 CERTIFICATE='b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1'
+MOTION_CUE_HASHES={
+ 'apple':'7ec46ef15537e2cf99504e6be1da26a9042a8eb08399c7f0d60ee44d91e5294f',
+ 'disney':'88a28a203d198b97ec46055d41ee8b4421f3aa3a869b414604f7975c40b28cf5',
+ 'hulu':'9884d2affac093df38beaa3e9057ffcb2e6f9ca6370359389e58efd6ef1b3867',
+ 'max':'ce346527a559a40bc4aa7a2f16edff9a5f3816f4235db5453f73ac92c0fd97be',
+ 'netflix':'c4536bf9a579e61980d075d9922dcd3f19fbc126f86ca0f911813bf1caad6a10',
+ 'paramount':'e76651a621686098a986517098f362589a4dddb363fc88dd8ef67d859e395d8f',
+ 'peacock':'90cad95244fd2a602c3805cda6a36d594c035641959b8fa384c42f721a7661ba',
+ 'pluto':'95dd9ad10047b04e4f407e519870909ee614c5ee84251896e4386cdfb70e80a6',
+ 'prime':'a79723a41aa9c9d4e2171e653bae234924ceedaebf8772873d7f0ff64d5a7bc9',
+ 'startup':'b505382dbe7d6f55cb326584f707ece451331aa9698c0c08dcb5a4e59d12c74d',
+ 'tubi':'2010103a57fbb6daccabb890f13b83d07dc6627a9c7522e27ac155484389febf',
+}
+def verify_motion_audio(archive):
+    # Android's resource optimizer shortens paths (e.g. res/4b.wav).
+    # Verify every original cue's actual bytes instead of assuming its ZIP path.
+    hashes={hashlib.sha256(archive.read(name)).hexdigest() for name in archive.namelist() if name.endswith('.wav')}
+    for cue,digest in MOTION_CUE_HASHES.items():
+        if digest not in hashes:raise RuntimeError('Packaged Petalix sound cue missing or changed: '+cue)
 def verify_certificate(output):
     # New apksigner versions prefix signer lines with the Android SDK range.
     digests=set(re.findall(r'certificate SHA-256 digest:\s*([a-f0-9]{64})\b',output,re.I))
@@ -121,12 +140,10 @@ def sign_and_release():
                 if not home and not is_ui2 and not any(b'home-services-first-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Streaming Services first-row capability missing')
                 if is_ui2:
                     dex_files=[n for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)]
-                    for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2']:
+                    for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2',b'petalix-distinct-service-layouts-v3']:
                         if not any(marker in z.read(n) for n in dex_files):
                             raise RuntimeError('Visible Petalix motion capability missing: '+marker.decode())
-                    for cue in ['netflix','prime','hulu','disney','max','paramount','apple','peacock','tubi','pluto','startup']:
-                        if 'res/raw/petalix_cue_'+cue+'.wav' not in z.namelist():
-                            raise RuntimeError('Packaged Petalix sound cue missing: '+cue)
+                    verify_motion_audio(z)
                     from petalix_ui2_patch import AUTHORIZED_PACKAGE
                     if package != AUTHORIZED_PACKAGE:
                         raise RuntimeError('Petalix 2 was not built with the original approved package')
