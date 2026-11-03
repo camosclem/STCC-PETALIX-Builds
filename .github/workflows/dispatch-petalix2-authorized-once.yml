@@ -1,4 +1,4 @@
-# Request corrected Petalix dynamic artwork, focus-trailer, and landscape test build; trusted workflow 02298e0d9608686eea151ca43fe18f8b1fce6f6b.
+# Retry corrected Petalix UI2 test build after reporting the stopped run failed; trusted workflow 02298e0d9608686eea151ca43fe18f8b1fce6f6b.
 name: One-time request for original-signing Petalix 2 test build
 
 on:
