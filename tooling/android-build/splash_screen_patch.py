@@ -15,8 +15,8 @@ def apply(work, brand):
     text = path.read_text()
     if "petalixStartupPulse" in text:
         return
-    text = once(text, "import androidx.compose.runtime.Composable\\nimport androidx.compose.runtime.getValue",
-        "import androidx.compose.animation.core.RepeatMode\nimport androidx.compose.animation.core.animateFloat\nimport androidx.compose.animation.core.infiniteRepeatable\nimport androidx.compose.animation.core.rememberInfiniteTransition\nimport androidx.compose.animation.core.tween\nimport androidx.compose.foundation.shape.CircleShape\nimport androidx.compose.runtime.Composable",
+    text = once(text, "import androidx.compose.runtime.Composable",
+        "import androidx.compose.animation.core.RepeatMode\nimport androidx.compose.animation.core.animateFloat\nimport androidx.compose.animation.core.infiniteRepeatable\nimport androidx.compose.animation.core.rememberInfiniteTransition\nimport androidx.compose.animation.core.tween\nimport androidx.compose.foundation.shape.CircleShape\nimport androidx.compose.runtime.Composable\nimport androidx.compose.runtime.getValue",
         "animated startup imports")
     text = once(text, "    val avatarColor = remember(profileColorHex) {",
         """    val isStcc = com.nuvio.tv.livetv.branding.LiveTvBranding.APP_NAME.contains("STCC", ignoreCase = true)
