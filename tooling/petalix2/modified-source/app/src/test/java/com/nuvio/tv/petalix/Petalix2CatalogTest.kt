@@ -36,6 +36,6 @@ class Petalix2CatalogTest {
     }
     @Test fun navigationHasMoviesAndShowsWithoutOnDemand() {
         assertEquals(listOf("Home","Live TV","Movies","TV Shows","Sports","Search","Settings"),petalixTabs.map { it.label })
-        assertEquals(6,petalixTabs.map {it.route}.distinct().size)
+        assertEquals(7,petalixTabs.map {it.route}.distinct().size)
     }
 }
