@@ -22,7 +22,7 @@ on:
     - cron: '3-59/5 * * * *'
 concurrency:
   group: stcc-petalix-panel-build
-  cancel-in-progress: false
+  cancel-in-progress: true # temporary to clear the stalled Petalix test run
 permissions: {}
 jobs:
   claim:
