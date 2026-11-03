@@ -161,3 +161,68 @@ fun PetalixReferenceLogo(modifier:Modifier=Modifier) {
             '                    Crossfade(targetState=focusedArtwork ?: hero?.backdropUrl,modifier=Modifier.fillMaxSize(),label=\"serviceBackdrop\") { art -> AsyncImage(art,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop) }',
             'service artwork crossfade')
         services.write_text(text)
+
+    # Petalix premium service polish: cinematic full-screen artwork, landscape cards,
+    # larger animated service tiles, and original service-specific focus tones.
+    text = services.read_text()
+    replacements = [
+        ('modifier.width(112.dp).height(50.dp)', 'modifier.width(148.dp).height(74.dp)'),
+        ('landscape=service.style=="apple"', 'landscape=true'),
+        ('landscape=service.style in listOf("prime","apple","peacock","pluto") || (service.style=="hulu" && index==0) || (service.style=="max" && index%2==0)', 'landscape=true'),
+    ]
+    for old, new in replacements:
+        if old in text:
+            text = text.replace(old, new)
+    # Each service gets an original focus tone; no proprietary service audio is copied.
+    if 'ToneGenerator(AudioManager.STREAM_MUSIC' not in text:
+        text = once(text, 'import androidx.activity.compose.BackHandler',
+            'import androidx.activity.compose.BackHandler\\nimport android.media.AudioManager\\nimport android.media.ToneGenerator', 'service focus sound imports')
+        old = '''fun ServiceTile(service:PetalixService,modifier:Modifier=Modifier,onClick:()->Unit) {
+    PetalixTile(modifier.width(148.dp).height(74.dp).semantics { contentDescription=service.name },PetalixBlue,onClick) {'''
+        new = '''fun ServiceTile(service:PetalixService,modifier:Modifier=Modifier,onClick:()->Unit) {
+    val tone=remember { ToneGenerator(AudioManager.STREAM_MUSIC,35) }
+    DisposableEffect(tone) { onDispose { tone.release() } }
+    var serviceFocused by remember { mutableStateOf(false) }
+    val serviceFocusScale by animateFloatAsState(if(serviceFocused)1.075f else 1f,tween(190),label="serviceFocusScale")
+    val glowTransition=rememberInfiniteTransition(label="serviceFocusGlow")
+    val glowAlpha by glowTransition.animateFloat(.25f,.9f,infiniteRepeatable(tween(850),RepeatMode.Reverse),label="serviceFocusGlowAlpha")
+    PetalixTile(modifier.width(148.dp).height(74.dp)
+        .graphicsLayer { scaleX=serviceFocusScale;scaleY=serviceFocusScale }
+        .onFocusChanged { state ->
+            val gained=state.isFocused && !serviceFocused
+            serviceFocused=state.isFocused
+            if(gained) {
+                val cue=when(service.id) {
+                    "netflix"->ToneGenerator.TONE_PROP_ACK
+                    "disney"->ToneGenerator.TONE_PROP_BEEP
+                    "prime"->ToneGenerator.TONE_PROP_PROMPT
+                    "hulu"->ToneGenerator.TONE_PROP_NACK
+                    "max"->ToneGenerator.TONE_PROP_BEEP2
+                    "paramount"->ToneGenerator.TONE_PROP_ACK
+                    "apple"->ToneGenerator.TONE_PROP_PROMPT
+                    "peacock"->ToneGenerator.TONE_PROP_NACK
+                    "tubi"->ToneGenerator.TONE_PROP_BEEP
+                    else->ToneGenerator.TONE_PROP_BEEP2
+                }
+                runCatching { tone.startTone(cue,95) }
+            }
+        }
+        .border(2.dp,service.accent.copy(alpha=if(serviceFocused)glowAlpha else 0f),RoundedCornerShape(10.dp))
+        .semantics { contentDescription=service.name },service.accent,onClick) {'''
+        if old not in text:
+            raise RuntimeError('Service tile insertion point changed')
+        text=text.replace(old,new,1)
+    # Put focused title artwork behind the entire service browsing experience.
+    if 'serviceBackdropFullScreen' not in text:
+        old = '    Column(Modifier.fillMaxSize().background(service.background)) {'
+        new = '''    Box(Modifier.fillMaxSize().background(service.background)) {
+        androidx.compose.animation.Crossfade(targetState=focusedArtwork ?: hero?.backdropUrl,label="serviceBackdropFullScreen") { art ->
+            AsyncImage(art,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+        }
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(service.background.copy(alpha=.48f),service.background.copy(alpha=.82f),service.background))))
+        Column(Modifier.fillMaxSize()) {'''
+        text=once(text,old,new,'service full-screen dynamic background')
+        old_end = '    }\\n}\\n\\n/** Import the saved, service-specific queries.'
+        new_end = '    }\\n    }\\n}\\n\\n/** Import the saved, service-specific queries.'
+        text=once(text,old_end,new_end,'service full-screen background container')
+    services.write_text(text)
