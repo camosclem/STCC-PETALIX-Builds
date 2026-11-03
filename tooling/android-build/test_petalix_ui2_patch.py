@@ -1,6 +1,9 @@
 import pathlib
 import tempfile
 import unittest
+import os
+from unittest.mock import patch
+import runner
 from petalix_ui2_patch import patch_authorized_identity, AUTHORIZED_PACKAGE
 
 class AuthorizedUi2Tests(unittest.TestCase):
@@ -51,5 +54,32 @@ class AuthorizedUi2Tests(unittest.TestCase):
             'com.petalix.iptv.ui2test','com.somebody.else'))
         with self.assertRaisesRegex(RuntimeError,"application ID"):
             patch_authorized_identity(self.tmp.name,1793236988,'1.1.0-petalix.panel1793236988')
+
+class AuthorizedUi2ClaimTests(unittest.TestCase):
+    def claim_with_job(self, value):
+        with tempfile.TemporaryDirectory() as directory:
+            output = pathlib.Path(directory) / 'github-output'
+            environment = {
+                'PETALIX_UI2_TEST':'true',
+                'REBUILD_BUILD_ID':'a169ba3b-3792-473a-8b3a-b0ade721fdd9',
+                'GITHUB_EVENT_NAME':'workflow_dispatch',
+                'GITHUB_OUTPUT':str(output),
+            }
+            with patch.dict(os.environ,environment), patch.object(runner.pathlib.Path,'exists',return_value=False), patch.object(runner,'panel',side_effect=[{'id':'test-job'},{'job':value}]) as panel:
+                runner.claim()
+                return panel.call_args_list,output.read_text()
+
+    def test_requests_separate_ui2_recipe(self):
+        calls,output=self.claim_with_job({'id':'test-job','recipeRevision':'petalix2-fullscreen-test-v1'})
+        self.assertEqual(calls[0].args,('rebuild',{'id':'a169ba3b-3792-473a-8b3a-b0ade721fdd9','ui2Test':True}))
+        self.assertIn('has_job=true',output)
+
+    def test_refuses_missing_test_job(self):
+        with self.assertRaisesRegex(RuntimeError,'did not authorize'):
+            self.claim_with_job(None)
+
+    def test_refuses_unrelated_classic_recipe(self):
+        with self.assertRaisesRegex(RuntimeError,'different build recipe'):
+            self.claim_with_job({'id':'classic-job','recipeRevision':'service-hubs-pengu-panel-v1'})
 
 if __name__=='__main__':unittest.main()

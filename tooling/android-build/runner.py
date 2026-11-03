@@ -36,10 +36,12 @@ def claim():
         raise RuntimeError('Petalix 2 UI can only use an explicitly authorized manual panel rebuild ID')
     if rebuild:
         if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch' or not re.fullmatch(r'[a-f0-9-]{36}',rebuild):raise RuntimeError('Choose a valid finished panel build for a manual rebuild.')
-        panel('rebuild',{'id':rebuild})
+        panel('rebuild',{'id':rebuild,**({'ui2Test':True} if os.environ.get('PETALIX_UI2_TEST')=='true' else {})})
     value=panel('claim',{})['job']
     if os.environ.get('PETALIX_UI2_TEST')=='true' and not value:
         raise RuntimeError('The Petalix Control server did not authorize a rebuild job; no APK was signed.')
+    if os.environ.get('PETALIX_UI2_TEST')=='true' and value.get('recipeRevision')!='petalix2-fullscreen-test-v1':
+        raise RuntimeError('The panel returned a different build recipe; no Petalix 2 APK was signed.')
     with open(os.environ['GITHUB_OUTPUT'],'a') as output:
         output.write('has_job='+('true' if value else 'false')+'\n')
         output.write('job='+json.dumps(value,separators=(',',':'))+'\n')
