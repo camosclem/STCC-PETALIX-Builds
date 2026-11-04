@@ -1,4 +1,4 @@
-# Home focus media, eight service tiles, post-PIN ZIP and Freeplay guide, source 974010bf651226da34a7db411e94219b687e4907
+# Eight service regression check aligned; Freeplay guide and ZIP onboarding, source a62d39fc3b7ba3e32a9a370c43fdcf0cc2ef8df4
 name: Request Petalix-only signed test APK
 on:
   push:
