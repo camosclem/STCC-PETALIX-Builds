@@ -140,7 +140,7 @@ def sign_and_release():
                 if not home and not is_ui2 and not any(b'home-services-first-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Streaming Services first-row capability missing')
                 if is_ui2:
                     dex_files=[n for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)]
-                    for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2',b'petalix-distinct-service-layouts-v3',b'petalix-locals-v1']:
+                    for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2',b'petalix-distinct-service-layouts-v3',b'petalix-markets-v2']:
                         if not any(marker in z.read(n) for n in dex_files):
                             raise RuntimeError('Visible Petalix motion capability missing: '+marker.decode())
                     verify_motion_audio(z)
