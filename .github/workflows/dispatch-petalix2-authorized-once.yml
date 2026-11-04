@@ -1,4 +1,4 @@
-# Distinct service experiences plus visible motion and audio, source 4cfedfa013721eb41648565a17227495b626d4ae
+# Service-scoped remote search and service-owned title and episode flows, source de1d9875338daa42a0ccb8fe695856cc8a5aafa7
 name: Request Petalix-only signed test APK
 on:
   push:
