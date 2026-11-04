@@ -50,6 +50,7 @@ private data class HubPage(
 fun DistinctPetalixServiceScreen(onHome: () -> Unit, onDetail: (String,String,String) -> Unit,
     viewModel: PetalixServiceViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val searchState by viewModel.searchState.collectAsStateWithLifecycle()
     val service = viewModel.service
     if(service==null) {
         Column(Modifier.padding(28.dp)) {
@@ -68,9 +69,9 @@ fun DistinctPetalixServiceScreen(onHome: () -> Unit, onDetail: (String,String,St
     var featured by rememberSaveable(service.id) { mutableStateOf(0) }
     val searchFocus = remember { FocusRequester() }
     val all = state.rows.flatMap { it.items }.distinctBy { "${it.apiType}:${it.id}" }
-    val visible = (collection?.let { title -> state.rows.firstOrNull { it.catalogName==title }?.items } ?: all)
+    val visible = (if(search && query.isNotBlank()) searchState.items else (collection?.let { title -> state.rows.firstOrNull { it.catalogName==title }?.items } ?: all))
         .filter { (view!=HubView.MOVIES || it.type==ContentType.MOVIE) &&
-            (view!=HubView.SERIES || it.type==ContentType.SERIES) && it.name.contains(query,true) }
+            (view!=HubView.SERIES || it.type==ContentType.SERIES) }
     val hero = all.getOrNull(featured.coerceIn(0,(all.size-1).coerceAtLeast(0)))
     val page = HubPage(service,state.rows,hero,
         open={ onDetail(it.id,it.apiType,it.sourceAddonBaseUrl.orEmpty()) },
@@ -79,8 +80,10 @@ fun DistinctPetalixServiceScreen(onHome: () -> Unit, onDetail: (String,String,St
     LaunchedEffect(service.id) {
         android.util.Log.i("PetalixServices", "petalix-distinct-service-layouts-v3")
         PetalixServiceAudio.prepare(context)
+        android.util.Log.i("PetalixServices","petalix-service-experience-v4")
     }
     LaunchedEffect(hero?.id) { trailerVm.setFocusedBackdrop(hero?.backdropUrl) }
+    LaunchedEffect(query,search) { viewModel.search(if(search)query else "") }
     LaunchedEffect(search) { if(search) { withFrameNanos{}; runCatching {searchFocus.requestFocus()} } }
     BackHandler {
         when {
@@ -90,22 +93,25 @@ fun DistinctPetalixServiceScreen(onHome: () -> Unit, onDetail: (String,String,St
             else -> onHome()
         }
     }
-    Box(Modifier.fillMaxSize().background(service.background).onPreviewKeyEvent {
-        if(it.type==KeyEventType.KeyDown && it.key in listOf(Key.DirectionLeft,Key.DirectionRight,Key.DirectionUp,Key.DirectionDown))
-            PetalixServiceAudio.play(context,service.id)
-        false
-    }) {
+    Box(Modifier.fillMaxSize().background(service.background)) {
         Crossfade(focusedArt ?: hero?.backdropUrl,label="distinctServiceAmbient") { art ->
             AsyncImage(art,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop,alpha=.28f)
         }
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(service.background.copy(alpha=.76f),service.background))))
         Column(Modifier.fillMaxSize()) {
-            HubNavigation(service,view,onHome,{ view=it; collection=null; search=false; query="" },{search=!search})
+            HubNavigation(service,view,onHome,{ view=it; collection=null; search=false; query="" },{search=!search;view=HubView.HOME;collection=null})
             if(search) OutlinedTextField(query,{query=it},singleLine=true,
-                label={androidx.compose.material3.Text("Search ${service.name}'s loaded catalog")},
+                label={androidx.compose.material3.Text("Search ${service.name}")},
                 modifier=Modifier.fillMaxWidth().padding(horizontal=28.dp,vertical=8.dp).focusRequester(searchFocus),
                 colors=TextFieldDefaults.colors(focusedTextColor=Color.White,unfocusedTextColor=Color.White,
                     focusedContainerColor=service.background,unfocusedContainerColor=service.background))
+            if(search && searchState.loading)Text("Searching ${service.name}…",color=service.accent,modifier=Modifier.padding(horizontal=28.dp,vertical=8.dp))
+            searchState.error?.takeIf { search }?.let { error ->
+                Row(Modifier.padding(horizontal=28.dp),verticalAlignment=Alignment.CenterVertically) {
+                    Text(error,color=Color.White,modifier=Modifier.weight(1f),fontSize=12.sp)
+                    PetalixAction("Retry search",accent=service.accent){viewModel.search(query)}
+                }
+            }
             if(state.loading && all.isEmpty()) Text("Loading ${service.name}…",color=Color.White,modifier=Modifier.padding(28.dp))
             if(state.error!=null) Row(Modifier.padding(horizontal=28.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 Text(state.error.orEmpty(),color=Color.White,modifier=Modifier.weight(1f),fontSize=12.sp)
@@ -115,7 +121,7 @@ fun DistinctPetalixServiceScreen(onHome: () -> Unit, onDetail: (String,String,St
                 when {
                     view==HubView.COLLECTIONS && collection==null && !search -> HubCollectionBrowser(page)
                     search || view!=HubView.HOME || collection!=null -> HubResults(page,visible,
-                        collection ?: if(search) "${visible.size} matches in loaded catalog" else if(view==HubView.MOVIES) "Movies" else "TV Shows")
+                        collection ?: if(search) if(query.isBlank())"Explore ${service.name}" else if(visible.isEmpty() && !searchState.loading)"No verified matches. Try another title or load the next page." else "${visible.size} results on ${service.name}" else if(view==HubView.MOVIES) "Movies" else "TV Shows")
                     service.id=="netflix" -> NetflixLanding(page)
                     service.id=="disney" -> DisneyLanding(page)
                     service.id=="prime" -> PrimeLanding(page)
@@ -128,9 +134,11 @@ fun DistinctPetalixServiceScreen(onHome: () -> Unit, onDetail: (String,String,St
                     else -> PlutoLanding(page)
                 }
             }
-            if(state.more && !state.loading) PetalixAction("Load more ${service.name}",accent=service.accent,
+            if(search && query.isNotBlank() && searchState.more && !searchState.loading)PetalixAction("More search results",accent=service.accent,
+                modifier=Modifier.padding(start=28.dp,top=4.dp,bottom=4.dp)){viewModel.search(query,true)}
+            if(!search && state.more && !state.loading) PetalixAction("Load more ${service.name}",accent=service.accent,
                 modifier=Modifier.padding(start=28.dp,top=4.dp,bottom=4.dp)){viewModel.load(true)}
-            Text("US service catalog • Playback through your authorized sources • Independent Petalix experience",
+            Text("US availability: JustWatch via TMDB • Playback through your configured sources",
                 color=Color(0xFF9BAABE),fontSize=9.sp,modifier=Modifier.padding(horizontal=28.dp,vertical=4.dp))
         }
     }
@@ -162,7 +170,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
     }
 }
 
-@Composable private fun HubWordmark(s:PetalixService,width:Int=132) {
+@Composable internal fun HubWordmark(s:PetalixService,width:Int=132) {
     if(s.id=="pluto")Text("pluto tv",fontWeight=FontWeight.Black,fontSize=26.sp,color=s.accent)
     else ServiceArtwork(s.id,Modifier.width(width.dp).height(40.dp))
 }
