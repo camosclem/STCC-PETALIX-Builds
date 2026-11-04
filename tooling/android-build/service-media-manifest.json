@@ -1,0 +1,62 @@
+{
+  "sourceRepository": "PacerguyDon/networks-video-collection",
+  "sourceCommit": "c5802b081ccc945bbac8d74621c687e711627ce2",
+  "media": {
+    "netflix": {
+      "url": "https://raw.githubusercontent.com/PacerguyDon/networks-video-collection/c5802b081ccc945bbac8d74621c687e711627ce2/networks%20videos/netflix.mp4",
+      "sha256": "86aa66c24236fe66a0abc6e36aa4ae61101fd8f254e2415b93c382e5f134da63",
+      "size": 550764,
+      "duration": 4.133152,
+      "hasAudio": true
+    },
+    "disney": {
+      "url": "https://raw.githubusercontent.com/PacerguyDon/networks-video-collection/c5802b081ccc945bbac8d74621c687e711627ce2/networks%20videos/disneyplus.mp4",
+      "sha256": "84d648a11d56336c4e5835c508b7589c2a3695c021bcde8b95585e6e1c2404d5",
+      "size": 368011,
+      "duration": 6.315828,
+      "hasAudio": true
+    },
+    "prime": {
+      "url": "https://raw.githubusercontent.com/PacerguyDon/networks-video-collection/c5802b081ccc945bbac8d74621c687e711627ce2/networks%20videos/amazonprime.mp4",
+      "sha256": "740aaa0645b9a4d48478fb05eb599451d9ea6e2aae9d452359739b30c21668de",
+      "size": 1024773,
+      "duration": 6.060408,
+      "hasAudio": true
+    },
+    "hulu": {
+      "url": "https://raw.githubusercontent.com/PacerguyDon/networks-video-collection/c5802b081ccc945bbac8d74621c687e711627ce2/networks%20videos/hulu.mp4",
+      "sha256": "9c1957c92feb35643eb9915e8b439e0c5aa8f5a0fcf6c8845f7a93aca5a0e25e",
+      "size": 684508,
+      "duration": 5.06195,
+      "hasAudio": true
+    },
+    "max": {
+      "url": "https://raw.githubusercontent.com/PacerguyDon/networks-video-collection/c5802b081ccc945bbac8d74621c687e711627ce2/networks%20videos/hbomax.mp4",
+      "sha256": "54998a1c67939d9d0bfb68b58dd624528b7cdda782bcc363038c3d40e2e5fffe",
+      "size": 419252,
+      "duration": 4.109932,
+      "hasAudio": true
+    },
+    "paramount": {
+      "url": "https://raw.githubusercontent.com/PacerguyDon/networks-video-collection/c5802b081ccc945bbac8d74621c687e711627ce2/networks%20videos/paramount.mp4",
+      "sha256": "324f68ded5eed67e78d6c9ab71cd257ca8dcfa209b95bc20d854904f8c5cb6e1",
+      "size": 750089,
+      "duration": 5.27093,
+      "hasAudio": true
+    },
+    "apple": {
+      "url": "https://raw.githubusercontent.com/PacerguyDon/networks-video-collection/c5802b081ccc945bbac8d74621c687e711627ce2/networks%20videos/appletv.mp4",
+      "sha256": "1f74719bbcd5a37a0ea0886db43286ca42c7a95e5a09a41ef718e403408967cf",
+      "size": 686981,
+      "duration": 5.06195,
+      "hasAudio": true
+    },
+    "peacock": {
+      "url": "https://raw.githubusercontent.com/cyb3rgh05t/networks-video-collection/afacc40e5ab7202219749aaec497c5a4bdf3e27b/videos/networks%20videos/peacock.mp4",
+      "sha256": "25ad2e89728568298865bca9c5f9b48a7e4bec310f1762a49ed974157a3d9176",
+      "size": 805057,
+      "duration": 8.684263,
+      "hasAudio": true
+    }
+  }
+}
