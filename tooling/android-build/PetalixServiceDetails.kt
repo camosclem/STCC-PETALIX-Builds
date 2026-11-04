@@ -32,15 +32,25 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
     val playFocus=remember { FocusRequester() }
     var lastEpisode by rememberSaveable(meta.id) { mutableStateOf<String?>(null) }
     val episodeFocus=remember { FocusRequester() }
+    val listState=rememberLazyListState()
+    var didFocus by remember { mutableStateOf(false) }
     val restore=state.episodesForSeason.firstOrNull { it.season==returnSeason && it.episode==returnEpisode }
         ?: state.episodesForSeason.firstOrNull { it.id==lastEpisode }
     LaunchedEffect(returnSeason) {
         returnSeason?.takeIf { it in state.seasons && it!=state.selectedSeason }?.let(onSeason)
     }
     LaunchedEffect(meta.id,restore?.id) {
-        withFrameNanos{}
-        runCatching { if(restore!=null)episodeFocus.requestFocus() else playFocus.requestFocus() }
-        if(restore!=null)onReturnConsumed()
+        if(restore!=null) {
+            val vertical=service.id in setOf("netflix","prime","tubi")
+            listState.scrollToItem(if(vertical)4+state.episodesForSeason.indexOf(restore) else 4)
+            withFrameNanos{}
+            runCatching { episodeFocus.requestFocus() }
+            onReturnConsumed()
+        } else if(!didFocus) {
+            withFrameNanos{}
+            runCatching {playFocus.requestFocus()}
+        }
+        didFocus=true
     }
     val header:@Composable ()->Unit = {
         Row(Modifier.fillMaxWidth().padding(horizontal=28.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -54,31 +64,40 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
             PetalixAction(if(state.isInLibrary)"✓ My List" else "+ My List",accent=service.accent,onClick=onLibrary)
         }
     }
-    val episodes:@Composable (Boolean)->Unit = { horizontal ->
-        if(state.seasons.isNotEmpty()) {
-            Text(if(service.id=="netflix")"Episodes" else if(service.id=="hulu")"Episodes & Details" else "Episodes",color=Color.White,
+    fun LazyListScope.episodes(horizontal:Boolean) {
+        if(state.seasons.isEmpty())return
+        item("episode-heading") {
+            Text(if(service.id=="hulu")"Episodes & Details" else "Episodes",color=Color.White,
                 fontSize=24.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=28.dp,vertical=16.dp))
+        }
+        item("season-selector") {
             LazyRow(Modifier.focusRestorer(),contentPadding=PaddingValues(horizontal=28.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 items(state.seasons,key={it}) { season ->
                     PetalixAction("Season $season",selected=season==state.selectedSeason,accent=service.accent){onSeason(season)}
                 }
             }
-            if(state.episodesForSeason.isEmpty())Text("No episodes available for this season.",color=Color.LightGray,modifier=Modifier.padding(28.dp))
-            if(horizontal) {
-                LazyRow(Modifier.focusRestorer(),contentPadding=PaddingValues(horizontal=28.dp,vertical=12.dp),horizontalArrangement=Arrangement.spacedBy(18.dp)) {
+        }
+        if(state.episodesForSeason.isEmpty())item("empty-season"){Text("No episodes available for this season.",color=Color.LightGray,modifier=Modifier.padding(28.dp))}
+        if(horizontal) {
+            item("episode-shelf") {
+                val shelf=rememberLazyListState()
+                LaunchedEffect(restore?.id) {
+                    if(restore!=null){shelf.scrollToItem(state.episodesForSeason.indexOf(restore));withFrameNanos{};runCatching{episodeFocus.requestFocus()}}
+                }
+                LazyRow(Modifier.focusRestorer(),state=shelf,contentPadding=PaddingValues(horizontal=28.dp,vertical=12.dp),horizontalArrangement=Arrangement.spacedBy(18.dp)) {
                     items(state.episodesForSeason,key={it.id}) { video ->
                         ServiceEpisodeCard(service,video,state,Modifier.width(274.dp).then(if(video.id==restore?.id)Modifier.focusRequester(episodeFocus) else Modifier),false){lastEpisode=video.id;onEpisode(video)}
                     }
                 }
-            } else {
-                state.episodesForSeason.forEach { video ->
-                    key(video.id) { ServiceEpisodeCard(service,video,state,Modifier.fillMaxWidth().padding(horizontal=28.dp,vertical=6.dp)
-                        .then(if(video.id==restore?.id)Modifier.focusRequester(episodeFocus) else Modifier),true){lastEpisode=video.id;onEpisode(video)} }
-                }
+            }
+        } else {
+            items(state.episodesForSeason,key={"episode-"+it.id}) { video ->
+                ServiceEpisodeCard(service,video,state,Modifier.fillMaxWidth().padding(horizontal=28.dp,vertical=6.dp)
+                    .then(if(video.id==restore?.id)Modifier.focusRequester(episodeFocus) else Modifier),true){lastEpisode=video.id;onEpisode(video)}
             }
         }
     }
-    LazyColumn(Modifier.fillMaxSize().background(service.background),contentPadding=PaddingValues(bottom=32.dp)) {
+    LazyColumn(Modifier.fillMaxSize().background(service.background),state=listState,contentPadding=PaddingValues(bottom=32.dp)) {
         item("service-header"){header()}
         when(service.id) {
             "netflix" -> {
@@ -92,7 +111,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
                         }
                     }
                 }
-                item("episode-list"){episodes(false)}
+                episodes(false)
             }
             "prime" -> {
                 item("feature") {
@@ -104,7 +123,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
                         }
                     }
                 }
-                item("episodes"){episodes(false)}
+                episodes(false)
             }
             "disney","paramount","max" -> {
                 item("panoramic-feature") {
@@ -117,7 +136,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
                         }
                     }
                 }
-                item("episodes"){episodes(true)}
+                episodes(true)
             }
             "apple" -> {
                 item("panoramic") {Box(Modifier.fillMaxWidth().height(300.dp)){ServiceDetailArt(meta)}}
@@ -127,7 +146,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
                         Column(verticalArrangement=Arrangement.spacedBy(12.dp)){actions()}
                     }
                 }
-                item("episodes"){episodes(true)}
+                episodes(true)
             }
             "hulu" -> {
                 item("editorial-feature") {
@@ -139,7 +158,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
                         Box(Modifier.weight(1f).fillMaxHeight()){ServiceDetailArt(meta)}
                     }
                 }
-                item("episodes"){episodes(true)}
+                episodes(true)
             }
             else -> {
                 item("feature") {
@@ -151,7 +170,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
                         }
                     }
                 }
-                item("episodes"){episodes(service.id!="tubi")}
+                episodes(service.id!="tubi")
             }
         }
         item("about") {
