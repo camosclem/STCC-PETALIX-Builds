@@ -137,6 +137,8 @@ def prepare_authorized_ui2(item, work, cache):
     apply_refinements(work)
     from petalix_guide_service_v7_patch import apply as apply_guide_service_v7
     apply_guide_service_v7(work)
+    from petalix_local_markets_patch import apply as apply_local_markets
+    apply_local_markets(work)
     api_key = os.environ.get("TMDB_API_KEY", "")
     if not re.fullmatch(r"[0-9a-fA-F]{32}", api_key):
         raise RuntimeError("Existing Petalix Control metadata settings were not supplied")
