@@ -37,6 +37,10 @@ def apply(work):
             } }.awaitAll() }''','bounded service loading')
     s=s.replace('val errors=results.count { it is NetworkResult.Error }','val errors=results.count { it == null || it is NetworkResult.Error }')
     p.write_text(s)
+    # This test offers only the eight service experiences with recovered intro assets.
+    s=p.read_text()
+    s='\n'.join(line for line in s.split('\n') if not line.lstrip().startswith(('PetalixService("tubi",','PetalixService("pluto",')))
+    p.write_text(s)
     # Prompt once on the first activated Home, and again after a different successful PIN.
     p=root/'petalix/ActivationActivity.kt';s=p.read_text()
     s=change(s,'manager.activate(code);openApp()','manager.activate(code);getSharedPreferences("petalix_locals_onboarding",MODE_PRIVATE).edit().putBoolean("completed",false).apply();openApp()','PIN locals prompt')
