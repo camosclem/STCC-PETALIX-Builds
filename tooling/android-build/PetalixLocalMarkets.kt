@@ -126,7 +126,7 @@ fun PetalixLocalChannelsDialog(channels:List<LiveChannel>,onClose:()->Unit,onOpe
     LaunchedEffect(state.zip){if(zip.isBlank())zip=state.zip}
     LaunchedEffect(state.location){selected=emptySet();showAll=false;market="";stationSearch=""}
     LaunchedEffect(state.zip,channels.size) {
-        if(state.zip.matches(Regex("[0-9]{5}")) && channels.isNotEmpty() && state.location.isBlank() && !state.loading)
+        if(state.zip.matches(Regex("[0-9]{5}")) && channels.isNotEmpty() && state.location.isBlank() && !state.loading && state.error==null)
             viewModel.lookup(state.zip)
     }
     val matches=remember(channels,state.stations){LocalStationMatcher.matches(channels,state.stations)}
