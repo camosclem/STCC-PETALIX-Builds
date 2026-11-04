@@ -1,4 +1,4 @@
-# Petalix ZIP market picker, test source 7582b3346ccecefbec45bfc977d6e6de8f981837
+# Petalix local guide and service fixes, source 12e16c99ddc8ddb2b04557230891416950158570
 name: Request Petalix-only signed test APK
 on:
   push:
