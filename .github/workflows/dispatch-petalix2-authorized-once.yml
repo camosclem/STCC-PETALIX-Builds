@@ -1,4 +1,4 @@
-# Petalix v9 Apple TV catalog fix, source 3037c6413b652cea6049241a09c1c7e71161f0ec
+# Finished Petalix guide and vector logo, source 05e07849bb369527268d0942fd628524bc800213
 name: Request Petalix-only signed test APK
 on:
   push:
