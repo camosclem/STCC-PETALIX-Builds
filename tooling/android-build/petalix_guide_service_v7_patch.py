@@ -79,12 +79,18 @@ def apply(work):
 
     p = root / "livetv/data/LiveTvPreferences.kt"
     s = p.read_text()
+    s = once(s, '    suspend fun petalixSaveLocals(zip:String,keys:List<String>):String {',
+        '    suspend fun petalixSaveLocals(zip:String,keys:List<String>,merge:Boolean=false):String {', 'local save mode')
     s = once(s, '((existing?.channelKeys ?: emptyList())+keys).distinct()',
-        'keys.distinct()', 'replace locals after ZIP lookup')
+        'if(merge && p[zipKey]==zip)((existing?.channelKeys ?: emptyList())+keys).distinct() else keys.distinct()', 'replace after ZIP change, merge automatic matches')
     p.write_text(s)
 
     p = ui / "PetalixLocalChannels.kt"
     s = p.read_text()
+    s = once(s, 'fun save(zip:String,keys:List<String>) {',
+        'fun save(zip:String,keys:List<String>,merge:Boolean=false) {', 'save selection mode')
+    s = once(s, 'prefs.petalixSaveLocals(zip,keys)',
+        'prefs.petalixSaveLocals(zip,keys,merge)', 'store selection mode')
     s = once(s, 'if(keys.isEmpty() || _state.value.saving)return',
         'if(_state.value.saving)return', 'allow empty locals category')
     s = once(s, '    val matches=remember(channels,state.stations){LocalStationMatcher.matches(channels,state.stations)}',
@@ -99,7 +105,7 @@ def apply(work):
     LaunchedEffect(state.location,channels.size) {
         if(state.location.isNotBlank() && state.zip.matches(Regex("[0-9]{5}"))) {
             selected=matches.map{it.channel.key}.toSet()
-            viewModel.save(state.zip,matches.map{it.channel.key})
+            viewModel.save(state.zip,matches.map{it.channel.key},merge=true)
         }
     }
     val choices=if(showAll)channels.sortedBy{it.name} else matches.map{it.channel}''', 'automatic local matches')
