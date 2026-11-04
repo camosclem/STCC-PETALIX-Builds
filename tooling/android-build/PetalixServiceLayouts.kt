@@ -420,7 +420,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
 @Composable private fun HubResults(p:HubPage,titles:List<MetaPreview>,title:String) {
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
         item{HubTitle(title)}
-        if(titles.isEmpty())item{Text("No matching titles in the loaded catalog.",color=Color.White,modifier=Modifier.padding(28.dp))}
+        if(titles.isEmpty())item{Text("No matching titles. Try another search or browse a collection.",color=Color.White,modifier=Modifier.padding(28.dp))}
         items(titles.chunked(3),key={group->group.joinToString{"${it.apiType}:${it.id}"}}) { group ->
             Row(Modifier.fillMaxWidth().padding(horizontal=28.dp,vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(18.dp)) {
                 group.forEach { meta ->
