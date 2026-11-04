@@ -1,4 +1,4 @@
-# Service-scoped remote search and service-owned title and episode flows, source de1d9875338daa42a0ccb8fe695856cc8a5aafa7
+# ARVIO service video hubs and ZIP locals guide, source 9692b065dcd18dc4d7b230cc6035a86b68477110
 name: Request Petalix-only signed test APK
 on:
   push:
