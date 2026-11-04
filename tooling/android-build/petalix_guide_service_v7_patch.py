@@ -49,6 +49,8 @@ def apply(work):
     a = s.index('            Row(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically,')
     b = s.index('            // ---------------------------------------------------------------- header', a)
     s = s[:a] + s[b:]
+    s = once(s, 'listOf(Color(0x99101D32),Color(0xC0081020))',
+        'listOf(Color(0x55101D32),Color(0x77081020))', 'show artwork through the guide')
     s = once(s, 'onGroupMenu = { g -> if (!g.special) groupMenu = g },',
         'onGroupMenu = { g -> if(g.title.equals("My Locals",ignoreCase=true)) petalixLocalsOpen=true else if (!g.special) groupMenu = g },', 'locals group edit')
     s = once(s, '                        } else if (g.id == ChannelGroup.SEARCH) {',
@@ -69,6 +71,8 @@ def apply(work):
     a = s.index('private fun ProgramBlock(')
     b = s.index('\n@Composable', a)
     part = s[a:b].replace('val shape = RoundedCornerShape(liveCorner())', 'val shape = RoundedCornerShape(13.dp)')
+    part = part.replace('if(focused)Color(0xCC426C97) else Color(0x9934425C)',
+        'if(focused)Color(0xB04A81BC) else Color(0x663A5676)')
     s = s[:a] + part + s[b:]
     a = s.index('private fun GroupItem(')
     b = s.index('\n@Composable', a)
