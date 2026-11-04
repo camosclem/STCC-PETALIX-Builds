@@ -106,3 +106,8 @@ def apply(work):
     p.write_text(s)
     p=ui/'PetalixGuideHeader.kt';s=p.read_text().replace('Color(0xFF0A192B)','Color(0x442C405D)').replace('Color(0xFF091727),Color(0xCC091727)','Color(0x55101D32),Color(0x33101D32)')
     p.write_text(s)
+
+    p=Path(work)/'app/src/test/java/com/nuvio/tv/petalix/Petalix2CatalogTest.kt'
+    s=p.read_text()
+    s=change(s,'assertEquals(10,PetalixServices.all.size)','assertEquals(setOf("netflix","prime","disney","hulu","max","paramount","peacock","apple"),PetalixServices.all.map { it.id }.toSet())','approved eight services test')
+    p.write_text(s)
