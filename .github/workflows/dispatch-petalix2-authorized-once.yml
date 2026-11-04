@@ -1,4 +1,4 @@
-# Retry finished Petalix guide after cancelled panel job cleanup, main source 0ebf37ebbdb369b60aa3706dd00f04c3e8bd6f98
+# Authorized Petalix v11 test source after existing baseline job, main source 0ebf37ebbdb369b60aa3706dd00f04c3e8bd6f98
 name: Request Petalix-only signed test APK
 on:
   push:
@@ -18,4 +18,4 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = "camosclem/STCC-PETALIX-Builds"
-          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref main -f rebuild_build=713685c5-46f6-4d53-8cc2-2466e8059141 -f ui2_test=true -f petalix_only=true
+          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref main -f rebuild_build=a169ba3b-3792-473a-8b3a-b0ade721fdd9 -f ui2_test=true -f petalix_only=true
