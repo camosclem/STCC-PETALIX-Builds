@@ -1,4 +1,4 @@
-# Petalix distinct service layouts, compact guide and ZIP fix, source e51389aad60e3c2bbfc30e6c031520ed93db613a
+# Petalix glass guide, distinct service pages, ZIP merge and nullable compile fix, source bc7ce51ca39df43244fd140b75729be5aaf19ff4
 name: Request Petalix-only signed test APK
 on:
   push:
