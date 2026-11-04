@@ -1,4 +1,4 @@
-# Petalix glass guide, distinct service pages, ZIP merge and nullable compile fix, source bc7ce51ca39df43244fd140b75729be5aaf19ff4
+# Petalix ZIP market picker, test source 7582b3346ccecefbec45bfc977d6e6de8f981837
 name: Request Petalix-only signed test APK
 on:
   push:
