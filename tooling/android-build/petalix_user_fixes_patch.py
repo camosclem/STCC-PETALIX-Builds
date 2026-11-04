@@ -31,7 +31,8 @@ fun ServiceArtwork(id:String,modifier:Modifier=Modifier) {
     p.write_text(s)
     p=ui/"Petalix2Services.kt";s=p.read_text()
     s=replace_one(s,'PetalixService("apple","Apple TV+"','PetalixService("apple","Apple TV"',"current Apple TV name")
-    s=s.replace('"apple" to "Apple TV+"','"apple" to "Apple TV"')
+    # The saved service catalog still uses its legacy folder key. Keep that lookup
+    # until the catalog is migrated; only the customer-facing name changes here.
     p.write_text(s)
     p=ui/"PetalixServiceLayouts.kt";s=p.read_text()
     s=replace_one(s,'android.util.Log.i("PetalixServices","petalix-service-experience-v4")',
