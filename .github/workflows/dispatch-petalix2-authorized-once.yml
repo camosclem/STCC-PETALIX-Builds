@@ -1,4 +1,4 @@
-# Eight service regression check aligned; Freeplay guide and ZIP onboarding, source a62d39fc3b7ba3e32a9a370c43fdcf0cc2ef8df4
+# Petalix distinct service layouts, compact guide and ZIP fix, source e51389aad60e3c2bbfc30e6c031520ed93db613a
 name: Request Petalix-only signed test APK
 on:
   push:
