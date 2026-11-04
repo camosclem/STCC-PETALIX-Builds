@@ -140,10 +140,16 @@ def sign_and_release():
                 if not home and not is_ui2 and not any(b'home-services-first-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Streaming Services first-row capability missing')
                 if is_ui2:
                     dex_files=[n for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)]
-                    for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2',b'petalix-distinct-service-layouts-v3',b'petalix-service-experience-v4']:
+                    for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2',b'petalix-arvio-services-v5',b'petalix-locals-v1']:
                         if not any(marker in z.read(n) for n in dex_files):
                             raise RuntimeError('Visible Petalix motion capability missing: '+marker.decode())
                     verify_motion_audio(z)
+                    media_manifest=json.loads((pathlib.Path(__file__).parent/'service-media-manifest.json').read_text())
+                    for sid,entry in media_manifest['media'].items():
+                        clip='assets/petalix2/service-media/'+sid+'.mp4'
+                        if hashlib.sha256(z.read(clip)).hexdigest()!=entry['sha256']:raise RuntimeError('Bundled service intro mismatch: '+sid)
+                    for asset in ['assets/licenses/ARVIO-LICENSE.txt','assets/licenses/ARVIO-NOTICE.txt','assets/petalix2/local-stations.json']:
+                        if asset not in z.namelist():raise RuntimeError('ARVIO/locals asset missing: '+asset)
                     from petalix_ui2_patch import AUTHORIZED_PACKAGE
                     if package != AUTHORIZED_PACKAGE:
                         raise RuntimeError('Petalix 2 was not built with the original approved package')
