@@ -1,4 +1,4 @@
-# Petalix local guide and service fixes, source 12e16c99ddc8ddb2b04557230891416950158570
+# Petalix v9 Apple TV catalog fix, source 3037c6413b652cea6049241a09c1c7e71161f0ec
 name: Request Petalix-only signed test APK
 on:
   push:
