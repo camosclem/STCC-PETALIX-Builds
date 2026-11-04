@@ -1,0 +1,11 @@
+ARVIO-derived service presentation for Petalix test builds
+Source: https://github.com/ProdigyV21/ARVIO
+VideoHero.kt source commit: 3fc1a3e52af9e3d8cf3cd25f456bc92c5573d927
+Collection tab presentation source commit: 1b294381963ffac1c1a13812f1ea1e28858c71cd
+Collection backdrop/spotlight and grid sizing source commit: 3fc1a3e52af9e3d8cf3cd25f456bc92c5573d927
+Code license: Apache License, Version 2.0 (included).
+Changes: package names, Petalix catalog/search/detail adapters, landscape cards,
+local asset paths, texture video surface, tile loop mode, remote focus and pagination.
+Service names/logos and intro clips retain their respective owners' rights.
+The Apache license for ARVIO code does not grant rights to third-party trademarks or media.
+Recovered intro source URLs and SHA-256 values are in service-media-manifest.json.
