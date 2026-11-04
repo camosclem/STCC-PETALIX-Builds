@@ -66,6 +66,7 @@ def apply(work):
     part = part.replace('(rowHeight-20.dp).coerceAtLeast(18.dp)', '(rowHeight-12.dp).coerceAtLeast(28.dp)', 1)
     part = part.replace('if (settings.showChannelNames) {', 'if (channel.logo.isNullOrBlank()) {', 1)
     part = part.replace('if (quality != null && !reorderMode', 'if (false && quality != null && !reorderMode', 1)
+    part = part.replace('                    quality,', '                    quality.orEmpty(),', 1)
     part = part.replace('if (channel.catchup != null && !reorderMode', 'if (false && channel.catchup != null && !reorderMode', 1)
     s = s[:a] + part + s[b:]
     a = s.index('private fun ProgramBlock(')
