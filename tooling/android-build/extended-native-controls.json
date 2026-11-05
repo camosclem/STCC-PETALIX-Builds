@@ -1,0 +1,960 @@
+[
+  {
+    "key": "pref:live_tv:clock_mode",
+    "feature": "live_tv",
+    "preference": "clock_mode",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Show Clock",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "always",
+        "Always"
+      ],
+      [
+        "panel",
+        "Panel"
+      ],
+      [
+        "never",
+        "Never"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:clock_position",
+    "feature": "live_tv",
+    "preference": "clock_position",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Clock Position",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "top_left",
+        "Top Left"
+      ],
+      [
+        "top_right",
+        "Top Right"
+      ],
+      [
+        "bottom_left",
+        "Bottom Left"
+      ],
+      [
+        "bottom_right",
+        "Bottom Right"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:clock_size",
+    "feature": "live_tv",
+    "preference": "clock_size",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Clock Size",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "small",
+        "Small"
+      ],
+      [
+        "medium",
+        "Medium"
+      ],
+      [
+        "large",
+        "Large"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:clock_opacity",
+    "feature": "live_tv",
+    "preference": "clock_opacity",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Clock Opacity",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "number",
+    "requiresCapability": "management-v4",
+    "integer": true,
+    "min": 0,
+    "max": 100,
+    "unit": "%"
+  },
+  {
+    "key": "pref:live_tv:guide_info_background",
+    "feature": "live_tv",
+    "preference": "guide_info_background",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Guide Darkness",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "standard",
+        "Lightest"
+      ],
+      [
+        "darker",
+        "Standard"
+      ],
+      [
+        "solid",
+        "Darkest"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:guide_backdrop",
+    "feature": "live_tv",
+    "preference": "guide_backdrop",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Guide & Sports Background",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "auto",
+        "Auto"
+      ],
+      [
+        "onyx",
+        "Onyx"
+      ],
+      [
+        "original",
+        "Original"
+      ],
+      [
+        "arctic",
+        "Arctic"
+      ],
+      [
+        "emerald",
+        "Emerald"
+      ],
+      [
+        "rose",
+        "Rose"
+      ],
+      [
+        "copper",
+        "Copper"
+      ],
+      [
+        "graphite",
+        "Graphite"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:panel_row",
+    "feature": "live_tv",
+    "preference": "panel_row",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Channel Row in the Info Panel",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "RECENT",
+        "Recent"
+      ],
+      [
+        "FAVORITES",
+        "Favorites"
+      ],
+      [
+        "OFF",
+        "Off"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:panel_background",
+    "feature": "live_tv",
+    "preference": "panel_background",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Play Bar Background",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "standard",
+        "Standard"
+      ],
+      [
+        "darker",
+        "Darker"
+      ],
+      [
+        "solid",
+        "Solid"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:frame_rate_mode",
+    "feature": "live_tv",
+    "preference": "frame_rate_mode",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Match Frame Rate",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "OFF",
+        "Off"
+      ],
+      [
+        "START",
+        "Start"
+      ],
+      [
+        "START_STOP",
+        "Start Stop"
+      ]
+    ]
+  },
+  {
+    "key": "pref:live_tv:catchup_shift_minutes",
+    "feature": "live_tv",
+    "preference": "catchup_shift_minutes",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Catch-Up Time Shift",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "number",
+    "requiresCapability": "management-v4",
+    "integer": true,
+    "min": -1440,
+    "max": 1440,
+    "unit": "minutes"
+  },
+  {
+    "key": "pref:live_tv:record_pre_minutes",
+    "feature": "live_tv",
+    "preference": "record_pre_minutes",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Start Recording Early",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "number",
+    "requiresCapability": "management-v4",
+    "integer": true,
+    "min": 0,
+    "max": 60,
+    "unit": "minutes"
+  },
+  {
+    "key": "pref:live_tv:record_post_minutes",
+    "feature": "live_tv",
+    "preference": "record_post_minutes",
+    "kind": "integer",
+    "group": "Live TV & guide",
+    "label": "Keep Recording After",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "number",
+    "requiresCapability": "management-v4",
+    "integer": true,
+    "min": 0,
+    "max": 120,
+    "unit": "minutes"
+  },
+  {
+    "key": "pref:live_tv:recording_storage",
+    "feature": "live_tv",
+    "preference": "recording_storage",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Save Recordings To",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:live_tv:search_preview",
+    "feature": "live_tv",
+    "preference": "search_preview",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Preview Channels Behind Search",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:live_tv:clock_background",
+    "feature": "live_tv",
+    "preference": "clock_background",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Clock Background",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:live_tv:show_frame_rate",
+    "feature": "live_tv",
+    "preference": "show_frame_rate",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Frame Rate on the Info Bar",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:live_tv:on_demand_auto_play",
+    "feature": "live_tv",
+    "preference": "on_demand_auto_play",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Let Auto-Play Pick On Demand",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:live_tv:guide_search_live",
+    "feature": "live_tv",
+    "preference": "guide_search_live",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Live TV search: live channels",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:live_tv:guide_search_catalog",
+    "feature": "live_tv",
+    "preference": "guide_search_catalog",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Live TV search: movies and series",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:live_tv:guide_search_ondemand",
+    "feature": "live_tv",
+    "preference": "guide_search_ondemand",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Live TV search: on demand",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:live_tv:guide_info_hidden",
+    "feature": "live_tv",
+    "preference": "guide_info_hidden",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Hidden guide information fields",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:live_tv:bar_hidden",
+    "feature": "live_tv",
+    "preference": "bar_hidden",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Hidden play bar fields",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:live_tv:launcher_rows",
+    "feature": "live_tv",
+    "preference": "launcher_rows",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "TV launcher rows",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:live_tv:name_removals",
+    "feature": "live_tv",
+    "preference": "name_removals",
+    "kind": "string",
+    "group": "Live TV & guide",
+    "label": "Channel Name Cleanup",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:live_tv:petalix_hide_other_locals",
+    "feature": "live_tv",
+    "preference": "petalix_hide_other_locals",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Hide nationwide locals after My Locals setup",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4",
+    "appDefault": true
+  },
+  {
+    "key": "pref:profile_settings:remember_last_profile_enabled",
+    "feature": "profile_settings",
+    "preference": "remember_last_profile_enabled",
+    "kind": "boolean",
+    "group": "Startup & profiles",
+    "label": "Remember Last Profile",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:profile_settings:confirm_exit_enabled",
+    "feature": "profile_settings",
+    "preference": "confirm_exit_enabled",
+    "kind": "boolean",
+    "group": "Startup & profiles",
+    "label": "Full exit on close",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:profile_settings:startup_splash_enabled",
+    "feature": "profile_settings",
+    "preference": "startup_splash_enabled",
+    "kind": "boolean",
+    "group": "Startup & profiles",
+    "label": "Startup splash",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:sentry_settings:enabled",
+    "feature": "sentry_settings",
+    "preference": "enabled",
+    "kind": "boolean",
+    "group": "Diagnostics",
+    "label": "Sentry crash reports",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:torrent_settings:p2p_enabled",
+    "feature": "torrent_settings",
+    "preference": "p2p_enabled",
+    "kind": "boolean",
+    "group": "P2P streaming",
+    "label": "Enable P2P",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:torrent_settings:enable_upload",
+    "feature": "torrent_settings",
+    "preference": "enable_upload",
+    "kind": "boolean",
+    "group": "P2P streaming",
+    "label": "Allow torrent upload",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:torrent_settings:hide_torrent_stats",
+    "feature": "torrent_settings",
+    "preference": "hide_torrent_stats",
+    "kind": "boolean",
+    "group": "P2P streaming",
+    "label": "Hide torrent stats",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:torrent_settings:torrent_profile",
+    "feature": "torrent_settings",
+    "preference": "torrent_profile",
+    "kind": "string",
+    "group": "P2P streaming",
+    "label": "Torrent profile",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "SOFT",
+        "Soft"
+      ],
+      [
+        "BALANCED",
+        "Balanced"
+      ],
+      [
+        "FAST",
+        "Fast"
+      ]
+    ]
+  },
+  {
+    "key": "pref:torrent_settings:cache_size",
+    "feature": "torrent_settings",
+    "preference": "cache_size",
+    "kind": "string",
+    "group": "P2P streaming",
+    "label": "Torrent cache size",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "select",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000,
+    "options": [
+      [
+        "NONE",
+        "None"
+      ],
+      [
+        "GB_2",
+        "Gb 2"
+      ],
+      [
+        "GB_5",
+        "Gb 5"
+      ],
+      [
+        "GB_10",
+        "Gb 10"
+      ]
+    ]
+  },
+  {
+    "key": "pref:player_settings:libass_render_scale",
+    "feature": "player_settings",
+    "preference": "libass_render_scale",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Libass Render Scale",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:player_settings:playback_issue_reports_enabled",
+    "feature": "player_settings",
+    "preference": "playback_issue_reports_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Playback Issue Reports Enabled",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:player_settings:auto_skip_segment_types",
+    "feature": "player_settings",
+    "preference": "auto_skip_segment_types",
+    "kind": "stringSet",
+    "group": "Playback",
+    "label": "Auto Skip Segment Types",
+    "help": "JSON array of selected values, for example [\"INTRO\",\"RECAP\"]. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:player_settings:exo_chapters_enabled",
+    "feature": "player_settings",
+    "preference": "exo_chapters_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Exo Chapters Enabled",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_selected_addons",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_selected_addons",
+    "kind": "stringSet",
+    "group": "Playback",
+    "label": "Stream Auto Play Selected Addons",
+    "help": "JSON array of selected values, for example [\"INTRO\",\"RECAP\"]. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_selected_plugins",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_selected_plugins",
+    "kind": "stringSet",
+    "group": "Playback",
+    "label": "Stream Auto Play Selected Plugins",
+    "help": "JSON array of selected values, for example [\"INTRO\",\"RECAP\"]. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:player_settings:stream_auto_play_regex",
+    "feature": "player_settings",
+    "preference": "stream_auto_play_regex",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Stream Auto Play Regex",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:player_settings:subtitle_organization_mode",
+    "feature": "player_settings",
+    "preference": "subtitle_organization_mode",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Subtitle Organization Mode",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:player_settings:vod_cache_size_mode",
+    "feature": "player_settings",
+    "preference": "vod_cache_size_mode",
+    "kind": "string",
+    "group": "Playback",
+    "label": "Vod Cache Size Mode",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:player_settings:enable_buffer_logs",
+    "feature": "player_settings",
+    "preference": "enable_buffer_logs",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Enable Buffer Logs",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:player_settings:subtitle_hdr_style_enabled",
+    "feature": "player_settings",
+    "preference": "subtitle_hdr_style_enabled",
+    "kind": "boolean",
+    "group": "Playback",
+    "label": "Subtitle Hdr Style Enabled",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:player_settings:subtitle_hdr_text_color",
+    "feature": "player_settings",
+    "preference": "subtitle_hdr_text_color",
+    "kind": "integer",
+    "group": "Playback",
+    "label": "Subtitle Hdr Text Color",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "number",
+    "requiresCapability": "management-v4",
+    "integer": true,
+    "min": -2147483648,
+    "max": 2147483647
+  },
+  {
+    "key": "pref:player_settings:subtitle_hdr_brightness",
+    "feature": "player_settings",
+    "preference": "subtitle_hdr_brightness",
+    "kind": "integer",
+    "group": "Playback",
+    "label": "Subtitle Hdr Brightness",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "number",
+    "requiresCapability": "management-v4",
+    "integer": true,
+    "min": -2147483648,
+    "max": 2147483647
+  },
+  {
+    "key": "pref:layout_settings:hero_catalog_key",
+    "feature": "layout_settings",
+    "preference": "hero_catalog_key",
+    "kind": "string",
+    "group": "Layout & cards",
+    "label": "Hero Catalog Key",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:layout_settings:hero_catalog_keys",
+    "feature": "layout_settings",
+    "preference": "hero_catalog_keys",
+    "kind": "string",
+    "group": "Layout & cards",
+    "label": "Hero Catalog Keys",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:layout_settings:home_catalog_order_keys",
+    "feature": "layout_settings",
+    "preference": "home_catalog_order_keys",
+    "kind": "string",
+    "group": "Layout & cards",
+    "label": "Home Catalog Order Keys",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:layout_settings:disabled_home_catalog_keys",
+    "feature": "layout_settings",
+    "preference": "disabled_home_catalog_keys",
+    "kind": "string",
+    "group": "Layout & cards",
+    "label": "Disabled Home Catalog Keys",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:layout_settings:custom_catalog_titles",
+    "feature": "layout_settings",
+    "preference": "custom_catalog_titles",
+    "kind": "string",
+    "group": "Layout & cards",
+    "label": "Custom Catalog Titles",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:layout_settings:custom_poster_url_pattern",
+    "feature": "layout_settings",
+    "preference": "custom_poster_url_pattern",
+    "kind": "string",
+    "group": "Layout & cards",
+    "label": "Custom Poster Url Pattern",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:layout_settings:custom_poster_enabled_screens",
+    "feature": "layout_settings",
+    "preference": "custom_poster_enabled_screens",
+    "kind": "string",
+    "group": "Layout & cards",
+    "label": "Custom Poster Enabled Screens",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:stream_badge_settings:stream_badge_rules",
+    "feature": "stream_badge_settings",
+    "preference": "stream_badge_rules",
+    "kind": "string",
+    "group": "Stream badges",
+    "label": "Stream Badge Rules",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:stream_badge_settings:stream_badge_placement",
+    "feature": "stream_badge_settings",
+    "preference": "stream_badge_placement",
+    "kind": "string",
+    "group": "Stream badges",
+    "label": "Stream Badge Placement",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:stream_badge_settings:show_badges_in_player",
+    "feature": "stream_badge_settings",
+    "preference": "show_badges_in_player",
+    "kind": "boolean",
+    "group": "Stream badges",
+    "label": "Show Badges In Player",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4"
+  },
+  {
+    "key": "pref:stream_badge_settings:player_badge_source",
+    "feature": "stream_badge_settings",
+    "preference": "player_badge_source",
+    "kind": "string",
+    "group": "Stream badges",
+    "label": "Player Badge Source",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:stream_badge_settings:debrid_stream_badge_rules",
+    "feature": "stream_badge_settings",
+    "preference": "debrid_stream_badge_rules",
+    "kind": "string",
+    "group": "Stream badges",
+    "label": "Debrid Stream Badge Rules",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:ambient_mode_settings:ambient_catalog_keys",
+    "feature": "ambient_mode_settings",
+    "preference": "ambient_catalog_keys",
+    "kind": "string",
+    "group": "Ambient mode",
+    "label": "Ambient Catalog Keys",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  },
+  {
+    "key": "pref:theme_settings:custom_theme_colors",
+    "feature": "theme_settings",
+    "preference": "custom_theme_colors",
+    "kind": "string",
+    "group": "Appearance & theme",
+    "label": "Custom Theme Colors",
+    "help": "Changes apply after Save settings and Send to app. Requires the updated Petalix APK.",
+    "optional": true,
+    "type": "text",
+    "requiresCapability": "management-v4",
+    "maxLength": 60000
+  }
+]
