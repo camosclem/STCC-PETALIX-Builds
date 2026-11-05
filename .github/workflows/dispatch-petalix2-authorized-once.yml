@@ -1,4 +1,4 @@
-# Authorized Petalix v11 test source after existing baseline job, main source 0ebf37ebbdb369b60aa3706dd00f04c3e8bd6f98
+# Authorized Petalix v13 locals, settings and remote test source 2fadb62a66a0729c1810e2447574b8a2ae6d2387
 name: Request Petalix-only signed test APK
 on:
   push:
