@@ -1,4 +1,4 @@
-# Authorized Petalix v13 locals, settings and remote test source 2fadb62a66a0729c1810e2447574b8a2ae6d2387
+# Authorized native Nuvio guide restore; ZIP locals removed; source d557c3e5023b74572a0e8666eb1cc2c1e57d7a2e
 name: Request Petalix-only signed test APK
 on:
   push:
