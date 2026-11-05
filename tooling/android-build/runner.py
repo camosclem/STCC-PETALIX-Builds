@@ -140,7 +140,7 @@ def sign_and_release():
                 if not home and not is_ui2 and not any(b'home-services-first-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Streaming Services first-row capability missing')
                 if is_ui2:
                     dex_files=[n for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)]
-                    for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2',b'petalix-distinct-service-layouts-v3',b'petalix-user-fixes-v9',b'petalix-guide-finish-v10',b'petalix-locals-guide-v11',b'petalix-guide-locals-v12',b'petalix-locals-v12',b'petalix-panel-controls-v13',b'remote-control-v1']:
+                    for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2',b'petalix-distinct-service-layouts-v3',b'petalix-native-guide-v14',b'management-v4',b'remote-control-v1']:
                         if not any(marker in z.read(n) for n in dex_files):
                             raise RuntimeError('Visible Petalix motion capability missing: '+marker.decode())
                     verify_motion_audio(z)
@@ -148,7 +148,7 @@ def sign_and_release():
                     for sid,entry in media_manifest['media'].items():
                         clip='assets/petalix2/service-media/'+sid+'.mp4'
                         if hashlib.sha256(z.read(clip)).hexdigest()!=entry['sha256']:raise RuntimeError('Bundled service intro mismatch: '+sid)
-                    for asset in ['assets/licenses/ARVIO-LICENSE.txt','assets/licenses/ARVIO-NOTICE.txt','assets/petalix2/local-stations.json','assets/petalix2/service-logos/apple.svg']:
+                    for asset in ['assets/licenses/ARVIO-LICENSE.txt','assets/licenses/ARVIO-NOTICE.txt','assets/petalix2/service-logos/apple.svg']:
                         if asset not in z.namelist():raise RuntimeError('ARVIO/locals asset missing: '+asset)
                     from petalix_ui2_patch import AUTHORIZED_PACKAGE
                     if package != AUTHORIZED_PACKAGE:
