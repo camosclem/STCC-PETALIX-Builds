@@ -395,12 +395,20 @@ class MainActivity : Activity() {
 
     @Deprecated("Use Activity Back navigation")
     override fun onBackPressed() {
-        browser.evaluateJavascript("window.handleBack && window.handleBack()", null)
+        if (::browser.isInitialized) {
+            browser.evaluateJavascript("window.handleBack && window.handleBack()", null)
+        } else {
+            super.onBackPressed()
+        }
     }
 
     override fun onDestroy() {
-        browser.removeJavascriptInterface("AndroidBridge")
-        browser.destroy()
+        // On fresh launch the PIN activity is opened before the WebView exists.
+        // Never read a lateinit WebView while closing that redirect activity.
+        if (::browser.isInitialized) {
+            browser.removeJavascriptInterface("AndroidBridge")
+            browser.destroy()
+        }
         focusTone?.release()
         io.shutdownNow()
         super.onDestroy()

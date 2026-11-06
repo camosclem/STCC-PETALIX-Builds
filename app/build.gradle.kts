@@ -10,8 +10,8 @@ android {
         applicationId = "com.petalix.tv.guidebeta"
         minSdk = 23
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = 6
+        versionName = "0.5.1"
         // Set -PpetalixControlUrl=https://your-control-domain during a hosted beta build.
         buildConfigField("String", "CONTROL_URL", "\"${project.findProperty("petalixControlUrl") ?: ""}\"")
     }

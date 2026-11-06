@@ -1,9 +1,9 @@
-name: Diagnose Petalix TV v0.5 launch
+name: Verify Petalix v0.5.1 startup and publish APK
 on:
   push:
     branches: [test/petalix-v05-startup]
 permissions:
-  contents: read
+  contents: write
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -14,7 +14,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Enable KVM
+      - name: Enable emulator acceleration
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
       - uses: android-actions/setup-android@v3
@@ -25,7 +25,7 @@ jobs:
           gradle-version: '8.10.2'
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - run: gradle --no-daemon assembleDebug
-      - name: Launch on Android emulator and capture crash
+      - name: Launch app on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -34,25 +34,21 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: |
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb logcat -c
-            adb shell am start -n com.petalix.tv.guidebeta/com.openguide.tv.MainActivity
-            sleep 9
-            adb logcat -d -v threadtime > startup-log.txt
-            adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|mFocusedApp' > activity-state.txt || true
-            if grep -q 'FATAL EXCEPTION' startup-log.txt; then
-              grep -A 50 -B 3 'FATAL EXCEPTION' startup-log.txt | tail -n 100
-              exit 1
-            fi
-            echo "No fatal exception found."
-            cat activity-state.txt
-      - name: Save diagnostic logs
+          script: bash ci/check-launch.sh
+      - name: Save screenshot and crash log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: petalix-startup-log
+          name: petalix-v051-launch-diagnostics
           path: |
             startup-log.txt
             activity-state.txt
+            launch.png
           if-no-files-found: ignore
+      - name: Publish verified APK
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Petalix_TV_PIN_Beta_v0.5.1.apk
+          gh release create petalix-pin-beta-v0.5.1 Petalix_TV_PIN_Beta_v0.5.1.apk --title "Petalix TV Beta v0.5.1 — Startup Crash Fix" --notes "Fixes WebView cleanup crash when redirecting to the initial PIN activation screen. Verified on Android emulator. The separate control-panel backend is not deployed; beta preview mode works without activation." --target test/petalix-v05-startup --prerelease
