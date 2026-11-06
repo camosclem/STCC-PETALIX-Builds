@@ -1,4 +1,4 @@
-name: Petalix TV Binged-style Beta 0.2 Android
+name: Petalix TV Binged-style Beta 0.3 Android
 on:
   push:
     branches:
@@ -20,7 +20,7 @@ jobs:
           packages: platform-tools
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10.2'
+          gradle-version: '8.10.3'
       - name: Install Android SDK platform
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Compile debug APK
@@ -37,12 +37,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk Petalix_TV_Binged_Style_Beta_v0.2.apk
-          if gh release view petalix-binged-beta-v0.2.0 >/dev/null 2>&1; then
-            gh release upload petalix-binged-beta-v0.2.0 Petalix_TV_Binged_Style_Beta_v0.2.apk --clobber
+          cp app/build/outputs/apk/debug/app-debug.apk Petalix_TV_Binged_Style_Beta_v0.3.apk
+          if gh release view petalix-binged-beta-v0.3.0 >/dev/null 2>&1; then
+            gh release upload petalix-binged-beta-v0.3.0 Petalix_TV_Binged_Style_Beta_v0.3.apk --clobber
           else
-            gh release create petalix-binged-beta-v0.2.0 Petalix_TV_Binged_Style_Beta_v0.2.apk \
-              --title "Petalix TV Binged-style Beta 0.2" \
-              --notes "Independent, original Petalix Android TV beta with Binged-style UI, M3U URL/file import, Xtream Codes live/VOD/series import, XMLTV, Movies and TV Shows service-category tiles. Service classification is based on provider category names; no accounts, channels, or streaming rights included. Unverified on physical Shield. Not a replacement for production Petalix." \
+            gh release create petalix-binged-beta-v0.3.0 Petalix_TV_Binged_Style_Beta_v0.3.apk \
+              --title "Petalix TV Binged-style Beta 0.3" \
+              --notes "Independent, original Petalix Android TV beta with Binged-style UI, M3U URL/file import, Xtream Codes live/VOD/series import, XMLTV, Movies and TV Shows service-category tiles. M3U streaming parser handles oversized feeds with device-friendly per-category limits. Shield remote navigation and original animated tiles with optional navigation tones. No accounts, channels, or streaming rights included. Unverified on physical Shield. Not a replacement for production Petalix." \
               --target openguide-tv-beta --prerelease
           fi

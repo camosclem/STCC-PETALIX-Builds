@@ -14,9 +14,10 @@
   const storageKey = 'petalix-binged-style-v2';
   const defaultState = () => ({tab:'Home', settingsTab:'Playlists',category:'All',search:'',service:'',drawer:false,
     sources:[],channels:[],movies:[],shows:[],epg:{},epgUrl:'',favorites:[],locals:[],followedTeams:[],zip:'',
-    lastChannel:'',continueWatching:[],autoplay:true,accent:'#2685ff',profile:'Petalix',sourceStatus:'',libraryFilter:'All'});
+    lastChannel:'',continueWatching:[],autoplay:true,sounds:true,accent:'#2685ff',profile:'Petalix',sourceStatus:'',libraryFilter:'All'});
   let state = defaultState();
   const pendingXtream = new Map();
+  const incomingPlaylist = new Map();
   const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const img = value => /^(https?:\/\/|file:\/\/\/android_asset\/)/i.test(value||'') ? esc(value) : '';
   const fmt = val => new Date(val).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
@@ -30,7 +31,7 @@
   let toastTimer;
   function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),4500);}
   function loadState(){try{const saved=JSON.parse(localStorage.getItem(storageKey)||'{}');Object.assign(state,saved);state.tab='Home';state.drawer=false;state.search='';}catch(e){state=defaultState();}}
-  function save(){try{const fields=['sources','channels','movies','shows','epgUrl','favorites','locals','followedTeams','zip','lastChannel','continueWatching','autoplay','accent','profile','sourceStatus'];const snapshot=Object.fromEntries(fields.map(k=>[k,state[k]]));localStorage.setItem(storageKey,JSON.stringify(snapshot));}catch(e){toast('Device storage is full. Refresh your source or remove unused catalogs.');}}
+  function save(){try{const fields=['sources','channels','movies','shows','epgUrl','favorites','locals','followedTeams','zip','lastChannel','continueWatching','autoplay','sounds','accent','profile','sourceStatus'];const snapshot=Object.fromEntries(fields.map(k=>[k,state[k]]));localStorage.setItem(storageKey,JSON.stringify(snapshot));}catch(e){toast('Device storage is full. Refresh your source or remove unused catalogs.');}}
   function button(label,action,arg='',extra=''){return `<button class="btn ${extra}" data-action="${esc(action)}" data-arg="${esc(arg)}">${esc(label)}</button>`;}
   function navButton(label){return `<button class="topnav-item ${state.tab===label?'active':''}" data-action="nav" data-arg="${esc(label)}">${esc(label)}</button>`;}
   function head(title,note=''){return `<div class="pagehead"><h2>${esc(title)}</h2><span class="muted">${esc(note)}</span></div>`;}
@@ -49,10 +50,10 @@
   }
   function rail(items,type){return `<div class="tiles">${items.slice(0,26).map(i=>artCard(i,type)).join('')}</div>`;}
   function providerTile(label,mode){const d=colorByProvider[label]||{bg:'#303040',fg:'#ffffff'};const items=(mode==='Movies'?state.movies:state.shows).filter(i=>serviceFor(i)===label);
-    return `<button class="service focusable" style="--service-bg:${d.bg};color:${d.fg}" data-action="service" data-arg="${esc(label)}" data-mode="${esc(mode)}"><strong class="service-title">${esc(label)}</strong><span class="service-count">${items.length?items.length+' titles':'Browse collection'}</span></button>`;
+    return `<button class="service focusable" style="--service-bg:${d.bg};color:${d.fg}" data-action="service" data-arg="${esc(label)}" data-mode="${esc(mode)}"><span class="service-aura" aria-hidden="true"></span><span class="service-orbit" aria-hidden="true"></span><strong class="service-title">${esc(label)}</strong><span class="service-count">${items.length?items.length+' titles':'Browse collection'}</span></button>`;
   }
   function providerGrid(mode){return `<div class="service-grid">${providers.map(p=>providerTile(p[0],mode)).join('')}
-    <button class="service focusable" style="--service-bg:#2b303b" data-action="service" data-arg="Other" data-mode="${esc(mode)}"><strong class="service-title">Other Collections</strong><span class="service-count">Unsorted titles from your provider</span></button></div>`;}
+    <button class="service focusable" style="--service-bg:#2b303b" data-action="service" data-arg="Other" data-mode="${esc(mode)}"><span class="service-aura" aria-hidden="true"></span><span class="service-orbit" aria-hidden="true"></span><strong class="service-title">Other Collections</strong><span class="service-count">Unsorted titles from your provider</span></button></div>`;}
   function home(){
     const featured=state.channels.find(c=>c.id===state.lastChannel)||state.channels[0];
     const heroName=featured?featured.name:'Petalix TV';const featureDesc=featured?`${featured.group||'Live TV'} · Watch live from your connected playlist`:'Live TV, your movies, and your shows. All together in one place.';
@@ -100,7 +101,7 @@
       <div class="settings-group"><label>CONNECTED SOURCES</label><div class="settings-box">${state.sources.length?state.sources.map(s=>`<div class="sourcebox"><div><strong>${esc(s.name)} · ${s.type==='xtream'?'Xtream':'M3U'}</strong><small>${esc((s.server||s.url||'Local playlist file').replace(/\?.*/,''))}</small></div><button data-action="remove-source" data-id="${esc(s.id)}">Remove</button></div>`).join(''):'<div class="setting-row"><small>No sources connected yet</small></div>'}</div></div><p class="smalltext">${esc(state.sourceStatus)}</p>`;
     if(page==='Profile')return `<h1>Profile</h1><p>Your selected channels and collections are saved on this device.</p><div class="settings-group"><label>WHO'S WATCHING</label><div class="settings-box"><div class="setting-row"><div><strong>Display name</strong><small>Stored locally on this device</small></div><input id="profile-name" value="${esc(state.profile)}"></div><div class="setting-actions">${button('Save profile','save-profile','','blue')}</div></div></div>`;
     if(page==='Playback')return `<h1>Playback</h1><p>Control how live streams start.</p><div class="settings-group"><label>STARTING A CHANNEL</label><div class="settings-box"><div class="setting-row"><div>Autoplay on select<small>Pressing OK plays a channel using the built-in Media3 player.</small></div><button class="switch ${state.autoplay?'on':''}" data-action="toggle-autoplay" aria-label="Toggle autoplay"></button></div><div class="setting-row"><div>Source switching<small>Automated backup feed switching isn't available in this build.</small></div><span class="muted">Planned</span></div></div></div>`;
-    if(page==='Appearance')return `<h1>Appearance</h1><p>Petalix uses a midnight background inspired by the layout you provided.</p><div class="settings-group"><label>ACCENT COLOR</label><div class="settings-box"><div class="setting-row"><div>Selection color<small>Buttons and active navigation.</small></div><div class="chips">${['#2685ff','#f43362','#ba57ed','#f39c12','#45ca6f'].map(c=>`<button style="background:${c};width:33px;height:33px;border-radius:50%;border:${state.accent===c?'3px solid white':'1px solid #555'}" data-action="accent" data-arg="${c}" title="${c}"></button>`).join('')}</div></div></div></div>`;
+    if(page==='Appearance')return `<h1>Appearance</h1><p>Petalix uses a midnight background inspired by the layout you provided.</p><div class="settings-group"><label>TV REMOTE & MOTION</label><div class="settings-box"><div class="setting-row"><div>Navigation sounds<small>Original soft selection tones when you move through Petalix; can be muted.</small></div><button class="switch ${state.sounds?'on':''}" data-action="toggle-sounds" aria-label="Toggle navigation sounds"></button></div><div class="setting-row">Animated service tiles<small>Animated visual highlights on streaming-service tiles; reduced motion follows your device setting.</small></div></div></div><div class="settings-group"><label>ACCENT COLOR</label><div class="settings-box"><div class="setting-row"><div>Selection color<small>Buttons and active navigation.</small></div><div class="chips">${['#2685ff','#f43362','#ba57ed','#f39c12','#45ca6f'].map(c=>`<button style="background:${c};width:33px;height:33px;border-radius:50%;border:${state.accent===c?'3px solid white':'1px solid #555'}" data-action="accent" data-arg="${c}" title="${c}"></button>`).join('')}</div></div></div></div>`;
     if(page==='Captions')return `<h1>Captions</h1><p>Captions are provided by the playback engine if the stream has caption tracks.</p><div class="settings-box"><div class="setting-row">Closed captions<small>Use the native player subtitle button when available.</small></div></div>`;
     if(page==='Video Player')return `<h1>Video Player</h1><p>Live TV and VOD playback use Media3 ExoPlayer.</p><div class="settings-box"><div class="setting-row">Picture size<small>Currently uses Fit.</small></div><div class="setting-row">Remote navigation<small>Use Back to return to Petalix.</small></div></div>`;
     return `<h1>About</h1><p>Petalix TV — Binged-style independent test build.</p><div class="settings-box"><div class="setting-row">Build <span class="muted">0.2 · Test</span></div><div class="setting-row">Channels <span class="muted">${state.channels.length.toLocaleString()}</span></div><div class="setting-row">Movies <span class="muted">${state.movies.length.toLocaleString()}</span></div><div class="setting-row">TV Shows <span class="muted">${state.shows.length.toLocaleString()}</span></div><div class="setting-row">No channels are bundled with the app.</div><div class="setting-actions">${button('Clear all local data','reset')}</div></div>`;
@@ -140,6 +141,30 @@
       state.sourceStatus=`${live.length} live · ${movie.length} movies · ${show.length} show entries from ${name}`;save();nav('Home');toast(state.sourceStatus);
     }catch(e){toast(e.message||'Invalid M3U playlist');}}
   window.onNativePlaylist=(content,name)=>{const source=state.sources.find(s=>s.name===name);applyPlaylist(content,name,source&&source.url||'');};
+  // The Android layer streams large provider lists as compact JSON batches, never a giant M3U string.
+  window.onNativePlaylistChunk=(batch,name,last,skipped)=>{
+    let entries=incomingPlaylist.get(name);
+    if(!entries){entries=[];incomingPlaylist.set(name,entries);}
+    if(Array.isArray(batch))entries.push(...batch);
+    if(!last)return;
+    incomingPlaylist.delete(name);
+    const source=state.sources.find(s=>s.name===name);
+    const sourceId=source?.id||uid(name+'-'+Date.now());
+    if(!source)state.sources.push({id:sourceId,name,type:'m3u',url:''});
+    const mapped=entries.map(item=>{
+      const type=item.type==='show'?'show':item.type==='movie'?'movie':'live';
+      return {...item,id:uid(name+'|'+item.url),sourceId,source:name,
+        ...(type==='movie'?{poster:item.logo}:{}),type};
+    });
+    const live=mapped.filter(i=>i.type==='live'),movie=mapped.filter(i=>i.type==='movie'),show=mapped.filter(i=>i.type==='show');
+    state.channels=state.channels.filter(i=>i.sourceId!==sourceId).concat(live);
+    state.movies=state.movies.filter(i=>i.sourceId!==sourceId).concat(movie);
+    state.shows=state.shows.filter(i=>i.sourceId!==sourceId).concat(show);
+    state.sourceStatus=`Imported ${live.length} live, ${movie.length} movies, ${show.length} shows`+
+      (skipped?` · ${skipped.toLocaleString()} entries excluded to fit this device`:'');
+    save();nav('Home');toast(state.sourceStatus);
+  };
+
   window.onNativeEpg=(content)=>applyEpg(content);
   window.onNativeError=(message)=>{state.sourceStatus=String(message);toast('Connection error: '+message);if(state.tab==='Settings')render(true);};
   function applyEpg(content){try{const doc=new DOMParser().parseFromString(content,'application/xml');if(doc.querySelector('parsererror'))throw Error('Malformed XMLTV');const rows=doc.querySelectorAll('programme');const out={};for(let i=0;i<rows.length&&i<90000;i++){const e=rows[i],id=(e.getAttribute('channel')||'').toLowerCase();if(!id)continue;const from=L.parseXmlTvDate(e.getAttribute('start')),to=L.parseXmlTvDate(e.getAttribute('stop'));if(!from||!to)continue;const p={start:from.getTime(),stop:to.getTime(),title:e.querySelector('title')?.textContent||'Program'};(out[id]??=[]).push(p);}for(const list of Object.values(out))list.sort((a,b)=>a.start-b.start);state.epg=out;toast('Guide loaded: '+Object.keys(out).length+' channels');render(true);}catch(e){toast('Guide error: '+e.message);}}
@@ -192,6 +217,7 @@
     if(action==='save-zip'){const s=$('zipcode')?.value.trim()||'';if(!/^\d{5}$/.test(s))return toast('Enter a five-digit ZIP code');state.zip=s;save();toast('ZIP saved');return;}
     if(action==='save-profile'){state.profile=($('profile-name')?.value||'Petalix').trim();save();render(true);return;}
     if(action==='toggle-autoplay'){state.autoplay=!state.autoplay;save();render(true);return;}
+    if(action==='toggle-sounds'){state.sounds=!state.sounds;save();if(native&&window.AndroidBridge.setUiSounds)window.AndroidBridge.setUiSounds(state.sounds);render(true);return;}
     if(action==='accent'){state.accent=arg;save();render(true);return;}
     if(action==='add-m3u'){const url=$('m3u-url')?.value.trim(),name=$('m3u-name')?.value.trim()||'My M3U';if(!safeUrl(url))return toast('Enter an HTTP or HTTPS playlist URL');const old=state.sources.find(s=>s.name===name);if(!old)state.sources.push({id:uid(name+'-'+Date.now()),name,url,type:'m3u'});else old.url=url;save();if(native)window.AndroidBridge.importPlaylist(url,name);else fetchSource(url,s=>applyPlaylist(s,name,url)).catch(e=>toast('Unable to load playlist: '+e.message));toast('Downloading playlist…');return;}
     if(action==='pick-file'){if(native)window.AndroidBridge.openPlaylistFile();else $('playlist-file').click();return;}
@@ -206,8 +232,62 @@
   $('menu-button').onclick=()=>{state.drawer=!state.drawer;render(true);};$('scrim').onclick=()=>{state.drawer=false;render(true);};$('settings-shortcut').onclick=()=>{state.settingsTab='Playlists';nav('Settings');};$('profile-button').onclick=()=>{state.settingsTab='Profile';nav('Settings');};$('details-close').onclick=closeDetails;
   $('search').addEventListener('input',e=>{const pos=e.target.selectionStart;state.search=e.target.value;render(true);e.target.focus();e.target.setSelectionRange(pos,pos);});
   $('playlist-file').addEventListener('change',e=>{const file=e.target.files[0];if(file)file.text().then(t=>applyPlaylist(t,file.name)).catch(err=>toast(err.message));e.target.value='';});
+  function interactiveVisible(element){
+    if(!element||element.disabled)return false;
+    if(element.closest('#drawer')&&!state.drawer)return false;
+    if(element.closest('#details')&&$('details').classList.contains('hidden'))return false;
+    const rect=element.getBoundingClientRect();const style=getComputedStyle(element);
+    return rect.width>1&&rect.height>1&&style.display!=='none'&&style.visibility!=='hidden';
+  }
+  const tvSelector='button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex="0"]';
+  function remoteCandidates(){
+    const scope=(!$('details').classList.contains('hidden'))?$('details'):(state.drawer?$('drawer'):document);
+    return [...scope.querySelectorAll(tvSelector)].filter(interactiveVisible);
+  }
+  function focusTv(el){
+    if(!el)return;
+    el.focus({preventScroll:true});
+    el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});
+  }
+  window.petalixRemote=(direction)=>{
+    if(direction==='menu'){$('menu-button').click();return true;}
+    const elements=remoteCandidates();let focused=document.activeElement;
+    if(!elements.includes(focused)){
+      const initial=elements.find(e=>e.closest('#screen'))||elements[0];
+      if(initial)focusTv(initial);
+      return true;
+    }
+    if(direction==='select'){
+      if(focused.matches('input,textarea')){focused.focus();return false;}
+      focused.click();return true;
+    }
+    if(focused.matches('input,textarea') && (direction==='left'||direction==='right'))return false;
+    const source=focused.getBoundingClientRect();const x=source.left+source.width/2,y=source.top+source.height/2;
+    let nearest=null,lowest=Infinity;
+    for(const other of elements){
+      if(other===focused)continue;
+      const r=other.getBoundingClientRect(),ox=r.left+r.width/2,oy=r.top+r.height/2;
+      const dx=ox-x,dy=oy-y;
+      const along=direction==='left'?-dx:direction==='right'?dx:direction==='up'?-dy:dy;
+      const across=(direction==='left'||direction==='right')?Math.abs(dy):Math.abs(dx);
+      if(along<3)continue;
+      const cost=along+2.5*across+(across>Math.max(source.width,source.height)*1.8?250:0);
+      if(cost<lowest){lowest=cost;nearest=other;}
+    }
+    if(nearest)focusTv(nearest);
+    return true;
+  };
+  // Laptop and wireless keyboards use the same navigation as a Shield remote.
+  document.addEventListener('keydown',e=>{
+    const d={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'}[e.key];
+    if(d){if(!e.target.matches('input,textarea')||d==='up'||d==='down'){
+      e.preventDefault();window.petalixRemote(d);
+    }}
+  });
   document.addEventListener('keydown',e=>{if(e.key==='Escape'||e.key==='Backspace'&&e.target.tagName!=='INPUT'){e.preventDefault();window.handleBack();}
     if(e.key==='Enter'&&e.target.dataset?.action==='play'&&e.repeat){const id=e.target.dataset.id;if(id){toggleFav(id);toast('Favorite updated');}}});
   window.handleBack=()=>{if(!$('details').classList.contains('hidden')){closeDetails();return;}if(state.drawer){state.drawer=false;render(true);return;}if(state.service){state.service='';render();return;}if(state.tab!=='Home'){nav('Home');return;}if(native)window.AndroidBridge.exitApp();};
-  loadState();render();if(native&&state.sources.length)setTimeout(refresh,650);
+  loadState();render();if(native&&window.AndroidBridge.setUiSounds)window.AndroidBridge.setUiSounds(state.sounds!==false);
+  if(native)setTimeout(()=>focusTv(document.querySelector('#screen button, #topnav button')),180);
+  if(native&&state.sources.length)setTimeout(refresh,650);
 })();
