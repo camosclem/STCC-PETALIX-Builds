@@ -2,6 +2,8 @@ package com.openguide.tv
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.text.format.DateFormat
+import java.util.Date
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Bitmap
@@ -19,6 +21,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.EditText
+import android.text.InputFilter
+import android.text.InputType
+import android.view.inputmethod.EditorInfo
+import android.graphics.Rect
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -39,15 +46,24 @@ class NativeTvActivity : Activity() {
     private var channels: List<Channel> = emptyList()
     private var tab = "Home"
     private var sportsFilter = "All"
+    private var lastFocusKey: String? = null
+    private var requestedFocusKey: String? = null
+    private var localMessage: String = ""
+    private var localSearch = ""
+    private var localInput: EditText? = null
+    private var lastCatalogStamp = ""
+    private val locals get() = preferences.getStringSet("local_ids",emptySet()) ?: emptySet()
+
     private lateinit var contentHost: FrameLayout
     private lateinit var navRow: LinearLayout
     private val favorites get() = preferences.getStringSet("favorite_ids", emptySet()) ?: emptySet()
     private val followedTeams get() = preferences.getStringSet("teams", emptySet()) ?: emptySet()
     private val imageThreads = Executors.newFixedThreadPool(3)
-    private val scoreThread = Executors.newSingleThreadExecutor()
+    private val scoreThreads = Executors.newSingleThreadExecutor()
     private val espn by lazy { EspnSportsClient(cacheDir) }
-    private var scoreGames: List<EspnSportsClient.Game> = emptyList()
-    @Volatile private var loadingSports = false
+    private var scores: EspnSportsClient.Snapshot? = null
+    @Volatile private var scoreRefreshRunning = false
+    private var refreshUiOnNextScores = false
     private val imageCache = object: LruCache<String, Bitmap>(24) {}
     private val colorBg = Color.rgb(12, 15, 31)
     private val colorPanel = Color.rgb(38, 44, 69)
@@ -74,9 +90,9 @@ class NativeTvActivity : Activity() {
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
         tab = savedInstanceState?.getString("selected_tab") ?: "Home"
         loadCatalog()
-        if(BuildConfig.DEBUG) scoreGames=espn.cached()
+        if (BuildConfig.DEBUG) scores = espn.loadCache()
         createScreen()
-        if(BuildConfig.DEBUG) fetchSports()
+        if (BuildConfig.DEBUG) refreshScores()
     }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("selected_tab", tab)
@@ -85,54 +101,32 @@ class NativeTvActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (::contentHost.isInitialized) {
-            loadCatalog()
-            renderScreen()
+            // Returning from player or guide must not reset the focused tile.
+            if (catalogStamp() != lastCatalogStamp) {
+                loadCatalog()
+                renderScreen()
+            }
         }
     }
-    private fun fetchSports() {
-        if(!BuildConfig.DEBUG || espn.fresh() || loadingSports) return
-        loadingSports=true
-        scoreThread.execute{
-            val latest=try{espn.fetch()}catch(_:Exception){emptyList()}
-            runOnUiThread{
-                loadingSports=false
-                if(!isFinishing && !isDestroyed){
-                    val initial=scoreGames.isEmpty()
-                    scoreGames=latest
-                    // Repaint only on initial data load; do not disrupt D-pad focus repeatedly.
-                    if(initial && (tab=="Home" || tab=="Sports"))renderScreen()
+    /** ESPN is beta-only until rights to distribute a commercial sports feed are confirmed. */
+    private fun refreshScores() {
+        if (!BuildConfig.DEBUG || scoreRefreshRunning || espn.isFresh()) return
+        scoreRefreshRunning = true
+        scoreThreads.execute {
+            val result = try { espn.refresh() } catch (_: Exception) { null }
+            runOnUiThread {
+                scoreRefreshRunning = false
+                if (!isFinishing && !isDestroyed && result != null) {
+                    val firstLoad = scores == null || scores?.games.isNullOrEmpty()
+                    scores = result
+                    // Don't reset focus while somebody navigates with their TV remote.
+                    // Users can explicitly refresh from the Sports tab for subsequent updates.
+                    if ((firstLoad || refreshUiOnNextScores) && (tab == "Home" || tab == "Sports")) renderScreen()
+                    refreshUiOnNextScores = false
                 }
             }
         }
     }
-
-    private fun scoreRail(column:LinearLayout, title:String, games:List<EspnSportsClient.Game>){
-        if(games.isEmpty())return
-        addHeading(column,title,"ESPN scoreboard • beta")
-        val scroll=HorizontalScrollView(this).apply{isHorizontalScrollBarEnabled=false;isFocusable=false}
-        val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        games.take(32).forEach{game->
-            val showing=game.state=="in"||game.state=="post"
-            val awayLine=game.away+(if(showing && game.awayScore.isNotBlank())"  "+game.awayScore else "")
-            val homeLine=game.home+(if(showing && game.homeScore.isNotBlank())"  "+game.homeScore else "")
-            val button=tvButton(game.league+" • "+game.status+"\n"+awayLine+"\n"+homeLine){
-                AlertDialog.Builder(this)
-                    .setTitle(game.title)
-                    .setMessage(game.status+"\n"+(if(game.network.isNotBlank())game.network+"\n" else "")+
-                        "ESPN provides score data, not playback. Use your connected M3U/Xtream channels.")
-                    .setPositiveButton("Close",null).show()
-            }
-            button.gravity=Gravity.CENTER_VERTICAL or Gravity.START
-            button.textSize=16f
-            row.addView(button,LinearLayout.LayoutParams(dp(265),dp(138)).apply{marginEnd=dp(10)})
-        }
-        scroll.addView(row)
-        column.addView(scroll,LinearLayout.LayoutParams(-1,dp(155)))
-    }
-    private fun leagueGames(filter:String):List<EspnSportsClient.Game> =
-        if(filter=="All")scoreGames else if(filter=="Soccer")
-            scoreGames.filter{it.league in listOf("MLS","Premier League","La Liga")}
-        else scoreGames.filter{it.league==filter}
 
     private fun readChannel(j: JSONObject): Channel? {
         val url = j.optString("url").take(2200)
@@ -145,7 +139,14 @@ class NativeTvActivity : Activity() {
             j.optString("now").take(160), j.optString("next").take(160)
         )
     }
+    private fun catalogStamp(): String {
+        val saved = File(filesDir, "petalix-native-catalog.jsonl")
+        val cached = File(cacheDir, "petalix-guide.json")
+        val file = if (saved.exists()) saved else cached
+        return "${file.lastModified()}:${file.length()}"
+    }
     private fun loadCatalog() {
+        lastCatalogStamp = catalogStamp()
         val result = ArrayList<Channel>()
         // Native cache is written in bounded chunks by the in-app M3U/Xtream importer.
         val chunks = File(filesDir, "petalix-native-catalog.jsonl")
@@ -185,7 +186,10 @@ class NativeTvActivity : Activity() {
             background = pill(if (focused) colorFocused else colorPanel,
                 if (focused) Color.WHITE else Color.TRANSPARENT)
             setTextColor(if (focused) colorBg else Color.WHITE)
-            if (focused) post { requestRectangleOnScreen(android.graphics.Rect(0,0,width,height),false) }
+            if (focused) {
+                lastFocusKey = tag as? String
+                post { requestRectangleOnScreen(Rect(0,0,width,height),false) }
+            }
         }
         setOnClickListener { onClick() }
     }
@@ -214,16 +218,17 @@ class NativeTvActivity : Activity() {
         val mark = caption("●", 27f, colorAccent)
         mark.gravity = Gravity.CENTER_VERTICAL
         navRow.addView(mark, LinearLayout.LayoutParams(dp(37), dp(45)))
-        for (label in listOf("Home", "Live", "Sports", "Teams", "Favorites", "Movies", "TV Shows", "Settings")) {
+        for (label in listOf("Home", "Live", "Sports", "Teams", "Favorites", "My Locals", "Movies", "TV Shows", "Settings")) {
             val button = tvButton(label) {
                 when(label) {
                     "Live" -> openGuide()
                     "Settings" -> openSettings()
                     "Movies", "TV Shows" -> openOnDemand(label)
-                    else -> {tab = label; renderScreen()}
+                    else -> {tab = label; requestedFocusKey="nav:$label"; renderScreen()}
                 }
             }
             button.textSize = 13f
+            button.tag = "nav:$label"
             if (label == tab) {
                 button.background = pill(Color.rgb(87, 93, 132))
                 button.setTextColor(Color.WHITE)
@@ -256,6 +261,8 @@ class NativeTvActivity : Activity() {
     }
     private fun renderScreen() {
         if (!::contentHost.isInitialized) return
+        val oldFocus = requestedFocusKey ?: (window.decorView.findFocus()?.tag as? String) ?: lastFocusKey
+        requestedFocusKey = null
         renderNavigation()
         contentHost.removeAllViews()
         val vertical = ScrollView(this).apply {
@@ -268,8 +275,23 @@ class NativeTvActivity : Activity() {
             "Sports" -> renderSports(content)
             "Teams" -> renderTeams(content)
             "Favorites" -> renderFavorites(content)
+            "My Locals" -> renderLocals(content)
             else -> renderHome(content)
         }
+        contentHost.post {
+            if (!isFinishing && !isDestroyed) {
+                val focus = oldFocus?.let { findTagged(window.decorView,it) }
+                    ?: findTagged(window.decorView,"nav:$tab")
+                if (focus != null && focus.isFocusable) focus.requestFocus()
+            }
+        }
+    }
+    private fun findTagged(view: View, key: String): View? {
+        if (view.tag == key) return view
+        if (view is ViewGroup) for (i in 0 until view.childCount) {
+            findTagged(view.getChildAt(i),key)?.let { return it }
+        }
+        return null
     }
     private fun loadLogo(url: String, target: ImageView, placeholder: View) {
         if (!url.startsWith("https://", true) && !url.startsWith("http://", true)) return
@@ -311,12 +333,17 @@ class NativeTvActivity : Activity() {
             background = pill(colorPanel,Color.rgb(83,94,124))
             setPadding(dp(15), dp(10), dp(15), dp(10))
             isFocusable = true; isClickable = true
+            tag = "channel:${ch.id}"
             setOnFocusChangeListener { view, focused ->
                 background = pill(if(focused) Color.rgb(80, 91, 131) else colorPanel,
                     if(focused) Color.WHITE else Color.rgb(83,94,124))
-                scaleX = if(focused) 1.03f else 1f
-                scaleY = if(focused) 1.03f else 1f
-                if(focused) view.post { view.requestRectangleOnScreen(android.graphics.Rect(0,0,view.width,view.height),false) }
+                animate().cancel()
+                animate().scaleX(if(focused)1.035f else 1f)
+                    .scaleY(if(focused)1.035f else 1f).setDuration(105).start()
+                if(focused) {
+                    lastFocusKey = tag as? String
+                    view.post { view.requestRectangleOnScreen(Rect(0,0,view.width,view.height),false) }
+                }
             }
             setOnClickListener { play(ch) }
             setOnLongClickListener { toggleFavorite(ch.id); true }
@@ -354,28 +381,119 @@ class NativeTvActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(5), dp(8), dp(5), dp(13))
         }
-        channelList.take(120).forEach { ch ->
+        channelList.take(24).forEach { ch ->
             row.addView(tile(ch),LinearLayout.LayoutParams(dp(225),dp(153)).apply { marginEnd = dp(12) })
+        }
+        if (channelList.size > 24) {
+            row.addView(tvButton("View all ${channelList.size} channels") {
+                openGuide(heading)
+            },LinearLayout.LayoutParams(dp(222),dp(153)).apply { marginEnd=dp(12) })
         }
         scroller.addView(row)
         column.addView(scroller,LinearLayout.LayoutParams(-1,dp(180)))
     }
+    private fun gameRow(column: LinearLayout, label: String, games: List<EspnSportsClient.Game>) {
+        if (games.isEmpty()) return
+        addHeading(column, label, "ESPN scoreboard beta • scores and schedules")
+        val rail = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled=false;isFocusable=false }
+        val items = LinearLayout(this).apply {
+            orientation=LinearLayout.HORIZONTAL
+            setPadding(dp(5),dp(8),dp(5),dp(11))
+        }
+        games.take(32).forEach { game ->
+            val card=LinearLayout(this).apply {
+                orientation=LinearLayout.VERTICAL
+                gravity=Gravity.CENTER_VERTICAL
+                setPadding(dp(13),dp(10),dp(13),dp(8))
+                background=pill(colorPanel,Color.rgb(80,94,130))
+                isFocusable=true;isClickable=true
+                setOnFocusChangeListener { view, focused ->
+                    background=pill(if(focused)colorFocused else colorPanel,
+                        if(focused)Color.WHITE else Color.rgb(80,94,130))
+                    scaleX=if(focused)1.025f else 1f
+                    scaleY=if(focused)1.025f else 1f
+                    if(focused) {
+                    lastFocusKey = tag as? String
+                    view.post { view.requestRectangleOnScreen(Rect(0,0,view.width,view.height),false) }
+                }
+                }
+                setOnClickListener { showGameDetails(game) }
+            }
+            card.tag="game:${game.id}"
+            val header=blockText("${game.league}  •  ${game.status}",12f,colorAccent)
+            card.addView(header)
+            val body=LinearLayout(this).apply{ orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL }
+            val teams=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+            val playing=game.state=="in" || game.state=="post"
+            val awayText=game.away.name.ifBlank{game.away.abbreviation} +
+                (if(playing && game.away.score.isNotBlank())"  ${game.away.score}" else "")
+            val homeText=game.home.name.ifBlank{game.home.abbreviation} +
+                (if(playing && game.home.score.isNotBlank())"  ${game.home.score}" else "")
+            teams.addView(blockText(awayText,17f).apply{maxLines=1;typeface=Typeface.DEFAULT_BOLD})
+            teams.addView(blockText(homeText,17f).apply{maxLines=1;typeface=Typeface.DEFAULT_BOLD})
+            body.addView(teams,LinearLayout.LayoutParams(0,dp(76),1f))
+            val logo=ImageView(this).apply{scaleType=ImageView.ScaleType.FIT_CENTER}
+            val placeholder=blockText(game.home.abbreviation,13f,colorMuted).apply{gravity=Gravity.CENTER}
+            val art=FrameLayout(this).apply{
+                addView(logo,FrameLayout.LayoutParams(-1,-1))
+                addView(placeholder,FrameLayout.LayoutParams(-1,-1))
+            }
+            body.addView(art,LinearLayout.LayoutParams(dp(45),dp(45)))
+            loadLogo(game.home.logo,logo,placeholder)
+            card.addView(body)
+            card.addView(blockText(if(game.broadcasters.isNotBlank())game.broadcasters else "Game details  •  OK",12f,colorMuted).apply{maxLines=1})
+            items.addView(card,LinearLayout.LayoutParams(dp(285),dp(147)).apply{marginEnd=dp(10)})
+        }
+        rail.addView(items)
+        column.addView(rail,LinearLayout.LayoutParams(-1,dp(167)))
+    }
+
+    private fun showGameDetails(game: EspnSportsClient.Game) {
+        val time = if(game.startMillis>0) DateFormat.format("EEE, MMM d  h:mm a", Date(game.startMillis)).toString()
+            else "Time unavailable"
+        val body = buildString {
+            append(game.name).append("\n\n")
+            append(game.status).append("\n")
+            append(time).append("\n")
+            if(game.broadcasters.isNotBlank())append("Reported networks: ").append(game.broadcasters).append("\n")
+            append("\nESPN supplies scores and schedules, not your IPTV stream. ")
+            append("Petalix will use only channels available in your connected playlist.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("${game.league} • Game details")
+            .setMessage(body)
+            .setPositiveButton("Close",null)
+            .show()
+    }
+
+    private fun matchingScores(filter: String): List<EspnSportsClient.Game> {
+        val all = scores?.games ?: return emptyList()
+        if(filter=="All") return all
+        if(filter=="Soccer")return all.filter{it.league in setOf("MLS","Premier League","La Liga")}
+        if(filter=="Football")return all.filter{it.league=="NFL" || it.league=="NCAAF"}
+        return all.filter{it.league==filter}
+    }
+
     private fun renderHome(column: LinearLayout) {
-        if(BuildConfig.DEBUG)scoreRail(column,"Live games",scoreGames.filter{it.state=="in"})
-        addHeading(column,"Live now", "Your connected channels")
-        if(channels.isEmpty()) {
+        val currentGames = matchingScores("All").filter { it.state=="in" }
+        val nextGames = matchingScores("All").filter { it.state=="pre" }
+            .sortedBy{it.startMillis}
+        gameRow(column,"Live now",currentGames)
+        if (channels.isEmpty()) {
             addDescription(column,"No playlist has been imported on this device yet. Connect your M3U or Xtream Codes source in Settings.","Open Playlist Settings") { openSettings() }
-            return
+        } else {
+            val localChannels=channels.filter { locals.contains(it.id) }
+            if (localChannels.isNotEmpty()) channelRow(column,"My Locals",localChannels,"Stations selected by ZIP")
+            channelRow(column,"Featured channels",channels.take(60))
+            val sport=channels.filter(::isSports)
+            if(sport.isNotEmpty())channelRow(column,"Sports",sport,"From your connected playlist")
+            val preferred=channels.filter { favorites.contains(it.id) }
+            if(preferred.isNotEmpty())channelRow(column,"Favorites",preferred)
+            channels.groupBy{it.group}.entries.take(10).forEach{(group,list)->channelRow(column,group,list)}
         }
-        val sport = channels.filter(::isSports)
-        channelRow(column,"Featured channels",channels.take(80))
-        if (sport.isNotEmpty()) channelRow(column,"Sports",sport,"From your own playlist")
-        val preferred = channels.filter { favorites.contains(it.id) }
-        if (preferred.isNotEmpty()) channelRow(column,"Favorites",preferred)
-        channels.groupBy { it.group }.entries.take(15).forEach { (group,list) ->
-            channelRow(column,group,list)
-        }
-        addDescription(column,"The Your apps row has been removed. Live scores, replays and game scheduling require a separate verified data source; no scores are fabricated.")
+        gameRow(column,"Coming up",nextGames.take(20))
+        if (BuildConfig.DEBUG && scores==null)
+            addDescription(column,"Loading scoreboard beta. Game cards show only data returned by ESPN.")
     }
     private fun isSports(ch: Channel):Boolean =
         listOf("sport", "espn", "nba", "nfl", "nhl", "mlb", "football", "soccer", "f1", "formula", "sky sport")
@@ -386,6 +504,7 @@ class NativeTvActivity : Activity() {
         names.forEach { label ->
             val btn=tvButton(label){handler(label)}
             btn.textSize=13f
+            btn.tag="filter:$label"
             if(label==selected){btn.background=pill(Color.rgb(215,223,255));btn.setTextColor(colorBg)}
             row.addView(btn,LinearLayout.LayoutParams(-2,dp(40)).apply{marginEnd=dp(9)})
         }
@@ -393,26 +512,48 @@ class NativeTvActivity : Activity() {
         column.addView(scroll,LinearLayout.LayoutParams(-1,dp(53)))
     }
     private fun renderSports(column:LinearLayout) {
-        addHeading(column,"Sports","Channels and programs from your lineup")
-        filterChips(column,listOf("All","NFL","NBA","NHL","MLB","NCAAF","NCAAM","MLS","Soccer","Premier League","La Liga"),sportsFilter) {
-            sportsFilter=it;renderScreen()
+        addHeading(column,"Sports","Games and channels")
+        filterChips(column,listOf("All","NFL","NBA","NHL","MLB","NCAAF","NCAAM","Soccer","MLS","Premier League","La Liga"),sportsFilter) {
+            sportsFilter=it;requestedFocusKey="filter:$it";renderScreen()
+        }
+        if (BuildConfig.DEBUG) {
+            val games=matchingScores(sportsFilter)
+            val live=games.filter{it.state=="in"}.sortedBy{it.startMillis}
+            val upcoming=games.filter{it.state=="pre"}.sortedBy{it.startMillis}
+            val completed=games.filter{it.state=="post"}.sortedByDescending{it.startMillis}
+            gameRow(column,"Live now",live)
+            gameRow(column,"Coming up",upcoming.take(30))
+            gameRow(column,"Final scores",completed.take(15))
+            if(games.isEmpty())addDescription(column,
+                if(scoreRefreshRunning)"Loading ESPN scoreboard data..." else "No game data available for this filter. Refresh or choose another league.",
+                "Refresh scores") {
+                    refreshUiOnNextScores=true
+                    scoreThreads.execute {
+                        try { File(cacheDir,"petalix-espn-beta.json").delete() } catch(_:Exception) {}
+                        runOnUiThread{refreshScores()}
+                    }
+                }
+            val age=scores?.updatedAt ?: 0L
+            if(age>0)addDescription(column,
+                "Sports data last updated ${DateFormat.format("h:mm a", Date(age))}. ESPN data is for beta testing; video remains from your playlist.",
+                "Refresh scores") {
+                    refreshUiOnNextScores=true
+                    scoreThreads.execute{
+                        try { File(cacheDir,"petalix-espn-beta.json").delete() }catch(_:Exception){}
+                        runOnUiThread{refreshScores()}
+                    }
+                }
+        } else {
+            addDescription(column,"Live scores are disabled in this customer build until licensed sports data is configured.")
         }
         val sport=channels.filter(::isSports)
-        val filtered = if(sportsFilter=="All" || sportsFilter=="Other") sport else sport.filter {
+        val filtered=if(sportsFilter=="All")sport else sport.filter{
             (it.name+" "+it.group+" "+it.now).contains(sportsFilter,true) ||
-            (sportsFilter=="Soccer" && listOf("premier", "la liga", "serie a", "mls").any { word -> (it.name+" "+it.group).contains(word,true) })
+                (sportsFilter=="Soccer" && listOf("premier","la liga","serie a","mls").any{word->
+                    (it.name+" "+it.group).contains(word,true)})
         }
-        if(filtered.isNotEmpty())channelRow(column,"Live sports channels",filtered,"${filtered.size} matching")
-        else addDescription(column,"No matching sports channels in the current catalog. Connect your M3U/Xtream source or switch filters.","Manage sources") { openSettings() }
-        if(BuildConfig.DEBUG){
-            val games=leagueGames(sportsFilter)
-            scoreRail(column,"Live now",games.filter{it.state=="in"})
-            scoreRail(column,"Coming up",games.filter{it.state=="pre"})
-            scoreRail(column,"Final scores",games.filter{it.state=="post"})
-            if(games.isEmpty())addDescription(column,
-                if(loadingSports)"Loading scoreboard..." else "No games returned for this league.")
-            addDescription(column,"ESPN website scores are for testing only. A commercial sports-data license is required before customer rollout.")
-        } else addDescription(column,"Licensed sports-data integration required for customer rollout.")
+        if(filtered.isNotEmpty())channelRow(column,"Sports channels",filtered,"${filtered.size} matching")
+        else if(channels.isNotEmpty())addDescription(column,"No matching sports channel in this playlist group.")
     }
     private fun renderTeams(column:LinearLayout) {
         addHeading(column,"Teams","Follow your favorites using your TV remote")
@@ -426,19 +567,22 @@ class NativeTvActivity : Activity() {
             val items=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;setPadding(0,dp(4),0,dp(9))}
             names.forEach { name ->
                 val id="$league|$name"
-                val btn=tvButton((if(followedTeams.contains(id))"★ " else "☆ ")+name){toggleTeam(id);renderScreen()}
+                val btn=tvButton((if(followedTeams.contains(id))"★ " else "☆ ")+name){toggleTeam(id);requestedFocusKey="team:$id";renderScreen()}
+                btn.tag="team:$id"
                 items.addView(btn,LinearLayout.LayoutParams(dp(155),dp(58)).apply{marginEnd=dp(10)})
             }
             row.addView(items)
             column.addView(row,LinearLayout.LayoutParams(-1,dp(77)))
         }
-        if(BuildConfig.DEBUG){
-            scoreRail(column,"Games for your teams",scoreGames.filter{game->
-                followedTeams.contains(game.league+"|"+game.home) ||
-                followedTeams.contains(game.league+"|"+game.away)
-            })
-        }
-        addDescription(column,"Your teams are saved locally. Actual channels remain from your M3U/Xtream source.")
+        if (BuildConfig.DEBUG) {
+            val following=followedTeams
+            val selected=(scores?.games ?: emptyList()).filter { game ->
+                following.contains("${game.league}|${game.home.name}") ||
+                    following.contains("${game.league}|${game.away.name}")
+            }
+            gameRow(column,"Games for your teams",selected)
+            addDescription(column,"Followed teams are stored on this device. ESPN schedules are beta-only; channel playback comes from your playlist.")
+        } else addDescription(column,"Your favorite teams are stored on this device. Customer sports scores require a licensed data feed.")
     }
     private fun renderFavorites(column:LinearLayout){
         addHeading(column,"Favorites")
@@ -446,10 +590,166 @@ class NativeTvActivity : Activity() {
         if(saved.isEmpty()) addDescription(column,"No favorite channels yet. Hold OK on any channel tile to add or remove it.","Browse Home") {tab="Home";renderScreen()}
         else channelRow(column,"Favorite channels",saved)
     }
+    private fun selectedLocalChannels() = channels.filter { locals.contains(it.id) }
+    private fun marketForZip(zip:String):LocalStationMatcher.Market? {
+        val override=preferences.getString("market_for_$zip", "").orEmpty()
+        return LocalStationMatcher.markets.firstOrNull { it.id==override }
+            ?: LocalStationMatcher.findMarket(zip)
+    }
+    private fun saveZipAndFind(entry: String) {
+        val zip=entry.trim()
+        if(!zip.matches(Regex("^[0-9]{5}$"))){
+            localMessage="Enter a valid 5-digit ZIP code."
+            requestedFocusKey="locals:zip";renderScreen();return
+        }
+        preferences.edit().putString("local_zip",zip).apply()
+        localMessage=""
+        val market=marketForZip(zip)
+        if(market==null){
+            localMessage="No exact TV market is mapped for $zip yet. Choose your market below, or search your provider's local stations by call sign."
+        }else{
+            chooseRecommendedLocals(market)
+        }
+        requestedFocusKey="locals:find"
+        renderScreen()
+    }
+    private fun chooseRecommendedLocals(market:LocalStationMatcher.Market){
+        val stations=channels.map { LocalStationMatcher.Station(it.id,it.name,it.group,it.logo) }
+        val found=LocalStationMatcher.recommendations(market,stations)
+        val ids=found.mapNotNull { it.station?.id }.toSet()
+        preferences.edit().putStringSet("local_ids",ids).apply()
+        val matched=found.count{it.station!=null}
+        localMessage=if(matched>0)"Found $matched of 4 affiliates in your imported playlist. Missing networks are not included."
+            else "No matching affiliates in your imported playlist. Check its local-channel groups or search by call sign."
+    }
+    private fun renderLocals(column:LinearLayout){
+        addHeading(column,"My Locals","Choose stations from your own playlist — no giant search results")
+        val zip=preferences.getString("local_zip", "").orEmpty()
+        val zipRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL }
+        val input=EditText(this).apply {
+            tag="locals:zip"
+            setSingleLine(true);textSize=19f
+            inputType=InputType.TYPE_CLASS_NUMBER
+            filters=arrayOf(InputFilter.LengthFilter(5))
+            imeOptions=EditorInfo.IME_ACTION_DONE
+            setText(zip)
+            hint="ZIP code (e.g. 28601)"
+            setHintTextColor(colorMuted);setTextColor(Color.WHITE)
+            background=pill(colorPanel,Color.rgb(94,108,154))
+            setPadding(dp(18),dp(9),dp(18),dp(9))
+            setOnEditorActionListener { _,_,_ -> saveZipAndFind(text.toString());true }
+            setOnFocusChangeListener { view,focused ->
+                background=pill(colorPanel,if(focused)Color.WHITE else Color.rgb(94,108,154))
+                if(focused){lastFocusKey="locals:zip";view.post{view.requestRectangleOnScreen(Rect(0,0,view.width,view.height),false)}}
+            }
+        }
+        localInput=input
+        zipRow.addView(input,LinearLayout.LayoutParams(dp(278),dp(57)))
+        val lookup=tvButton("Find my local stations") { saveZipAndFind(input.text.toString()) }
+        lookup.tag="locals:find"
+        zipRow.addView(lookup,LinearLayout.LayoutParams(-2,dp(57)).apply {marginStart=dp(12)})
+        column.addView(zipRow,LinearLayout.LayoutParams(-1,dp(65)))
+        if(localMessage.isNotBlank())addDescription(column,localMessage)
+        if(channels.isEmpty()){
+            addDescription(column,"First import your M3U or Xtream playlist under Settings. ZIP matching cannot create streams that aren't in your provider's list.","Playlist Settings") {openSettings()}
+            return
+        }
+        val market=marketForZip(zip)
+        if(market!=null){
+            addHeading(column,"Suggested TV market",market.name)
+            addDescription(column,"ABC • CBS • NBC • FOX. Matching uses station call signs in your imported playlist. ZIP prefixes are only starter suggestions; you can correct the market below.")
+            val matches=LocalStationMatcher.recommendations(market,channels.map {
+                LocalStationMatcher.Station(it.id,it.name,it.group,it.logo) })
+            val group=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL}
+            for(match in matches){
+                val station=match.station
+                val ch=station?.let{candidate->channels.firstOrNull{it.id==candidate.id}}
+                val checked=ch!=null && locals.contains(ch.id)
+                val label="${match.network} • ${match.callsign}  —  " +
+                    (if(ch==null)"Not found in playlist" else (if(checked)"✓ " else "+ ")+ch.name)
+                val action=tvButton(label) {
+                    if(ch!=null){
+                        val set=locals.toMutableSet()
+                        if(!set.add(ch.id))set.remove(ch.id)
+                        preferences.edit().putStringSet("local_ids",set).apply()
+                        requestedFocusKey="local:${match.network}";renderScreen()
+                    }
+                }
+                action.tag="local:${match.network}"
+                action.isEnabled=ch!=null
+                group.addView(action,LinearLayout.LayoutParams(-1,dp(53)).apply{bottomMargin=dp(6)})
+            }
+            column.addView(group)
+        }else if(zip.length==5){
+            addDescription(column,"This ZIP isn't in the offline beta lookup. Select a TV market below. The hosted panel will supply exact ZIP-to-market mapping later.")
+        }
+        addHeading(column,"Change market", "If your local affiliates are different")
+        val markets=LocalStationMatcher.markets
+        val marketRows=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL}
+        markets.chunked(4).forEach {batch->
+            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
+            batch.forEach {option->
+                val button=tvButton(if(market?.id==option.id)"✓ ${option.name}" else option.name){
+                    if(zip.length!=5){localMessage="Enter a ZIP code first.";renderScreen();return@tvButton}
+                    preferences.edit().putString("market_for_$zip",option.id).apply()
+                    chooseRecommendedLocals(option)
+                    requestedFocusKey="market:${option.id}";renderScreen()
+                }
+                button.tag="market:${option.id}"
+                button.textSize=12f
+                row.addView(button,LinearLayout.LayoutParams(0,dp(53),1f).apply{marginEnd=dp(6)})
+            }
+            marketRows.addView(row,LinearLayout.LayoutParams(-1,dp(58)))
+        }
+        column.addView(marketRows)
+        addHeading(column,"Search your playlist", "Station, callsign, city or group")
+        val searchRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
+        val search=EditText(this).apply{
+            tag="locals:search"
+            setSingleLine(true);textSize=17f
+            setText(localSearch)
+            hint="e.g. WSOC, WBTV, Charlotte"
+            setTextColor(Color.WHITE);setHintTextColor(colorMuted)
+            inputType=InputType.TYPE_CLASS_TEXT
+            imeOptions=EditorInfo.IME_ACTION_SEARCH
+            background=pill(colorPanel,Color.rgb(94,108,154))
+            setPadding(dp(14),dp(7),dp(14),dp(7))
+            setOnEditorActionListener { _,_,_->localSearch=text.toString().trim();requestedFocusKey="locals:search";renderScreen();true }
+        }
+        searchRow.addView(search,LinearLayout.LayoutParams(dp(320),dp(56)))
+        val btn=tvButton("Search") {localSearch=search.text.toString().trim();requestedFocusKey="locals:searchBtn";renderScreen()}
+        btn.tag="locals:searchBtn"
+        searchRow.addView(btn,LinearLayout.LayoutParams(-2,dp(56)).apply{marginStart=dp(12)})
+        column.addView(searchRow)
+        val query=localSearch.lowercase(Locale.ROOT)
+        if(query.length>=2){
+            val results=channels.filter { ch ->
+                (ch.name+" "+ch.group).lowercase(Locale.ROOT).contains(query)
+            }.take(12)
+            if(results.isEmpty())addDescription(column,"No matches in your playlist for $localSearch.")
+            else{
+                addHeading(column,"Search results","${results.size} shown • maximum 12")
+                results.forEach { ch ->
+                    val add=tvButton((if(locals.contains(ch.id))"✓ " else "+ ")+ch.name+"  •  "+ch.group){
+                        val set=locals.toMutableSet()
+                        if(!set.add(ch.id))set.remove(ch.id)
+                        preferences.edit().putStringSet("local_ids",set).apply()
+                        requestedFocusKey="lookup:${ch.id}";renderScreen()
+                    }
+                    add.tag="lookup:${ch.id}"
+                    column.addView(add,LinearLayout.LayoutParams(-1,dp(52)).apply{bottomMargin=dp(5)})
+                }
+            }
+        }
+        val selected=selectedLocalChannels()
+        if(selected.isNotEmpty())channelRow(column,"My saved locals",selected,"Shown on Home and at the top of your guide")
+    }
+
     private fun toggleFavorite(id:String){
         val selected=favorites.toMutableSet()
         if(!selected.add(id))selected.remove(id)
         preferences.edit().putStringSet("favorite_ids",selected).apply()
+        requestedFocusKey = "channel:$id"
         renderScreen()
     }
     private fun toggleTeam(id:String){
@@ -463,11 +763,16 @@ class NativeTvActivity : Activity() {
             putExtra("url",ch.url);putExtra("name",ch.name)
         })
     }
-    private fun openGuide() {
+    private fun openGuide(selectedGroup:String?=null) {
         if(channels.isEmpty()){openSettings();return}
         val out=File(cacheDir,"petalix-guide.json")
         try {
             val wrapper=JSONObject().put("channels",JSONArray().apply {
+                // A small My Locals group sits at the top without removing the original categories.
+                channels.filter { locals.contains(it.id) }.take(12).forEach { ch ->
+                    put(JSONObject().put("id",ch.id).put("name",ch.name).put("group","My Locals")
+                        .put("logo",ch.logo).put("url",ch.url).put("now",ch.now).put("next",ch.next))
+                }
                 channels.take(7000).forEach { ch ->
                     put(JSONObject().put("id",ch.id).put("name",ch.name).put("group",ch.group)
                         .put("logo",ch.logo).put("url",ch.url).put("now",ch.now).put("next",ch.next))
@@ -475,14 +780,16 @@ class NativeTvActivity : Activity() {
             })
             out.writeText(wrapper.toString(),Charsets.UTF_8)
         } catch (_:Exception) { return }
-        startActivity(Intent(this,GuideActivity::class.java))
+        startActivity(Intent(this,GuideActivity::class.java).apply {
+            if(!selectedGroup.isNullOrBlank())putExtra("selected_group",selectedGroup)
+        })
     }
     private fun openSettings(){
         startActivity(Intent(this,MainActivity::class.java).putExtra("native_settings",true))
     }
     override fun onDestroy() {
         imageThreads.shutdownNow()
-        scoreThread.shutdownNow()
+        scoreThreads.shutdownNow()
         super.onDestroy()
     }
     private fun openOnDemand(tab:String){

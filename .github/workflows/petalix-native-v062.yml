@@ -1,0 +1,62 @@
+name: Petalix native TV v0.6.2 remote and ZIP test
+on:
+  push:
+    branches: [test/petalix-native-zip-v062]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: JS syntax
+        run: node --check app/src/main/assets/app.js
+      - name: Test ZIP station matcher and compile APK
+        run: gradle --no-daemon testDebugUnitTest assembleDebug
+      - name: Android emulator ZIP and native D-pad smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash ci/check-native-v062.sh
+      - name: Save screenshots and crash logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: petalix-v062-launch-and-zip-evidence
+          path: |
+            petalix-v062-*.xml
+            petalix-v062-*.png
+            petalix-v062-log.txt
+          if-no-files-found: ignore
+      - name: Publish verified beta APK
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Petalix_TV_Native_ZIP_Beta_v0.6.2.apk
+          gh release create petalix-tv-native-v0.6.2-beta Petalix_TV_Native_ZIP_Beta_v0.6.2.apk \
+            --title 'Petalix TV Beta v0.6.2 - Smoother Remote + My Locals' \
+            --notes 'Native D-pad focus restoration, lighter Home channel rails, native My Locals ZIP UI, verified Hickory/Charlotte affiliate matching from connected M3U or Xtream only, manual market override, ZIP search limited to 12. Supports offline beta market hints for select markets; nationwide exact ZIP-to-DMA mapping requires the new control panel or licensed data. ESPN public scoreboard is beta-only; paid customer distribution not authorized. Does not change production Petalix.' \
+            --target test/petalix-native-zip-v062 --prerelease

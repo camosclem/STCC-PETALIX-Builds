@@ -10,8 +10,8 @@ android {
         applicationId = "com.petalix.tv.guidebeta"
         minSdk = 23
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.6.1"
+        versionCode = 8
+        versionName = "0.6.2"
         // Set -PpetalixControlUrl=https://your-control-domain during a hosted beta build.
         buildConfigField("String", "CONTROL_URL", "\"${project.findProperty("petalixControlUrl") ?: ""}\"")
     }
@@ -31,5 +31,6 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-dash:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation("androidx.core:core-ktx:1.15.0")
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
 }

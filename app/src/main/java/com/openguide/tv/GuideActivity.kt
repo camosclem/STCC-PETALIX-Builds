@@ -63,6 +63,9 @@ class GuideActivity : Activity() {
         channels=try{
             JSONObject(File(cacheDir,"petalix-guide.json").readText()).optJSONArray("channels")?:JSONArray()
         }catch(_:Exception){JSONArray()}
+        group=intent.getStringExtra("selected_group") ?: "All channels"
+        // Named Home rails (e.g. Sports/Featured) are not necessarily actual provider groups.
+        if(group!="All channels" && group!="My Locals" && (0 until channels.length()).none{channels.optJSONObject(it)?.optString("group")==group})group="All channels"
         buildUI()
     }
     private fun buildUI(){
