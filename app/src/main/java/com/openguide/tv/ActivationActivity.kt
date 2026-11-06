@@ -83,7 +83,7 @@ class ActivationActivity : Activity() {
             root.addView(demo,LinearLayout.LayoutParams(dp(365),dp(50)))
             demo.setOnClickListener {
                 prefs.edit().putBoolean("demo_mode",true).apply()
-                startActivity(Intent(this,MainActivity::class.java));finish()
+                startActivity(Intent(this,NativeTvActivity::class.java));finish()
             }
         }
         setContentView(root)
@@ -115,7 +115,7 @@ class ActivationActivity : Activity() {
                     prefs.edit().putString("panel_url",server).putString("device_token",token)
                         .putString("customer",data.optString("customer"))
                         .putBoolean("demo_mode",false).apply()
-                    runOnUiThread {startActivity(Intent(this,MainActivity::class.java));finish()}
+                    runOnUiThread {startActivity(Intent(this,NativeTvActivity::class.java));finish()}
                 } finally {con.disconnect()}
             }catch(e:Exception){
                 runOnUiThread {button.isEnabled=true;message.text=e.message?:"Could not reach activation server"}

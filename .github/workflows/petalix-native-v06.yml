@@ -1,0 +1,66 @@
+name: Petalix Native Android TV v0.6.1 ESPN beta
+on:
+  push:
+    branches: [test/petalix-native-espn-v061]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install platform
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Check web settings JS syntax
+        run: node --check app/src/main/assets/app.js
+      - name: Compile Android TV APK
+        run: gradle --no-daemon assembleDebug
+      - name: Test native startup on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash ci/check-native-v06.sh
+      - name: Save startup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: petalix-native-v06-startup
+          path: |
+            native-v06-log.txt
+            native-v06-state.txt
+            native-v06-launch.png
+          if-no-files-found: ignore
+      - name: Publish test APK (after checks pass)
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Petalix_TV_Native_ESPN_Beta_v0.6.1.apk
+          if gh release view petalix-tv-native-v0.6.1-espn-beta >/dev/null 2>&1; then
+            gh release upload petalix-tv-native-v0.6.1-espn-beta Petalix_TV_Native_ESPN_Beta_v0.6.1.apk --clobber
+          else
+            gh release create petalix-tv-native-v0.6.1-espn-beta Petalix_TV_Native_ESPN_Beta_v0.6.1.apk \
+              --title "Petalix TV Native UI + ESPN Beta v0.6.1" \
+              --notes "Android TV native Home, Sports, Teams, Favorites and native guide; no Your Apps row. PIN beta preview. M3U/Xtream setup remains in hybrid Settings. ESPN site scoreboards are beta-only; no commercial license or streaming rights. Test-only; production panel untouched." \
+              --target test/petalix-native-espn-v061 --prerelease
+          fi

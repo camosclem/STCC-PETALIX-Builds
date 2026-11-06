@@ -1,11 +1,13 @@
-# Petalix TV Guide Beta v0.5 — PIN / master playlist test
+# Petalix Native Android TV beta v0.6
 
-Separate Android/Google TV beta with Petalix identity. **Do not replace the existing live Petalix app.**
+Native Android TV Home, Sports, Teams, Favorites and native Guide with a Media3 preview window, based on the user's Android TV reference screenshots. No `Your apps` rail, and no external streaming-service tiles in the native Home.
 
-New: native D-pad-friendly PIN entry; download assigned Live TV, Movies and TV Shows from the separate Petalix Control BETA server in paginated batches; `My Locals` now uses the admin's ZIP-to-market assignments rather than generic zip-prefix guesses for paired customers; native Android guide with a live video preview window and on-focus channel tuning. The existing manual M3U/Xtream import remains available in demo mode.
+**Navigation**: D-pad and OK work through Android's native View focus system. Long-press OK on a channel to favorite. Guide categories, channels and preview are native. Home has channel rails from the actual connected M3U/Xtream/PIN catalog. Sports lists channels rather than inventing live game data.
 
-The activation service is not hosted in this source package. To build a customer-ready APK after deployment, pass `-PpetalixControlUrl=https://your-control-panel.example` when invoking Gradle. With no URL compiled in, the first-run **beta-only** screen asks for the server HTTPS address and offers a demo path. Customer PINs and stream secrets are never included in the repository.
+**Sources**: M3U/Xtream imports, Movies/TV Shows browsing and optional PIN activation are retained through the existing hybrid Settings/import screen. That importer now synchronizes its channel catalog in bounded batches to a local native cache; no service credentials are compiled into the APK. PIN activation remains unconfigured until the separate beta panel is hosted, so choose beta preview in a debug build.
 
-Current beta limitations: automated device refresh and series episode catalog aren't yet fully production hardened; preview window may not support all provider codecs/DRM; TV focus behavior is unverified on hardware; app still uses WebView on Home and Movies/Series, while its PIN screen and Guide are native. External data rights, customer services, backups, stable release signing, permissions and server TLS must be verified before distribution.
+**Not yet complete**: an exact visual/behavior match to Binged, real sports scores and game feeds, replay/DVR backend, fully native Movies/Shows and Settings, independent TV device QA, and production panel deployment. The existing Petalix production app is untouched.
 
-Run JavaScript checks: `node --check app/src/main/assets/app.js`, and `node tests/test_m3u.js`.
+Build via the `Petalix Native Android TV v0.6 beta` GitHub Actions workflow on `test/petalix-native-v06`.
+
+Beta sports integration: Live score, scheduled and final game cards from the undocumented ESPN site JSON endpoint. No API key or Binged secrets needed. ESPN does not provide IPTV streams. Commercial distribution requires authorization or another licensed provider. Disabled in non-debug builds.

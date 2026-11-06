@@ -32,7 +32,22 @@
   let toastTimer;
   function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),4500);}
   function loadState(){try{const saved=JSON.parse(localStorage.getItem(storageKey)||'{}');Object.assign(state,saved);state.tab='Home';state.drawer=false;state.search='';}catch(e){state=defaultState();}}
-  function save(){try{const fields=['sources','channels','movies','shows','epgUrl','favorites','locals','followedTeams','zip','lastChannel','continueWatching','autoplay','sounds','accent','profile','sourceStatus','managed','managedRevision'];const snapshot=Object.fromEntries(fields.map(k=>[k,state[k]]));if(state.managed){snapshot.channels=[];snapshot.movies=[];snapshot.shows=[];snapshot.sources=state.sources.filter(s=>s.type!=='managed');}localStorage.setItem(storageKey,JSON.stringify(snapshot));}catch(e){toast('Device storage is full. Refresh your source or remove unused catalogs.');}}
+  let nativeCatalogTimer = null;
+  function syncNativeCatalogSoon() {
+    if (!native || !window.AndroidBridge.writeCatalogChunk) return;
+    clearTimeout(nativeCatalogTimer);
+    nativeCatalogTimer = setTimeout(() => {
+      try {
+        const items = state.channels.slice(0,12000);
+        const count = Math.max(1,Math.ceil(items.length/45));
+        for(let n=0; n<count; n++) {
+          const entries=items.slice(n*45,(n+1)*45).map(c=>({id:c.id,name:c.name,group:c.group,logo:c.logo,url:c.url,now:c.now||'',next:c.next||''}));
+          window.AndroidBridge.writeCatalogChunk(JSON.stringify(entries),n===0,n===count-1);
+        }
+      } catch (e) { console.warn('Native catalog cache unavailable',e); }
+    },700);
+  }
+  function save(){try{const fields=['sources','channels','movies','shows','epgUrl','favorites','locals','followedTeams','zip','lastChannel','continueWatching','autoplay','sounds','accent','profile','sourceStatus','managed','managedRevision'];const snapshot=Object.fromEntries(fields.map(k=>[k,state[k]]));if(state.managed){snapshot.channels=[];snapshot.movies=[];snapshot.shows=[];snapshot.sources=state.sources.filter(s=>s.type!=='managed');}localStorage.setItem(storageKey,JSON.stringify(snapshot));syncNativeCatalogSoon();}catch(e){toast('Device storage is full. Refresh your source or remove unused catalogs.');}}
   function button(label,action,arg='',extra=''){return `<button class="btn ${extra}" data-action="${esc(action)}" data-arg="${esc(arg)}">${esc(label)}</button>`;}
   function navButton(label){return `<button class="topnav-item ${state.tab===label?'active':''}" data-action="nav" data-arg="${esc(label)}">${esc(label)}</button>`;}
   function head(title,note=''){return `<div class="pagehead"><h2>${esc(title)}</h2><span class="muted">${esc(note)}</span></div>`;}
@@ -379,6 +394,12 @@
     // Only use channels actually assigned to the entered ZIP by the admin.
     if(Array.isArray(payload.items))state.locals=payload.items.map(i=>'managed:'+String(i.id));
     save();render();toast(payload.market?`Local market: ${payload.market} · ${payload.items.length} channels`:payload.message||'No local market assignment yet');
+  };
+  window.openPetalixNativePage=(page)=>{
+    state.tab=['Movies','TV Shows','Settings'].includes(page)?page:'Settings';
+    if(state.tab==='Settings') state.settingsTab='Playlists';
+    state.drawer=false;
+    render(true);
   };
   loadState();if(native&&window.AndroidBridge.isManaged&&window.AndroidBridge.isManaged())state.managed=true;render();if(native&&window.AndroidBridge.setUiSounds)window.AndroidBridge.setUiSounds(state.sounds!==false);
   if(native)setTimeout(()=>focusTv(document.querySelector('#screen button, #topnav button')),180);
