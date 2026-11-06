@@ -1,4 +1,4 @@
-name: OpenGuide TV Android debug build
+name: Petalix TV Binged-style Beta 0.2 Android
 on:
   push:
     branches:
@@ -17,7 +17,7 @@ jobs:
           java-version: '17'
       - uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools'
+          packages: platform-tools
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
@@ -25,24 +25,23 @@ jobs:
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Compile debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
-      - name: Upload Shield-installable debug APK
+      - name: Upload Shield-installable APK
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: OpenGuide-TV-debug-APK
+          name: Petalix-Binged-Style-Beta-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - name: Publish direct-download test APK
+      - name: Publish Petalix TV Beta direct-download
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk OpenGuide_TV_Shield_Test.apk
-          if gh release view openguide-tv-v0.1.0-beta >/dev/null 2>&1; then
-            gh release upload openguide-tv-v0.1.0-beta OpenGuide_TV_Shield_Test.apk --clobber
+          cp app/build/outputs/apk/debug/app-debug.apk Petalix_TV_Binged_Style_Beta_v0.2.apk
+          if gh release view petalix-binged-beta-v0.2.0 >/dev/null 2>&1; then
+            gh release upload petalix-binged-beta-v0.2.0 Petalix_TV_Binged_Style_Beta_v0.2.apk --clobber
           else
-            gh release create openguide-tv-v0.1.0-beta OpenGuide_TV_Shield_Test.apk \
-              --title "OpenGuide TV 0.1.0 Shield Test" \
-              --notes "Standalone Android TV debug test build. M3U playlist import, XMLTV EPG, and Media3 player. Unverified on physical Shield. Not yet a visual Binged replica." \
+            gh release create petalix-binged-beta-v0.2.0 Petalix_TV_Binged_Style_Beta_v0.2.apk \
+              --title "Petalix TV Binged-style Beta 0.2" \
+              --notes "Independent, original Petalix Android TV beta with Binged-style UI, M3U URL/file import, Xtream Codes live/VOD/series import, XMLTV, Movies and TV Shows service-category tiles. Service classification is based on provider category names; no accounts, channels, or streaming rights included. Unverified on physical Shield. Not a replacement for production Petalix." \
               --target openguide-tv-beta --prerelease
-          fi

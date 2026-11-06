@@ -6,11 +6,11 @@ android {
     namespace = "com.openguide.tv"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.openguide.tv"
+        applicationId = "com.petalix.tv.guidebeta"
         minSdk = 23
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
     buildTypes {
         release { isMinifyEnabled = false }

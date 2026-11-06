@@ -3,8 +3,10 @@ package com.openguide.tv
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -15,6 +17,7 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.util.concurrent.Executors
 import java.util.zip.GZIPInputStream
 
@@ -37,7 +40,13 @@ class MainActivity : Activity() {
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.allowFileAccess = true
             settings.allowContentAccess = false
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                    // Only local packaged UI can invoke the private Android bridge.
+                    val address = request?.url?.toString() ?: return true
+                    return !address.startsWith("file:///android_asset/")
+                }
+            }
             webChromeClient = WebChromeClient()
             addJavascriptInterface(Bridge(), "AndroidBridge")
             loadUrl("file:///android_asset/index.html")
@@ -54,6 +63,29 @@ class MainActivity : Activity() {
 
         @JavascriptInterface fun importEpg(url: String) {
             fetchText(url, 55 * 1024 * 1024, "onNativeEpg", "EPG")
+        }
+
+        @JavascriptInterface fun importXtream(
+            server: String, user: String, pass: String, action: String, ref: String, requestKey: String
+        ) {
+            if (user.isBlank() || pass.isBlank() || !server.matches(Regex("(?i)^https?://[^\\s]+$"))) {
+                reportError("Invalid Xtream login")
+                return
+            }
+            val allowed = setOf("", "get_live_categories", "get_live_streams",
+                "get_vod_categories", "get_vod_streams", "get_series_categories",
+                "get_series", "get_series_info", "get_vod_info")
+            if (action !in allowed || requestKey.length > 250) return
+            fun enc(value: String) = URLEncoder.encode(value, "UTF-8")
+            val suffix = StringBuilder("/player_api.php?username=")
+                .append(enc(user)).append("&password=").append(enc(pass))
+            if (action.isNotEmpty()) suffix.append("&action=").append(enc(action))
+            if (action == "get_series_info" && ref.isNotEmpty())
+                suffix.append("&series_id=").append(enc(ref))
+            if (action == "get_vod_info" && ref.isNotEmpty())
+                suffix.append("&vod_id=").append(enc(ref))
+            fetchText(server.trimEnd('/') + suffix.toString(), 40 * 1024 * 1024,
+                "onNativeXtream", requestKey)
         }
 
         @JavascriptInterface fun openPlaylistFile() {
@@ -94,11 +126,11 @@ class MainActivity : Activity() {
                     connectTimeout = 15000
                     readTimeout = 45000
                     instanceFollowRedirects = true
-                    setRequestProperty("User-Agent", "OpenGuideTV/0.1 (Android TV)")
+                    setRequestProperty("User-Agent", "PetalixTV/0.2 (Android TV)")
                     setRequestProperty("Accept-Encoding", "gzip")
                 }
                 try {
-                    if (conn.responseCode !in 200..299) error("HTTP " + conn.responseCode)
+                    if (conn.responseCode !in 200..299) error("HTTP ${conn.responseCode}")
                     val stream = BufferedInputStream(conn.inputStream)
                     stream.mark(2)
                     val signature1 = stream.read()
@@ -117,9 +149,10 @@ class MainActivity : Activity() {
                             buffer.write(block, 0, count)
                         }
                     }
-                    val content = JSONObject.quote(buffer.toString(Charsets.UTF_8.name()))
+                    val text = buffer.toString(Charsets.UTF_8.name())
+                    val payload = JSONObject.quote(text)
                     val label = JSONObject.quote(name)
-                    runOnUiThread { browser.evaluateJavascript("window." + callback + "(" + content + "," + label + ")", null) }
+                    runOnUiThread { browser.evaluateJavascript("window.$callback($payload,$label)", null) }
                 } finally { conn.disconnect() }
             } catch (e: Exception) { reportError(e.message ?: "Unable to download source") }
         }
@@ -127,7 +160,7 @@ class MainActivity : Activity() {
 
     private fun reportError(error: String) {
         val safe = JSONObject.quote(error)
-        runOnUiThread { browser.evaluateJavascript("window.onNativeError(" + safe + ")", null) }
+        runOnUiThread { browser.evaluateJavascript("window.onNativeError($safe)", null) }
     }
 
     @Deprecated("Used for Android TV document picker compatibility")
@@ -150,7 +183,7 @@ class MainActivity : Activity() {
                     output.toString(Charsets.UTF_8.name())
                 }
                 val content = JSONObject.quote(bytes)
-                runOnUiThread { browser.evaluateJavascript("window.onNativePlaylist(" + content + ",'Local file')", null) }
+                runOnUiThread { browser.evaluateJavascript("window.onNativePlaylist($content,'Local file')", null) }
             } catch (e: Exception) { reportError(e.message ?: "Could not read file") }
         }
     }
