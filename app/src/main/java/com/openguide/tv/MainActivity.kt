@@ -61,6 +61,11 @@ class MainActivity : Activity() {
                 }
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view,url)
+                    if (intent.getBooleanExtra("native_settings", false)) {
+                        val page = intent.getStringExtra("native_page") ?: "Settings"
+                        val quoted = JSONObject.quote(page)
+                        browser.evaluateJavascript("window.openPetalixNativePage && window.openPetalixNativePage($quoted)", null)
+                    }
                     if(!pairing.getString("device_token","").isNullOrBlank()) syncManagedCatalog()
                 }
             }
@@ -72,6 +77,26 @@ class MainActivity : Activity() {
     }
 
     inner class Bridge {
+        // Chunked on-device cache to keep large source lists out of WebView-to-Android Binder limits.
+        @Synchronized @JavascriptInterface fun writeCatalogChunk(chunk: String, first: Boolean, last: Boolean) {
+            if (chunk.length > 300000) return
+            try {
+                val tmp = File(filesDir, "petalix-native-catalog.tmp")
+                val final = File(filesDir, "petalix-native-catalog.jsonl")
+                if (first) tmp.writeText("", Charsets.UTF_8)
+                if (!tmp.exists()) return
+                tmp.appendText(chunk + "\n", Charsets.UTF_8)
+                if (last) {
+                    if (tmp.length() > 35L * 1024 * 1024) {
+                        tmp.delete()
+                        reportError("Catalog exceeds the TV preview cache limit; use the master panel")
+                        return
+                    }
+                    if (final.exists()) final.delete()
+                    if (!tmp.renameTo(final)) error("Unable to save TV catalog")
+                }
+            } catch (e: Exception) { reportError("TV catalog cache: " + (e.message ?: "I/O error")) }
+        }
         @JavascriptInterface fun isNative(): Boolean = true
         @JavascriptInterface fun isManaged(): Boolean = !pairing.getString("device_token","").isNullOrBlank()
         @JavascriptInterface fun refreshManaged() { syncManagedCatalog() }
@@ -395,16 +420,12 @@ class MainActivity : Activity() {
 
     @Deprecated("Use Activity Back navigation")
     override fun onBackPressed() {
-        if (::browser.isInitialized) {
-            browser.evaluateJavascript("window.handleBack && window.handleBack()", null)
-        } else {
-            super.onBackPressed()
-        }
+        if (intent.getBooleanExtra("native_settings", false)) { finish(); return }
+        if (::browser.isInitialized) browser.evaluateJavascript("window.handleBack && window.handleBack()", null)
+        else super.onBackPressed()
     }
 
     override fun onDestroy() {
-        // On fresh launch the PIN activity is opened before the WebView exists.
-        // Never read a lateinit WebView while closing that redirect activity.
         if (::browser.isInitialized) {
             browser.removeJavascriptInterface("AndroidBridge")
             browser.destroy()
