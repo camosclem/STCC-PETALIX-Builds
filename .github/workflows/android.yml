@@ -45,3 +45,4 @@ jobs:
               --title "Petalix TV Binged-style Beta 0.2" \
               --notes "Independent, original Petalix Android TV beta with Binged-style UI, M3U URL/file import, Xtream Codes live/VOD/series import, XMLTV, Movies and TV Shows service-category tiles. Service classification is based on provider category names; no accounts, channels, or streaming rights included. Unverified on physical Shield. Not a replacement for production Petalix." \
               --target openguide-tv-beta --prerelease
+          fi
