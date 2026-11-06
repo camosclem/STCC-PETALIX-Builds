@@ -97,7 +97,7 @@ class GuideActivity : Activity() {
         center.addView(top)
         val header=text("GUIDE  •  NOW & NEXT",16f,color("#a8c0df"))
         center.addView(header)
-        val scroll=ScrollView(this).apply{isFocusable=false;fillViewport=true}
+        val scroll=ScrollView(this).apply{isFocusable=false;isFillViewport=true}
         list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
         scroll.addView(list)
         center.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
