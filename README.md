@@ -1,15 +1,11 @@
-# Petalix TV Beta 0.3 (Binged-style design)
+# Petalix TV Guide Beta v0.5 — PIN / master playlist test
 
-Independent Android TV test app (package com.petalix.tv.guidebeta). This does not modify the production Petalix app.
+Separate Android/Google TV beta with Petalix identity. **Do not replace the existing live Petalix app.**
 
-Changes from 0.2:
-- NVIDIA Shield TV remote: directional spatial focus, OK/Select, menu and existing Back behavior.
-- Stream a large M3U source in bounded JSON batches; retain up to 2800 live, 800 movies, 500 shows, and use per-group caps to spread channels across categories. Excluded entries are counted.
-- Animated streaming-service collection tiles with original custom focus sounds and an Appearance > Navigation sounds toggle; honors reduced-motion.
-- Existing M3U URL/file, Xtream login, XMLTV, and native Media3 playback are retained.
+New: native D-pad-friendly PIN entry; download assigned Live TV, Movies and TV Shows from the separate Petalix Control BETA server in paginated batches; `My Locals` now uses the admin's ZIP-to-market assignments rather than generic zip-prefix guesses for paired customers; native Android guide with a live video preview window and on-focus channel tuning. The existing manual M3U/Xtream import remains available in demo mode.
 
-Note: This is a debug beta. If Android refuses to install on top of 0.2 due to different debug signing certificates, uninstall the older Petalix TV Beta first. That will clear its locally stored playlist settings. Do not uninstall the separate production Petalix app.
+The activation service is not hosted in this source package. To build a customer-ready APK after deployment, pass `-PpetalixControlUrl=https://your-control-panel.example` when invoking Gradle. With no URL compiled in, the first-run **beta-only** screen asks for the server HTTPS address and offers a demo path. Customer PINs and stream secrets are never included in the repository.
 
-Your playlist login is not embedded in the APK or source. Enter it on-device in Settings > Playlists.
+Current beta limitations: automated device refresh and series episode catalog aren't yet fully production hardened; preview window may not support all provider codecs/DRM; TV focus behavior is unverified on hardware; app still uses WebView on Home and Movies/Series, while its PIN screen and Guide are native. External data rights, customer services, backups, stable release signing, permissions and server TLS must be verified before distribution.
 
-Android TV hardware, provider playlist behavior, and native playback remain to be tested.
+Run JavaScript checks: `node --check app/src/main/assets/app.js`, and `node tests/test_m3u.js`.

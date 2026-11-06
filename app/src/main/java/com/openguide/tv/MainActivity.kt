@@ -2,6 +2,8 @@ package com.openguide.tv
 
 import android.app.Activity
 import android.content.Intent
+import java.io.File
+import android.webkit.WebViewClient
 import android.os.Bundle
 import android.view.KeyEvent
 import android.media.AudioManager
@@ -15,7 +17,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
@@ -29,12 +30,18 @@ import java.util.zip.GZIPInputStream
 class MainActivity : Activity() {
     private lateinit var browser: WebView
     private val io = Executors.newSingleThreadExecutor()
+    private val pairing by lazy {getSharedPreferences("petalix_pairing", MODE_PRIVATE)}
     private val fileRequestCode = 2001
     @Volatile private var uiSounds = true
     private var focusTone: ToneGenerator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if(pairing.getString("device_token", "").isNullOrBlank() && !pairing.getBoolean("demo_mode",false)){
+            startActivity(Intent(this,ActivationActivity::class.java))
+            finish()
+            return
+        }
         window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
             or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
             or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
@@ -49,9 +56,12 @@ class MainActivity : Activity() {
             settings.allowContentAccess = false
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    // Only local packaged UI can invoke the private Android bridge.
                     val address = request?.url?.toString() ?: return true
                     return !address.startsWith("file:///android_asset/")
+                }
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view,url)
+                    if(!pairing.getString("device_token","").isNullOrBlank()) syncManagedCatalog()
                 }
             }
             webChromeClient = WebChromeClient()
@@ -63,6 +73,23 @@ class MainActivity : Activity() {
 
     inner class Bridge {
         @JavascriptInterface fun isNative(): Boolean = true
+        @JavascriptInterface fun isManaged(): Boolean = !pairing.getString("device_token","").isNullOrBlank()
+        @JavascriptInterface fun refreshManaged() { syncManagedCatalog() }
+        @JavascriptInterface fun lookupManagedLocals(zip: String) { fetchManagedLocals(zip) }
+        @JavascriptInterface fun enterDifferentPin() {
+            pairing.edit().remove("device_token").putBoolean("demo_mode",false).apply()
+            runOnUiThread { startActivity(Intent(this@MainActivity,ActivationActivity::class.java));finish() }
+        }
+        @JavascriptInterface fun openNativeGuide(payload: String) {
+            io.execute {
+                try {
+                    // Private cache file avoids Binder's ~1 MB intent extras limit for large catalogs.
+                    File(cacheDir,"petalix-guide.json").writeText(payload,Charsets.UTF_8)
+                    runOnUiThread {startActivity(Intent(this@MainActivity, GuideActivity::class.java))}
+                } catch(e:Exception) {reportError("Unable to open guide: " +(e.message?:"File error"))}
+            }
+        }
+
 
         @JavascriptInterface fun importPlaylist(url: String, name: String) {
             fetchPlaylist(url, name)
@@ -216,6 +243,64 @@ class MainActivity : Activity() {
             }
         }
         send(true)
+    }
+
+    private fun managedBase():String = pairing.getString("panel_url", BuildConfig.CONTROL_URL).orEmpty().trimEnd('/')
+
+    private fun managedGet(path:String):JSONObject {
+        val base=managedBase()
+        if(!base.startsWith("https://",true)) error("Panel HTTPS address is not configured")
+        val token=pairing.getString("device_token", "").orEmpty()
+        if(token.isBlank()) error("Enter your activation PIN first")
+        val conn=(URL(base+path).openConnection() as HttpURLConnection).apply {
+            connectTimeout=12000;readTimeout=45000
+            setRequestProperty("X-Device-Token",token)
+            setRequestProperty("Accept","application/json")
+        }
+        return try {
+            if(conn.responseCode !in 200..299){
+                if(conn.responseCode==401) error("Activation expired. Open Settings to enter a new PIN.")
+                error("Panel returned HTTP "+conn.responseCode)
+            }
+            val payload=conn.inputStream.bufferedReader().use {it.readText()}
+            JSONObject(payload)
+        }finally {conn.disconnect()}
+    }
+
+    private fun syncManagedCatalog() {
+        if(pairing.getString("device_token","").isNullOrBlank())return
+        io.execute {
+            try {
+                val caps=mapOf("live" to 12000,"movie" to 3500,"show" to 3500)
+                for((kind,cap) in caps){
+                    var offset=0
+                    var revision=0
+                    while(offset<cap){
+                        val j=managedGet("/api/device/catalog?kind=$kind&offset=$offset&limit=150")
+                        val items=j.optJSONArray("items") ?: JSONArray()
+                        revision=j.optInt("revision",0)
+                        val next=j.optInt("next_offset",-1)
+                        val done=next<0 || next>=cap || items.length()==0
+                        val encoded=items.toString()
+                        runOnUiThread {browser.evaluateJavascript("window.onManagedCatalogChunk('$kind',$encoded,$done,$revision)",null)}
+                        if(done)break
+                        offset=next
+                    }
+                }
+            }catch(e:Exception){reportError("Master lineup: "+(e.message?:"Connection failed"))}
+        }
+    }
+
+    private fun fetchManagedLocals(zip:String) {
+        if(!Regex("^\\d{5}$").matches(zip)){
+            reportError("Enter a 5-digit ZIP code");return
+        }
+        io.execute {
+            try {
+                val response=managedGet("/api/device/locals?zipcode=$zip")
+                runOnUiThread {browser.evaluateJavascript("window.onManagedLocals("+response.toString()+")",null)}
+            }catch(e:Exception){reportError("ZIP lookup: "+(e.message?:"Unable to search"))}
+        }
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

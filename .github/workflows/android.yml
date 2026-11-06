@@ -1,4 +1,4 @@
-name: Petalix TV Binged-style Beta 0.3 Android
+name: Petalix TV Beta Android APK
 on:
   push:
     branches:
@@ -17,32 +17,27 @@ jobs:
           java-version: '17'
       - uses: android-actions/setup-android@v3
         with:
-          packages: platform-tools
+          packages: 'platform-tools'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Install Android SDK platform
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Compile debug APK
-        run: gradle --no-daemon --stacktrace assembleDebug
-      - name: Upload Shield-installable APK
-        uses: actions/upload-artifact@v4
-        if: success()
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - run: gradle --no-daemon --stacktrace assembleDebug
+      - uses: actions/upload-artifact@v4
         with:
-          name: Petalix-Binged-Style-Beta-APK
+          name: Petalix-TV-v0.5-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - name: Publish Petalix TV Beta direct-download
-        if: success()
+      - name: Publish Petalix 0.5 test build
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk Petalix_TV_Binged_Style_Beta_v0.3.apk
-          if gh release view petalix-binged-beta-v0.3.0 >/dev/null 2>&1; then
-            gh release upload petalix-binged-beta-v0.3.0 Petalix_TV_Binged_Style_Beta_v0.3.apk --clobber
+          cp app/build/outputs/apk/debug/app-debug.apk Petalix_TV_PIN_Beta_v0.5.apk
+          if gh release view petalix-pin-beta-v0.5 >/dev/null 2>&1; then
+            gh release upload petalix-pin-beta-v0.5 Petalix_TV_PIN_Beta_v0.5.apk --clobber
           else
-            gh release create petalix-binged-beta-v0.3.0 Petalix_TV_Binged_Style_Beta_v0.3.apk \
-              --title "Petalix TV Binged-style Beta 0.3" \
-              --notes "Independent, original Petalix Android TV beta with Binged-style UI, M3U URL/file import, Xtream Codes live/VOD/series import, XMLTV, Movies and TV Shows service-category tiles. M3U streaming parser handles oversized feeds with device-friendly per-category limits. Shield remote navigation and original animated tiles with optional navigation tones. No accounts, channels, or streaming rights included. Unverified on physical Shield. Not a replacement for production Petalix." \
+            gh release create petalix-pin-beta-v0.5 Petalix_TV_PIN_Beta_v0.5.apk \
+              --title "Petalix TV Beta v0.5 — PIN & Native Guide" \
+              --notes "Separate beta. Server PIN needs a hosted Petalix Control BETA HTTPS endpoint. No production customers changed. Native PIN, guide preview, managed ZIP-to-market locals." \
               --target openguide-tv-beta --prerelease
           fi

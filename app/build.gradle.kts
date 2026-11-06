@@ -5,12 +5,15 @@ plugins {
 android {
     namespace = "com.openguide.tv"
     compileSdk = 35
+    buildFeatures { buildConfig = true }
     defaultConfig {
         applicationId = "com.petalix.tv.guidebeta"
         minSdk = 23
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 5
+        versionName = "0.5.0"
+        // Set -PpetalixControlUrl=https://your-control-domain during a hosted beta build.
+        buildConfigField("String", "CONTROL_URL", "\"${project.findProperty("petalixControlUrl") ?: ""}\"")
     }
     buildTypes {
         release { isMinifyEnabled = false }
@@ -28,4 +31,5 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-dash:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.recyclerview:recyclerview:1.4.0")
 }

@@ -13,8 +13,9 @@
   const colorByProvider = Object.fromEntries(providers.map(([name,bg,fg])=>[name,{bg,fg}]));
   const storageKey = 'petalix-binged-style-v2';
   const defaultState = () => ({tab:'Home', settingsTab:'Playlists',category:'All',search:'',service:'',drawer:false,
+    managed:false,managedRevision:0,managedLocalResults:null,
     sources:[],channels:[],movies:[],shows:[],epg:{},epgUrl:'',favorites:[],locals:[],followedTeams:[],zip:'',
-    lastChannel:'',continueWatching:[],autoplay:true,sounds:true,accent:'#2685ff',profile:'Petalix',sourceStatus:'',libraryFilter:'All'});
+    lastChannel:'',continueWatching:[],autoplay:true,sounds:true,accent:'#2685ff',profile:'Petalix',sourceStatus:'',libraryFilter:'All',localSearch:''});
   let state = defaultState();
   const pendingXtream = new Map();
   const incomingPlaylist = new Map();
@@ -31,7 +32,7 @@
   let toastTimer;
   function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),4500);}
   function loadState(){try{const saved=JSON.parse(localStorage.getItem(storageKey)||'{}');Object.assign(state,saved);state.tab='Home';state.drawer=false;state.search='';}catch(e){state=defaultState();}}
-  function save(){try{const fields=['sources','channels','movies','shows','epgUrl','favorites','locals','followedTeams','zip','lastChannel','continueWatching','autoplay','sounds','accent','profile','sourceStatus'];const snapshot=Object.fromEntries(fields.map(k=>[k,state[k]]));localStorage.setItem(storageKey,JSON.stringify(snapshot));}catch(e){toast('Device storage is full. Refresh your source or remove unused catalogs.');}}
+  function save(){try{const fields=['sources','channels','movies','shows','epgUrl','favorites','locals','followedTeams','zip','lastChannel','continueWatching','autoplay','sounds','accent','profile','sourceStatus','managed','managedRevision'];const snapshot=Object.fromEntries(fields.map(k=>[k,state[k]]));if(state.managed){snapshot.channels=[];snapshot.movies=[];snapshot.shows=[];snapshot.sources=state.sources.filter(s=>s.type!=='managed');}localStorage.setItem(storageKey,JSON.stringify(snapshot));}catch(e){toast('Device storage is full. Refresh your source or remove unused catalogs.');}}
   function button(label,action,arg='',extra=''){return `<button class="btn ${extra}" data-action="${esc(action)}" data-arg="${esc(arg)}">${esc(label)}</button>`;}
   function navButton(label){return `<button class="topnav-item ${state.tab===label?'active':''}" data-action="nav" data-arg="${esc(label)}">${esc(label)}</button>`;}
   function head(title,note=''){return `<div class="pagehead"><h2>${esc(title)}</h2><span class="muted">${esc(note)}</span></div>`;}
@@ -62,7 +63,6 @@
     const resume=state.continueWatching.map(id=>[...state.movies,...state.shows].find(x=>x.id===id)).filter(Boolean);
     return `${hero}${state.sources.length?'':`<div class="info-strip">Connect an M3U playlist or Xtream Codes account in Settings to see your channels and on-demand catalog.</div>`}
       ${state.channels.length?`${head('Live TV',state.channels.length+' channels')}${rail(state.channels,'live')}`:''}
-      ${head('Streaming Services','Your provider collections')}${providerGrid('Movies')}
       ${resume.length?`${head('Continue Watching',resume.length+' saved')}${rail(resume,'resume')}`:''}
       ${state.movies.length?`${head('Movies',state.movies.length+' titles')}${rail(state.movies,'movie')}`:''}
       ${state.shows.length?`${head('TV Shows',state.shows.length+' shows')}${rail(state.shows,'show')}`:''}
@@ -77,13 +77,64 @@
   function replays(){return `${head('Replays','Provider dependent')}${empty('No replays available','A TV guide or playlist alone cannot create recordings. Replay and catch-up will appear only when your connected service supplies them.')}`;}
   function teams(){return `${head('Teams','Favorites and leagues')}${chipRow(['NFL','NCAA','NBA','NHL','MLB','MLS','Premier League','Champions League'],state.libraryFilter==='All'?'NFL':state.libraryFilter,'league')}${empty('Follow your teams','This test build displays sports channels from your provider. Team schedules and game cards require a separate verified sports-data feed.')}`;}
   function favorites(){const collection=[...state.channels,...state.movies,...state.shows].filter(i=>state.favorites.includes(i.id)).filter(matches);return collection.length?`${head('Favorites',collection.length+' saved')}${rail(collection.filter(i=>state.channels.some(c=>c.id===i.id)),'live')}${rail(collection.filter(i=>state.movies.some(c=>c.id===i.id)),'movie')}${rail(collection.filter(i=>state.shows.some(c=>c.id===i.id)),'show')}`:empty('No favorites yet','Hold OK on a channel, or open a movie or show and select Add to Favorites.');}
-  function streaming(mode){const service=state.service;const items=(mode==='Movies'?state.movies:state.shows).filter(matches);if(!service){return `${head(mode,`${items.length} available from your sources`)}<p class="muted smalltext">Choose a streaming-service collection. Tiles organize the movies and shows in your own catalog; they do not sign into those separate services.</p>${providerGrid(mode)}${!items.length?empty(`No ${mode.toLowerCase()} loaded`,'Add an Xtream Codes login with VOD access or import a playlist containing movie/show entries.') :''}`;}
-    const selected=items.filter(i=>serviceFor(i)===service);const styles=colorByProvider[service]||{bg:'#1b1d27',fg:'#f9f9fc'};const genres=[...new Set(selected.map(x=>x.genre||x.group||'All').filter(Boolean))].slice(0,12);
-    return `<div style="padding-top:25px">${button('‹  All services','back-service','','ghost')}<section class="hero" style="min-height:260px;margin-top:20px;background:radial-gradient(ellipse at 20% 35%,${styles.bg},#050509 75%)"><div class="hero-media"><span class="hero-logo-fallback">${esc(service)}</span></div><div class="hero-text"><div class="hero-eyebrow">PETALIX COLLECTION</div><h1>${esc(service)}</h1><p>${selected.length} titles from your connected ${mode==='Movies'?'movie':'TV show'} sources</p></div></section>
-    ${selected.length?`${head('Featured',selected.length+' titles')}${rail(selected,mode==='Movies'?'movie':'show')}${genres.slice(0,7).map(g=>`${head(g)}${rail(selected.filter(x=>(x.genre||x.group||'All')===g),mode==='Movies'?'movie':'show')}`).join('')}`:empty('No matching titles','Your source has no items labeled '+service+'. Check the provider categories or use Other Collections.')}</div>`;
+  function streaming(mode){
+    const items=(mode==='Movies'?state.movies:state.shows).filter(matches);
+    const groups=[...new Set(items.map(i=>i.group||'Other'))].slice(0,14);
+    return `${head(mode,items.length+' titles from your connected provider')}${items.length?`${head('Recently added')}${rail(items,mode==='Movies'?'movie':'show')}${groups.map(g=>`${head(g)}${rail(items.filter(i=>(i.group||'Other')===g),mode==='Movies'?'movie':'show')}`).join('')}`:empty(`No ${mode.toLowerCase()} loaded`,'Connect Xtream Codes or an M3U containing movies/series. No streaming-service tiles or external apps.')}`;
   }
   function continueWatching(){const items=state.continueWatching.map(id=>[...state.movies,...state.shows].find(x=>x.id===id)).filter(Boolean);return `${head('Continue Watching',items.length+' saved')}${items.length?rail(items,'resume'):empty('Nothing started yet','Select a movie or episode to begin your watch history.')}`;}
-  function locals(){const eligible=state.channels.filter(L.isLocal);const chosen=state.channels.filter(c=>state.locals.includes(c.id));return `${head('My Locals',chosen.length+' selected')}<div class="settings-box"><div class="setting-row"><div><strong>ZIP code</strong><small>Saved on this device. Automatic station matching is not included yet.</small></div><input id="zipcode" placeholder="28601" value="${esc(state.zip)}" maxlength="5" inputmode="numeric"></div><div class="setting-actions">${button('Save ZIP','save-zip','','blue')}</div></div>${chosen.length?`${head('My channels')}${rail(chosen,'live')}`:''}${head('Find local channels',eligible.length+' possible matches')}<div class="service-grid">${eligible.slice(0,80).map(c=>`<button class="service" style="height:105px" data-action="toggle-local" data-id="${esc(c.id)}"><strong>${esc(c.name)}</strong><span class="service-count">${state.locals.includes(c.id)?'✓ Included':'+ Add to locals'}</span></button>`).join('')}</div>${eligible.length?'':empty('No local stations detected','Your M3U group labels may differ. You can still favorite channels in Live TV.')}`;}
+  // ZIP lookup is an intentionally bounded local-channel helper, not a national TV listings API.
+  // Only surface network affiliates from the user's connected playlist with grounded market hints.
+  const knownMarkets = [
+    {min:280,max:283,label:'Charlotte, NC',terms:['charlotte','wsoc','wbtv','wcnc','wjzy'],calls:{ABC:'wsoc',CBS:'wbtv',NBC:'wcnc',FOX:'wjzy'}},
+    {min:286,max:286,label:'Charlotte / Hickory, NC',terms:['charlotte','hickory','wsoc','wbtv','wcnc','wjzy'],calls:{ABC:'wsoc',CBS:'wbtv',NBC:'wcnc',FOX:'wjzy'}},
+    {min:287,max:289,label:'Asheville, NC',terms:['asheville','wlos','wspa','wyff','whns'],calls:{ABC:'wlos',CBS:'wspa',NBC:'wyff',FOX:'whns'}},
+    {min:270,max:274,label:'Greensboro / Winston-Salem, NC',terms:['greensboro','winston','wghp','wxlv','wfmy','wxii'],calls:{ABC:'wxlv',CBS:'wfmy',NBC:'wxii',FOX:'wghp'}},
+    {min:275,max:277,label:'Raleigh / Durham, NC',terms:['raleigh','durham','wtvd','wncn','wral','wral-tv','wral tv','wraz'],calls:{ABC:'wtvd',CBS:'wral',NBC:'wncn',FOX:'wraz'}},
+    {min:278,max:279,label:'Eastern North Carolina',terms:['greenville','new bern','washington nc','wnct','wcti','witr','wydo'],calls:{ABC:'wcti',CBS:'wnct',FOX:'wydo'}},
+    {min:282,max:282,label:'Charlotte, NC',terms:['charlotte','wsoc','wbtv','wcnc','wjzy'],calls:{ABC:'wsoc',CBS:'wbtv',NBC:'wcnc',FOX:'wjzy'}},
+    {min:300,max:311,label:'Atlanta, GA',terms:['atlanta','wsb','wanf','wxia','waga'],calls:{ABC:'wsb',CBS:'wanf',NBC:'wxia',FOX:'waga'}},
+    {min:100,max:119,label:'New York City, NY',terms:['new york','nyc','wabc','wcbs','wnbc','wnyw'],calls:{ABC:'wabc',CBS:'wcbs',NBC:'wnbc',FOX:'wnyw'}},
+    {min:200,max:209,label:'Washington, DC',terms:['washington dc','wusa','wrc','wjla','wttg'],calls:{ABC:'wjla',CBS:'wusa',NBC:'wrc',FOX:'wttg'}},
+    {min:600,max:609,label:'Chicago, IL',terms:['chicago','wls','wbbm','wmaq','wfld'],calls:{ABC:'wls',CBS:'wbbm',NBC:'wmaq',FOX:'wfld'}},
+    {min:750,max:759,label:'Dallas / Fort Worth, TX',terms:['dallas','fort worth','wfaa','kdfw','kdfw','ktvt','kxas'],calls:{ABC:'wfaa',CBS:'ktvt',NBC:'kxas',FOX:'kdfw'}},
+    {min:770,max:779,label:'Houston, TX',terms:['houston','ktrk','khou','kprc','kriv'],calls:{ABC:'ktrk',CBS:'khou',NBC:'kprc',FOX:'kriv'}},
+    {min:900,max:918,label:'Los Angeles, CA',terms:['los angeles','kabc','kcbs','knbc','kt tv','kt tv','kt tv'],calls:{ABC:'kabc',CBS:'kcbs',NBC:'knbc',FOX:'kt tv'}},
+  ];
+  function zipMarket(zip){const prefix=parseInt(String(zip||'').slice(0,3),10);return knownMarkets.find(m=>prefix>=m.min&&prefix<=m.max)||null;}
+  function localNetwork(c){const n=(c.name+' '+c.group+' '+(c.tvgId||'')).toLowerCase();
+    if(/\b(abc|wsoc|wlos|wxlv|wtvd|wcti|wsb|wabc|wjla|wls|wfaa|ktrk|kabc)\b/.test(n))return 'ABC';
+    if(/\b(cbs|wbtv|wspa|wfmy|wral|wnct|wanf|wcbs|wusa|wbbm|ktvt|khou|kcbs)\b/.test(n))return 'CBS';
+    if(/\b(nbc|wcnc|wyff|wxii|wncn|wxia|wnbc|wrc|wmaq|kxas|kprc|knbc)\b/.test(n))return 'NBC';
+    if(/\b(fox|wjzy|whns|wghp|wraz|wydo|waga|wnyw|wttg|wfld|kdfw|kriv|kt tv)\b/.test(n))return 'FOX';
+    return '';
+  }
+  function suggestedLocals(){const market=zipMarket(state.zip);if(!market)return [];
+    const locals=state.channels.filter(L.isLocal);const selected=[];
+    for(const network of ['ABC','CBS','NBC','FOX']){
+      const best=locals.filter(c=>localNetwork(c)===network).map(c=>{
+        const text=(c.name+' '+c.group+' '+(c.tvgId||'')).toLowerCase();
+        const call=market.calls[network]; const callScore=call&&new RegExp('\\b'+call+'\\b').test(text)?50:0;
+        const cityScore=market.terms.some(t=>text.includes(t))?15:0;
+        return {c,score:callScore+cityScore};
+      }).filter(x=>x.score>=15).sort((a,b)=>b.score-a.score)[0];
+      if(best&&!selected.some(x=>x.id===best.c.id))selected.push(best.c);
+    }
+    return selected;
+  }
+  function localCard(c){return `<button class="local-station" data-action="toggle-local" data-id="${esc(c.id)}"><strong>${esc(c.name)}</strong><small>${esc(c.group||'Broadcast')} · ${state.locals.includes(c.id)?'✓ In My Locals':'+ Add station'}</small></button>`;}
+  function locals(){
+    const chosen=state.channels.filter(c=>state.locals.includes(c.id));
+    const market=state.managed?(state.managedLocalResults?.market?{label:state.managedLocalResults.market}:null):zipMarket(state.zip);
+    const suggestions=state.managed?(state.managedLocalResults?.items||[]).map(i=>({...i,id:'managed:'+i.id})):suggestedLocals();
+    const search=(state.localSearch||'').trim().toLowerCase();
+    const eligible=search.length>=2?state.channels.filter(c=>L.isLocal(c)&&[c.name,c.group,c.tvgId].join(' ').toLowerCase().includes(search)).slice(0,12):[];
+    return `${head('My Locals',chosen.length+' saved stations')}<div class="settings-box"><div class="setting-row"><div><strong>ZIP code</strong><small>Find likely ABC, CBS, NBC and FOX affiliates in your existing playlist. A ZIP alone cannot supply channels.</small></div><input id="zipcode" placeholder="28601" value="${esc(state.zip)}" maxlength="5" inputmode="numeric"></div><div class="setting-actions">${button('Find my local stations','save-zip','','blue')}</div></div>
+    ${chosen.length?`${head('Saved stations')}${rail(chosen,'live')}`:''}
+    ${market?`${head('Your local stations',market.label+' · '+suggestions.length+' matched channels')}<p class="smalltext">From the assigned master lineup for your TV market.</p><div class="local-stations">${suggestions.map(localCard).join('')||'<p class="muted">Your market is mapped but no stations have been assigned yet.</p>'}</div>`:state.zip?`<p class="muted">${esc(state.managedLocalResults?.message||'Automatic matching is not yet configured for this ZIP. Ask your administrator to assign the market.')}</p>`:''}
+    <div class="settings-group"><label>SEARCH OTHER STATIONS</label><div class="settings-box"><div class="setting-field"><label for="local-search">City, station name or call sign</label><input id="local-search" placeholder="Charlotte or WBTV" value="${esc(state.localSearch||'')}"></div><div class="setting-actions">${button('Search stations','search-locals','','blue')}</div></div></div>
+    ${search.length>=2?`${head('Search results',eligible.length+' shown · maximum 12')}<div class="local-stations">${eligible.map(localCard).join('')||'<p class="muted">No stations match your search.</p>'}</div>`:''}`;
+  }
   function guide(){const chans=state.channels.filter(matches).slice(0,70);if(!chans.length)return empty('Guide is empty','Add an M3U or Xtream Codes account in Settings. XMLTV is optional but needed for program names.');
     const stamp=Date.now(),start=new Date(stamp);start.setMinutes(Math.floor(start.getMinutes()/30)*30,0,0);const slots=Array.from({length:6},(_,i)=>start.getTime()+i*30*60000);const pct=(stamp-start.getTime())/(180*60000);const line=155 + pct*(6*260);
     const programs=c=>state.epg[(c.tvgId||'').toLowerCase()]||state.epg[(c.name||'').toLowerCase()]||[];
@@ -94,24 +145,40 @@
   function settings(){const labels=['Playlists','Profile','Playback','Captions','Video Player','Appearance','About'];const menu=`<div class="settings-menu">${labels.map((s,i)=>`<button class="${state.settingsTab===s?'selected':''}" data-action="settings-tab" data-arg="${esc(s)}"><span>${['▣','◉','▶','CC','▰','◐','ⓘ'][i]}</span>${esc(s)}</button>`).join('')}</div>`;
     return `<div class="settings-layout">${menu}<div class="settings-pane">${settingsPage()}</div></div>`;}
   function settingsPage(){const page=state.settingsTab;
-    if(page==='Playlists')return `<h1>Playlists & Sources</h1><p>Import your own M3U URL/file or sign in to a supported Xtream Codes service. Streams aren't included with Petalix.</p>
+    if(page==='Playlists')return `<div class="settings-group"><label>PIN ACTIVATION & MASTER PLAYLIST</label><div class="settings-box"><div class="setting-row"><div><strong>${state.managed?'Managed Petalix lineup':'Connect your assigned lineup'}</strong><small>${state.managed?'Your PIN downloads the channels assigned in Petalix Control.':'Your administrator can assign a master lineup through an activation PIN.'}</small></div></div><div class="setting-actions">${button('Enter activation PIN','enter-pin','','blue')}${state.managed?button('Sync master playlist','sync-managed'):''}</div></div></div><h1>Playlists & Sources</h1><p>Import your own M3U URL/file or sign in to a supported Xtream Codes service. Streams aren't included with Petalix.</p>
       <div class="settings-group"><label>M3U PLAYLIST</label><div class="settings-box"><div class="setting-field"><label for="m3u-name">Source name</label><input id="m3u-name" placeholder="My IPTV"></div><div class="setting-field"><label for="m3u-url">M3U playlist URL</label><input id="m3u-url" placeholder="https://provider.example/playlist.m3u"></div><div class="setting-actions">${button('Add M3U','add-m3u','','blue')}${button('Import M3U file','pick-file')}${button('Refresh all sources','refresh')}</div></div></div>
       <div class="settings-group"><label>XTREAM CODES LOGIN</label><div class="settings-box"><div class="setting-field"><label for="xc-name">Connection name</label><input id="xc-name" placeholder="Living Room IPTV"></div><div class="setting-field"><label for="xc-server">Server URL (including port if required)</label><input id="xc-server" placeholder="http://provider.example:8080"></div><div class="setting-field"><label for="xc-user">Username</label><input id="xc-user" placeholder="Username" autocapitalize="off" autocomplete="off"></div><div class="setting-field"><label for="xc-pass">Password</label><input id="xc-pass" type="password" placeholder="Password" autocomplete="off"></div><div class="setting-actions">${button('Connect Xtream Codes','connect-xc','','blue')}</div><div class="status-line">Live TV, movies, series, and episode lists are imported from your authorized provider. Credentials stay on this device; they are sent to your provider for login.</div></div></div>
       <div class="settings-group"><label>PROGRAM GUIDE</label><div class="settings-box"><div class="setting-field"><label for="epg-url">XMLTV EPG URL</label><input id="epg-url" placeholder="https://provider.example/xmltv.xml.gz" value="${esc(state.epgUrl)}"></div><div class="setting-actions">${button('Load EPG','load-epg','','blue')}</div></div></div>
       <div class="settings-group"><label>CONNECTED SOURCES</label><div class="settings-box">${state.sources.length?state.sources.map(s=>`<div class="sourcebox"><div><strong>${esc(s.name)} · ${s.type==='xtream'?'Xtream':'M3U'}</strong><small>${esc((s.server||s.url||'Local playlist file').replace(/\?.*/,''))}</small></div><button data-action="remove-source" data-id="${esc(s.id)}">Remove</button></div>`).join(''):'<div class="setting-row"><small>No sources connected yet</small></div>'}</div></div><p class="smalltext">${esc(state.sourceStatus)}</p>`;
     if(page==='Profile')return `<h1>Profile</h1><p>Your selected channels and collections are saved on this device.</p><div class="settings-group"><label>WHO'S WATCHING</label><div class="settings-box"><div class="setting-row"><div><strong>Display name</strong><small>Stored locally on this device</small></div><input id="profile-name" value="${esc(state.profile)}"></div><div class="setting-actions">${button('Save profile','save-profile','','blue')}</div></div></div>`;
     if(page==='Playback')return `<h1>Playback</h1><p>Control how live streams start.</p><div class="settings-group"><label>STARTING A CHANNEL</label><div class="settings-box"><div class="setting-row"><div>Autoplay on select<small>Pressing OK plays a channel using the built-in Media3 player.</small></div><button class="switch ${state.autoplay?'on':''}" data-action="toggle-autoplay" aria-label="Toggle autoplay"></button></div><div class="setting-row"><div>Source switching<small>Automated backup feed switching isn't available in this build.</small></div><span class="muted">Planned</span></div></div></div>`;
-    if(page==='Appearance')return `<h1>Appearance</h1><p>Petalix uses a midnight background inspired by the layout you provided.</p><div class="settings-group"><label>TV REMOTE & MOTION</label><div class="settings-box"><div class="setting-row"><div>Navigation sounds<small>Original soft selection tones when you move through Petalix; can be muted.</small></div><button class="switch ${state.sounds?'on':''}" data-action="toggle-sounds" aria-label="Toggle navigation sounds"></button></div><div class="setting-row">Animated service tiles<small>Animated visual highlights on streaming-service tiles; reduced motion follows your device setting.</small></div></div></div><div class="settings-group"><label>ACCENT COLOR</label><div class="settings-box"><div class="setting-row"><div>Selection color<small>Buttons and active navigation.</small></div><div class="chips">${['#2685ff','#f43362','#ba57ed','#f39c12','#45ca6f'].map(c=>`<button style="background:${c};width:33px;height:33px;border-radius:50%;border:${state.accent===c?'3px solid white':'1px solid #555'}" data-action="accent" data-arg="${c}" title="${c}"></button>`).join('')}</div></div></div></div>`;
+    if(page==='Appearance')return `<h1>Appearance</h1><p>Petalix uses a midnight background inspired by the layout you provided.</p><div class="settings-group"><label>TV REMOTE & MOTION</label><div class="settings-box"><div class="setting-row"><div>Navigation sounds<small>Original soft selection tones when you move through Petalix; can be muted.</small></div><button class="switch ${state.sounds?'on':''}" data-action="toggle-sounds" aria-label="Toggle navigation sounds"></button></div><div class="setting-row">Native TV guide<small>D-pad guide with a live preview above the timeline. Available on Android/Google TV devices.</small></div></div></div><div class="settings-group"><label>ACCENT COLOR</label><div class="settings-box"><div class="setting-row"><div>Selection color<small>Buttons and active navigation.</small></div><div class="chips">${['#2685ff','#f43362','#ba57ed','#f39c12','#45ca6f'].map(c=>`<button style="background:${c};width:33px;height:33px;border-radius:50%;border:${state.accent===c?'3px solid white':'1px solid #555'}" data-action="accent" data-arg="${c}" title="${c}"></button>`).join('')}</div></div></div></div>`;
     if(page==='Captions')return `<h1>Captions</h1><p>Captions are provided by the playback engine if the stream has caption tracks.</p><div class="settings-box"><div class="setting-row">Closed captions<small>Use the native player subtitle button when available.</small></div></div>`;
     if(page==='Video Player')return `<h1>Video Player</h1><p>Live TV and VOD playback use Media3 ExoPlayer.</p><div class="settings-box"><div class="setting-row">Picture size<small>Currently uses Fit.</small></div><div class="setting-row">Remote navigation<small>Use Back to return to Petalix.</small></div></div>`;
-    return `<h1>About</h1><p>Petalix TV — Binged-style independent test build.</p><div class="settings-box"><div class="setting-row">Build <span class="muted">0.2 · Test</span></div><div class="setting-row">Channels <span class="muted">${state.channels.length.toLocaleString()}</span></div><div class="setting-row">Movies <span class="muted">${state.movies.length.toLocaleString()}</span></div><div class="setting-row">TV Shows <span class="muted">${state.shows.length.toLocaleString()}</span></div><div class="setting-row">No channels are bundled with the app.</div><div class="setting-actions">${button('Clear all local data','reset')}</div></div>`;
+    return `<h1>About</h1><p>Petalix TV — Binged-style independent test build.</p><div class="settings-box"><div class="setting-row">Build <span class="muted">0.4 · TV remote test</span></div><div class="setting-row">Channels <span class="muted">${state.channels.length.toLocaleString()}</span></div><div class="setting-row">Movies <span class="muted">${state.movies.length.toLocaleString()}</span></div><div class="setting-row">TV Shows <span class="muted">${state.shows.length.toLocaleString()}</span></div><div class="setting-row">No channels are bundled with the app.</div><div class="setting-actions">${button('Clear all local data','reset')}</div></div>`;
   }
   function drawNav(){ $('topnav').innerHTML=NAV.map(navButton).join('');$('drawer-nav').innerHTML=DRAWER.map((n,i)=>`<button class="drawer-item ${state.tab===n?'active':''}" data-action="nav" data-arg="${esc(n)}"><span class="symbol">${['⌂','▣','▤','◈','↶','☆','♡','⌖','▰','▦','◉','⚙'][i]}</span>${esc(n)}</button>`).join('');const groups=Array.from(new Set(state.channels.map(c=>c.group||'Other'))).slice(0,30);$('drawer-groups').innerHTML=`<div class="drawer-label">CATEGORIES</div>${groups.map((g,i)=>`<button class="drawer-item" data-action="group" data-arg="${esc(g)}"><span class="symbol" style="color:${['#9bbd6a','#4aaabe','#d96b87','#72b0ec','#d49b6d'][i%5]}">●</span>${esc(g)}<span class="qty">${state.channels.filter(c=>c.group===g).length}</span></button>`).join('')}`; }
-  function render(preserveScroll=false){const y=$('viewport').scrollTop;document.documentElement.style.setProperty('--accent',state.accent);drawNav();$('profile-button').textContent=(state.profile||'P')[0].toUpperCase();
+  function render(preserveScroll=false){const y=$('viewport').scrollTop;const focused=document.activeElement;const focusInfo=focused?.dataset?{action:focused.dataset.action||'',arg:focused.dataset.arg||'',id:focused.dataset.id||'',tag:focused.tagName,focusId:focused.id||''}:null;document.documentElement.style.setProperty('--accent',state.accent);drawNav();$('profile-button').textContent=(state.profile||'P')[0].toUpperCase();
     const pages={'Home':home,'Live TV':live,'Guide':guide,'Sports':sports,'Replays':replays,'Teams':teams,'Favorites':favorites,'Movies':()=>streaming('Movies'),'TV Shows':()=>streaming('TV Shows'),'Continue Watching':continueWatching,'My Locals':locals,'Settings':settings};$('screen').innerHTML=(pages[state.tab]||home)();
     $('drawer').classList.toggle('open',state.drawer);$('scrim').hidden=!state.drawer;if(!preserveScroll)$('viewport').scrollTop=0;else $('viewport').scrollTop=y;
+    if(focusInfo && focused!==document.body){
+      const nodes=[...document.querySelectorAll('button,input,select,textarea')];
+      const match=nodes.find(n=>focusInfo.focusId&&n.id===focusInfo.focusId)||nodes.find(n=>n.tagName===focusInfo.tag&&n.dataset?.action===focusInfo.action&&n.dataset?.arg===focusInfo.arg&&n.dataset?.id===focusInfo.id);
+      if(match && interactiveVisible(match))match.focus({preventScroll:true});
+    }
   }
-  function nav(where){if(where==='Series')where='TV Shows';if(where==='Movies'||where==='TV Shows')state.service='';if(where==='Settings'&&!state.settingsTab)state.settingsTab='Playlists';state.tab=where;state.drawer=false;state.category='All';state.libraryFilter='All';render();}
+  function nav(where){
+    if(native && (where==='Guide'||where==='Live TV') && state.channels.length && window.AndroidBridge.openNativeGuide){
+      const channels=state.channels.slice(0,3500).map(c=>{
+        const epgs=state.epg[(c.tvgId||'').toLowerCase()]||state.epg[(c.name||'').toLowerCase()]||[];
+        const now=Date.now();const current=epgs.find(p=>p.start<=now&&p.stop>now);
+        const next=epgs.find(p=>p.start>now);
+        return {id:c.id,name:c.name,group:c.group,url:c.url,logo:c.logo||'',now:current?.title||'',next:next?.title||''};
+      });
+      window.AndroidBridge.openNativeGuide(JSON.stringify({channels,lastChannel:state.lastChannel||'',mode:where}));
+      return;
+    }
+    if(where==='Series')where='TV Shows';if(where==='Movies'||where==='TV Shows')state.service='';if(where==='Settings'&&!state.settingsTab)state.settingsTab='Playlists';state.tab=where;state.drawer=false;state.category='All';state.libraryFilter='All';render();}
   function firstChannel(){return state.channels.find(c=>c.id===state.lastChannel)||state.channels[0];}
   function play(url,name,id){if(!safeUrl(url)){toast('This item does not contain a playable stream URL.');return;}if(id){state.lastChannel=id;save();}if(native){window.AndroidBridge.playChannel(url,name||'Petalix TV');return;}showDetails(`<h2>${esc(name||'Player')}</h2><p>Browser preview does not provide native IPTV playback. Install the APK for Media3 playback.</p>${button('Close','close-details')}`);}
   function showDetails(html){$('details-body').innerHTML=html;$('details').classList.remove('hidden');$('details-close').focus();}
@@ -214,7 +281,8 @@
     if(action==='play-episode'){const s=activeSource(buttonElement.dataset.source);const ep={streamId:id,ext:buttonElement.dataset.ext,sourceId:s?.id,type:'episode'};const name=state.shows.find(x=>x.id===buttonElement.dataset.parent)?.name||'Episode';markContinue(buttonElement.dataset.parent);play(mediaUrl(ep),name+' · Episode');return;}
     if(action==='favorite'||action==='favorite-media'){toggleFav(arg);if(action==='favorite-media'&&$('details-body').children.length)detail(arg,'movie');else render(true);return;}
     if(action==='toggle-local'){toggleLocal(id);return;}
-    if(action==='save-zip'){const s=$('zipcode')?.value.trim()||'';if(!/^\d{5}$/.test(s))return toast('Enter a five-digit ZIP code');state.zip=s;save();toast('ZIP saved');return;}
+    if(action==='save-zip'){const s=$('zipcode')?.value.trim()||'';if(!/^\d{5}$/.test(s))return toast('Enter a five-digit ZIP code');state.zip=s;save();if(native&&state.managed&&window.AndroidBridge.lookupManagedLocals){window.AndroidBridge.lookupManagedLocals(s);toast('Looking up your assigned local stations…');}else{render();toast('Showing matched stations available in your playlist');}return;}
+    if(action==='search-locals'){state.localSearch=$('local-search')?.value.trim()||'';render(true);return;}
     if(action==='save-profile'){state.profile=($('profile-name')?.value||'Petalix').trim();save();render(true);return;}
     if(action==='toggle-autoplay'){state.autoplay=!state.autoplay;save();render(true);return;}
     if(action==='toggle-sounds'){state.sounds=!state.sounds;save();if(native&&window.AndroidBridge.setUiSounds)window.AndroidBridge.setUiSounds(state.sounds);render(true);return;}
@@ -225,6 +293,8 @@
     if(action==='load-epg'){const url=$('epg-url')?.value.trim();if(!safeUrl(url))return toast('Enter an XMLTV URL');state.epgUrl=url;save();if(native)window.AndroidBridge.importEpg(url);else fetchSource(url,applyEpg).catch(e=>toast('EPG error: '+e.message));toast('Loading guide…');return;}
     if(action==='refresh'){refresh();return;}
     if(action==='remove-source'){const s=activeSource(id);if(!s)return;state.sources=state.sources.filter(x=>x.id!==id);state.channels=state.channels.filter(x=>x.sourceId!==id);state.movies=state.movies.filter(x=>x.sourceId!==id);state.shows=state.shows.filter(x=>x.sourceId!==id);save();render(true);return;}
+    if(action==='enter-pin'){if(native&&window.AndroidBridge.enterDifferentPin)window.AndroidBridge.enterDifferentPin();else toast('PIN activation is available in the Android TV app.');return;}
+    if(action==='sync-managed'){if(native&&window.AndroidBridge.refreshManaged)window.AndroidBridge.refreshManaged();toast('Refreshing master playlist…');return;}
     if(action==='reset'){if(!confirm('Clear Petalix test app settings and all imported catalogs?'))return;localStorage.removeItem(storageKey);state=defaultState();render();return;}
     if(action==='close-details'){closeDetails();return;}
   }
@@ -247,13 +317,13 @@
   function focusTv(el){
     if(!el)return;
     el.focus({preventScroll:true});
-    el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});
+    el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
   }
   window.petalixRemote=(direction)=>{
     if(direction==='menu'){$('menu-button').click();return true;}
     const elements=remoteCandidates();let focused=document.activeElement;
     if(!elements.includes(focused)){
-      const initial=elements.find(e=>e.closest('#screen'))||elements[0];
+      const initial=elements.find(e=>e.closest('#screen'))||elements.find(e=>e.closest('#topnav'))||elements[0];
       if(initial)focusTv(initial);
       return true;
     }
@@ -287,7 +357,30 @@
   document.addEventListener('keydown',e=>{if(e.key==='Escape'||e.key==='Backspace'&&e.target.tagName!=='INPUT'){e.preventDefault();window.handleBack();}
     if(e.key==='Enter'&&e.target.dataset?.action==='play'&&e.repeat){const id=e.target.dataset.id;if(id){toggleFav(id);toast('Favorite updated');}}});
   window.handleBack=()=>{if(!$('details').classList.contains('hidden')){closeDetails();return;}if(state.drawer){state.drawer=false;render(true);return;}if(state.service){state.service='';render();return;}if(state.tab!=='Home'){nav('Home');return;}if(native)window.AndroidBridge.exitApp();};
-  loadState();render();if(native&&window.AndroidBridge.setUiSounds)window.AndroidBridge.setUiSounds(state.sounds!==false);
+  // Managed masters come from an authenticated native bridge. Credentials/tokens never reach JavaScript.
+  window.onManagedCatalogChunk=(kind,entries,last,revision)=>{
+    if(!['live','movie','show'].includes(kind)||!Array.isArray(entries))return;
+    state.managed=true;state.managedRevision=Number(revision)||0;
+    const property=kind==='live'?'channels':kind==='movie'?'movies':'shows';
+    if(!window._managedInProgress)window._managedInProgress={};
+    if(!window._managedInProgress[kind]){state[property]=[];window._managedInProgress[kind]=true;}
+    for(const original of entries){
+      const item={...original,id:'managed:'+String(original.id),type:kind,source:'Petalix Master',sourceId:'managed-source'};
+      state[property].push(item);
+    }
+    if(last){window._managedInProgress[kind]=false;state.sourceStatus='Petalix master synced · revision '+state.managedRevision;
+      save();render(true);toast(`${kind==='show'?'TV Shows':kind==='movie'?'Movies':'Live TV'} loaded: ${state[property].length.toLocaleString()}`);
+      if(kind==='live'&&state.zip&&native&&window.AndroidBridge.lookupManagedLocals)window.AndroidBridge.lookupManagedLocals(state.zip);
+    }
+  };
+  window.onManagedLocals=payload=>{
+    if(!payload||typeof payload!=='object')return;
+    state.managedLocalResults=payload;
+    // Only use channels actually assigned to the entered ZIP by the admin.
+    if(Array.isArray(payload.items))state.locals=payload.items.map(i=>'managed:'+String(i.id));
+    save();render();toast(payload.market?`Local market: ${payload.market} · ${payload.items.length} channels`:payload.message||'No local market assignment yet');
+  };
+  loadState();if(native&&window.AndroidBridge.isManaged&&window.AndroidBridge.isManaged())state.managed=true;render();if(native&&window.AndroidBridge.setUiSounds)window.AndroidBridge.setUiSounds(state.sounds!==false);
   if(native)setTimeout(()=>focusTv(document.querySelector('#screen button, #topnav button')),180);
   if(native&&state.sources.length)setTimeout(refresh,650);
 })();
