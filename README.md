@@ -16,3 +16,9 @@ Build via the `Petalix Native Android TV v0.6 beta` GitHub Actions workflow on `
 - Home rails limited to 24 tiles with a View all shortcut to the guide (avoids rendering hundreds of live logos simultaneously); focus is retained across refreshes and returning from playback.
 - New local station selection persists on device, appears on Home, and heads the TV guide.
 - This is a **beta**, not yet ready for customer deployment. Xtream, sports data usage rights, network reliability, and broad device compatibility require testing.
+
+## v0.7.0 design milestone
+- Based on reference Android TV Binged navigation, with Petalix branding (no Binged assets, bundled services, or private backend).
+- Native dark-blue menu, selected stations under My Locals, and six Charleston/Charlotte callsign candidates when supplied by the viewer's M3U.
+- Native guide uses focused NOW/NEXT rows and an actual Media3 preview, and full-screen player offers alternate feed selection for matching playlist names with error failover.
+- Web playlist editor remains an importer wrapped by the native app; full native replacement of source import, reliable ZIP-to-market nationwide, PIN backend hosting, sports licensing and on-device compatibility remain unfinished.

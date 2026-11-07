@@ -47,11 +47,11 @@ class GuideActivity : Activity() {
     }
     private fun button(value:String):Button = Button(this).apply {
         text=value;textSize=15f;isAllCaps=false;gravity=Gravity.CENTER_VERTICAL or Gravity.START
-        setTextColor(Color.WHITE);background=rounded(color("#202a3b"),color("#455773"))
+        setTextColor(Color.WHITE);background=rounded(color("#252e51"),color("#445680"))
         isFocusable=true;isFocusableInTouchMode=false
         stateListAnimator=null
         setOnFocusChangeListener{v,focused->
-            background=rounded(color(if(focused)"#225683" else "#202a3b"),color(if(focused)"#73b4ff" else "#455773"))
+            background=rounded(color(if(focused)"#39588f" else "#252e51"),color(if(focused)"#b6cdff" else "#445680"))
             if(focused)v.post{v.requestRectangleOnScreen(android.graphics.Rect(0,0,v.width,v.height),false)}
         }
     }
@@ -70,11 +70,11 @@ class GuideActivity : Activity() {
     }
     private fun buildUI(){
         val root=LinearLayout(this).apply{
-            orientation=LinearLayout.HORIZONTAL;setBackgroundColor(color("#090e17"))
-            setPadding(dp(8),dp(8),dp(8),dp(8))
+            orientation=LinearLayout.HORIZONTAL;setBackgroundColor(color("#0c1126"))
+            setPadding(dp(12),dp(8),dp(12),dp(8))
         }
         val side=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
-        side.addView(text("PETALIX",24f,color("#4ae2cc")).apply{typeface=Typeface.DEFAULT_BOLD})
+        side.addView(text("PETALIX  •  LIVE TV",19f,color("#65bbff")).apply{typeface=Typeface.DEFAULT_BOLD})
         side.addView(text("CHANNEL GROUPS",11f,color("#aebdd2")))
         val sideScroller=ScrollView(this).apply{isFillViewport=true;isFocusable=false}
         groups=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
@@ -92,13 +92,13 @@ class GuideActivity : Activity() {
         }
         top.addView(preview,LinearLayout.LayoutParams(dp(370),dp(196)))
         val info=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(10),dp(8),0)}
-        info.addView(text("LIVE TV PREVIEW",12f,color("#5fe6d2")))
+        info.addView(text("LIVE TV PREVIEW",12f,color("#64bfff")))
         details=text("Use the remote to browse channels. Preview will follow your selection.",20f)
         info.addView(details)
         info.addView(text("OK: Watch full screen     Back: Exit guide",13f,color("#adbbcf")))
         top.addView(info,LinearLayout.LayoutParams(0,dp(196),1f))
         center.addView(top)
-        val header=text("GUIDE  •  NOW & NEXT",16f,color("#a8c0df"))
+        val header=text("CHANNEL                          ON NOW                                            UP NEXT",14f,color("#c8d6ff"))
         center.addView(header)
         val scroll=ScrollView(this).apply{isFocusable=false;isFillViewport=true}
         list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
@@ -133,36 +133,74 @@ class GuideActivity : Activity() {
     private fun renderChannels(){
         list.removeAllViews()
         val rows=allInGroup()
-        val limit=150
+        val limit=70  // fewer native views and less work per D-pad move
         val start=page*limit
         val subset=rows.drop(start).take(limit)
-        if(page>0){val previous=button("↑ Previous channels");previous.setOnClickListener{page--;renderChannels()};list.addView(previous)}
-        subset.forEachIndexed{ix,ch->
+        if(page>0){
+            val previous=button("↑ Previous channels")
+            previous.setOnClickListener{page--;renderChannels()}
+            list.addView(previous,LinearLayout.LayoutParams(-1,dp(52)))
+        }
+        subset.forEachIndexed {ix,ch->
             val label=ch.optString("name","Channel")
-            val now=ch.optString("now").ifBlank{"No current listing"}
-            val next=ch.optString("next")
-            val b=button("${start+ix+1}.  $label    ·    $now"+(if(next.isNotBlank())"   |   Next: $next" else ""))
-            b.textSize=14f
-            b.setOnFocusChangeListener{view,focused->
-                b.background=rounded(color(if(focused)"#275583" else "#202a3b"),color(if(focused)"#7ec5ff" else "#455773"))
+            val now=ch.optString("now").ifBlank{"No program info"}
+            val next=ch.optString("next").ifBlank{"No program info"}
+            val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
+            val logo=text(label.take(10).uppercase(),14f,color("#e0e9ff")).apply{
+                typeface=Typeface.DEFAULT_BOLD
+                gravity=Gravity.CENTER
+                maxLines=2
+                background=rounded(color("#182346"))
+            }
+            row.addView(logo,LinearLayout.LayoutParams(dp(114),dp(61)).apply{marginEnd=dp(6)})
+            val current=button(now)
+            current.textSize=14f
+            current.setOnFocusChangeListener{view,focused->
+                current.background=rounded(color(if(focused)"#4768a9" else "#293555"),color(if(focused)"#e4f0ff" else "#425581"))
                 if(focused){
                     view.post{view.requestRectangleOnScreen(android.graphics.Rect(0,0,view.width,view.height),false)}
-                    details.text="$label\nNow: $now"+(if(next.isNotBlank())"\nNext: $next" else "")
+                    details.text="$label\nNow: $now"+(if(next!="No program info")"\nNext: $next" else "")
                     schedulePreview(ch.optString("url"))
                 }
             }
-            b.setOnClickListener{
-                val url=ch.optString("url")
-                if(!url.startsWith("http://")&&!url.startsWith("https://"))return@setOnClickListener
-                startActivity(Intent(this,PlayerActivity::class.java).apply{
-                    putExtra("url",url);putExtra("name",label)
-                })
+            current.setOnClickListener{launchChannel(ch)}
+            row.addView(current,LinearLayout.LayoutParams(0,dp(61),5f).apply{marginEnd=dp(5)})
+            val upcoming=button(next)
+            upcoming.textSize=13f
+            upcoming.setOnFocusChangeListener {view,focused->
+                upcoming.background=rounded(color(if(focused)"#4768a9" else "#222d4b"),color(if(focused)"#e4f0ff" else "#425581"))
+                if(focused){
+                    view.post{view.requestRectangleOnScreen(android.graphics.Rect(0,0,view.width,view.height),false)}
+                    details.text="$label\nUp next: $next"
+                    schedulePreview(ch.optString("url"))
+                }
             }
-            list.addView(b,LinearLayout.LayoutParams(-1,dp(65)).apply{bottomMargin=dp(5)})
+            upcoming.setOnClickListener{launchChannel(ch)}
+            row.addView(upcoming,LinearLayout.LayoutParams(0,dp(61),3f))
+            list.addView(row,LinearLayout.LayoutParams(-1,dp(67)).apply{bottomMargin=dp(3)})
         }
-        if(start+limit<rows.size){val next=button("↓ More channels (${start+limit} / ${rows.size})");next.setOnClickListener{page++;renderChannels()};list.addView(next)}
-        val first=list.getChildAt(if(page>0)1 else 0)
-        first?.requestFocus()
+        if(start+limit<rows.size){
+            val more=button("↓ More channels (${start+limit} / ${rows.size})")
+            more.setOnClickListener{page++;renderChannels()}
+            list.addView(more,LinearLayout.LayoutParams(-1,dp(53)))
+        }
+        list.post{val first=list.getChildAt(if(page>0)1 else 0)
+            if(first is LinearLayout) first.getChildAt(1)?.requestFocus() else first?.requestFocus()
+        }
+    }
+    private fun launchChannel(channel:JSONObject){
+        val url=channel.optString("url")
+        if(!url.startsWith("http://")&&!url.startsWith("https://"))return
+        val name=channel.optString("name","Channel")
+        val available=(0 until channels.length()).mapNotNull {channels.optJSONObject(it)}
+            .map {FeedMatcher.Feed(it.optString("name"),it.optString("url"))}
+        val options=FeedMatcher.candidates(FeedMatcher.Feed(name,url),available)
+        startActivity(Intent(this,PlayerActivity::class.java).apply{
+            putExtra("url",url);putExtra("name",name)
+            putExtra("feeds_json",JSONArray().apply{
+                options.forEach{put(JSONObject().put("name",it.name).put("url",it.url))}
+            }.toString())
+        })
     }
     private fun schedulePreview(url:String){
         pendingPreview?.let{handler.removeCallbacks(it)}

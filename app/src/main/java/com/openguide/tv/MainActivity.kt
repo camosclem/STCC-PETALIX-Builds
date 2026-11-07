@@ -6,6 +6,11 @@ import java.io.File
 import android.webkit.WebViewClient
 import android.os.Bundle
 import android.view.KeyEvent
+import android.graphics.Color
+import android.view.Gravity
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.media.AudioManager
 import android.media.ToneGenerator
 import org.json.JSONArray
@@ -34,6 +39,7 @@ class MainActivity : Activity() {
     private val fileRequestCode = 2001
     @Volatile private var uiSounds = true
     private var focusTone: ToneGenerator? = null
+    private val inNativeShell by lazy { intent.getBooleanExtra("native_settings",false) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,19 +67,58 @@ class MainActivity : Activity() {
                 }
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view,url)
-                    if (intent.getBooleanExtra("native_settings", false)) {
+                    if (inNativeShell) {
                         val page = intent.getStringExtra("native_page") ?: "Settings"
                         val quoted = JSONObject.quote(page)
-                        browser.evaluateJavascript("window.openPetalixNativePage && window.openPetalixNativePage($quoted)", null)
+                        // Keep the legacy importer functional, but do not flash the old Home/topbar.
+                        val script = """(function(){
+                            document.documentElement.style.setProperty('--bg','#0d1428');
+                            document.documentElement.style.setProperty('--surface','#1c2847');
+                            document.documentElement.style.setProperty('--surface2','#29385d');
+                            document.documentElement.style.setProperty('--accent','#5dafff');
+                            var style=document.createElement('style');
+                            style.textContent='.topbar,#drawer,#scrim{display:none!important} #app{background:#0d1428!important} .settings-box{background:linear-gradient(120deg,#1b2849,#151e37)!important;border-color:#334b75!important} #screen{padding:0 24px 40px} button:focus-visible,input:focus-visible{outline:3px solid #a9d5ff!important}';
+                            document.head.appendChild(style);
+                            if(window.openPetalixNativePage) window.openPetalixNativePage($quoted);
+                            return true;
+                        })();""".trimIndent()
+                        browser.evaluateJavascript(script) {browser.visibility = View.VISIBLE}
                     }
                     if(!pairing.getString("device_token","").isNullOrBlank()) syncManagedCatalog()
                 }
             }
             webChromeClient = WebChromeClient()
             addJavascriptInterface(Bridge(), "AndroidBridge")
+            visibility = if(inNativeShell) View.INVISIBLE else View.VISIBLE
             loadUrl("file:///android_asset/index.html")
         }
-        setContentView(browser)
+        if(inNativeShell){
+            val top=LinearLayout(this).apply {
+                orientation=LinearLayout.HORIZONTAL
+                gravity=Gravity.CENTER_VERTICAL
+                setPadding(18,6,18,6)
+                setBackgroundColor(Color.rgb(27,50,107))
+            }
+            val back=Button(this).apply{
+                text="‹ Back";isAllCaps=false;textSize=17f
+                setTextColor(Color.WHITE);setBackgroundColor(Color.rgb(44,75,139))
+                setOnClickListener {finish()}
+            }
+            top.addView(back,LinearLayout.LayoutParams(136,56))
+            val heading=TextView(this).apply{
+                text="PETALIX  /  "+(intent.getStringExtra("native_page")?:"Settings")
+                textSize=20f;setTextColor(Color.WHITE)
+                setPadding(22,0,10,0)
+            }
+            top.addView(heading)
+            val container=LinearLayout(this).apply {
+                orientation=LinearLayout.VERTICAL
+                setBackgroundColor(Color.rgb(12,17,38))
+                addView(top,LinearLayout.LayoutParams(-1,70))
+                addView(browser,LinearLayout.LayoutParams(-1,0,1f))
+            }
+            setContentView(container)
+        }else setContentView(browser)
     }
 
     inner class Bridge {
