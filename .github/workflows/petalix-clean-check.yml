@@ -52,9 +52,20 @@ jobs:
             --logo tooling/android-build/petalix_metallic_logo.png
       - name: Build non-deployable debug test APK
         working-directory: upstream
+        env:
+          # Upstream's VPN Go dependency occasionally fails under HTTP/2 stream resets.
+          GOPROXY: "https://proxy.golang.org|direct"
+          GODEBUG: "http2client=0"
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:assembleFullDebug --no-daemon --stacktrace
+          for attempt in 1 2 3; do
+            if ./gradlew :app:assembleFullDebug --no-daemon --stacktrace; then
+              exit 0
+            fi
+            echo "Gradle build attempt $attempt failed (network-backed Go downloads may retry)."
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 8
+          done
       - name: Validate package identity and new version
         run: |
           set -euo pipefail
