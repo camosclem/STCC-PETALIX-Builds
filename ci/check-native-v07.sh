@@ -90,10 +90,29 @@ if ! grep -q 'PETALIX' petalix-v07-nav.xml; then
   echo 'Native Petalix navigation missing' >&2
   exit 1
 fi
-# Exercise dedicated native Guide without downloading any customer's streaming source.
-adb shell am start -n "$PKG/com.openguide.tv.GuideActivity"
-sleep 2
+# Enter the private Guide through the app's real Live tab, not an external
+# shell intent (Android correctly blocks external launch of non-exported Activities).
+read gx gy < <(python3 - <<'PY'
+import xml.etree.ElementTree as ET,re
+root=ET.parse('petalix-v07-nav.xml').getroot()
+for node in root.iter('node'):
+  if node.get('text')=='Live' and node.get('clickable')=='true':
+    a,b,c,d=map(int,re.findall(r'\\d+',node.get('bounds','')))
+    print((a+c)//2,(b+d)//2)
+    break
+else: raise RuntimeError('Native Live tab missing')
+PY
+)
+adb shell input tap "$gx" "$gy"
+sleep 3
+adb shell dumpsys activity activities > petalix-v07-activity.txt
+if ! grep -E 'topResumedActivity|mResumedActivity' petalix-v07-activity.txt | grep -q 'GuideActivity'; then
+  echo 'Native Guide did not open from Live tab' >&2
+  grep -E 'topResumedActivity|mResumedActivity' petalix-v07-activity.txt || true
+  exit 1
+fi
 adb exec-out screencap -p > petalix-v07-guide.png
+echo 'PASS: Guide opened via native remote navigation'
 adb logcat -d -v threadtime > petalix-v062-log.txt
 if grep -q 'FATAL EXCEPTION' petalix-v062-log.txt; then
   grep -A 35 -B 2 'FATAL EXCEPTION' petalix-v062-log.txt | tail -n 100
