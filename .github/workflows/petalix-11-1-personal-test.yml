@@ -1,0 +1,105 @@
+# Private-owner testing workflow. Public GitHub prerelease != customer OTA.
+# Debug signing; no Petalix Control build claim or production key.
+name: Build Petalix 11.1 personal playlist test APK
+
+on:
+  push:
+    branches: [test/petalix-11-1-local-playlist-20261107]
+    paths:
+      - tooling/petalix-clean/prepare_local_test.py
+      - .github/workflows/petalix-11-1-personal-test.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: petalix-11-1-personal-test
+  cancel-in-progress: true
+
+jobs:
+  build-personal-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOPROXY: "https://proxy.golang.org|direct"
+      GODEBUG: "http2client=0"
+      TEST_TAG: petalix-11.1-personal-playlist-test-20261107
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate playlist curator with synthetic streams
+        run: python3 -m unittest discover -v -s tooling/petalix-clean -p test_organize_playlist.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android build tools
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+      - name: Checkout exact upstream Nuvio+ 11.1
+        run: |
+          git clone --quiet --filter=blob:none --depth=1 --branch=1.1.0-beta.11.1 https://github.com/homelessbrian/NuvioPlusIPTV.git upstream
+          test "$(git -C upstream rev-parse HEAD)" = "a7e67cec36e1e28d79b889b5630c4b2095931888"
+      - name: Apply Petalix branding and isolate personal debug experience
+        run: |
+          python3 -m pip install --disable-pip-version-check Pillow
+          python3 tooling/petalix-clean/prepare_stock.py --upstream upstream --logo tooling/android-build/petalix_metallic_logo.png
+          python3 tooling/petalix-clean/prepare_local_test.py --upstream upstream
+      - name: Build and validate personal-only APK
+        working-directory: upstream
+        run: |
+          chmod +x ./gradlew
+          for attempt in 1 2 3; do
+            if ./gradlew :app:assembleFullDebug --no-daemon --max-workers=2 \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              -Dorg.gradle.jvmargs="-Xmx4608m -XX:MaxMetaspaceSize=768m"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            echo "Dependency/compile attempt $attempt failed; retrying."
+            sleep 8
+          done
+      - name: Verify APK identity and disposable debug signer
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          SDK="$ANDROID_HOME/build-tools/36.0.0"
+          APK="$(find upstream/app/build/outputs/apk/full/debug -maxdepth 1 -name '*universal*.apk' -type f | head -n 1)"
+          test -n "$APK"
+          "$SDK/aapt" dump badging "$APK" | tee /tmp/petalix-personal-badging
+          grep -F "name='com.petalix.iptv.localtest'" /tmp/petalix-personal-badging
+          "$SDK/apksigner" verify --verbose --print-certs "$APK" > /tmp/petalix-personal-signer
+          if grep -iq 'b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1' /tmp/petalix-personal-signer; then
+            echo "Unexpected protected production signing identity"; exit 1
+          fi
+          cp "$APK" release/Petalix-11.1-Personal-Test-Universal.apk
+          sha256sum release/Petalix-11.1-Personal-Test-Universal.apk > release/Petalix-11.1-Personal-Test-Universal.sha256
+          echo 'Private owner only: native playlist setup works independently of panel PIN in DEBUG builds; not a customer update.' > release/TEST-ONLY.txt
+          echo 'Source: https://github.com/homelessbrian/NuvioPlusIPTV/releases/tag/1.1.0-beta.11.1' >> release/TEST-ONLY.txt
+          echo "Verified personal APK package and signature. No production installation/update supported."
+      - name: Publish clearly identified personal TEST prerelease
+        run: |
+          set -euo pipefail
+          if gh release view "$TEST_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Test prerelease already exists; refuse to overwrite without owner review."
+            exit 1
+          fi
+          gh release create "$TEST_TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Petalix 11.1 PERSONAL playlist test (DEBUG ONLY)" \
+            --notes "PERSONAL TEST ONLY. Separate Android package: com.petalix.iptv.localtest. Debug signed. Does not update Petalix 8.3 or connect to your managed Petalix PIN/assigned customer account. Native Nuvio+ Live TV guide, Sports hub and on-device playlist setup for streams you are authorized to use. Import your own playlist from the app Settings. No customer deployment, Petalix Control changes, or production signing. Do not use for customers. Owner must verify on Shield." \
+            --prerelease --latest=false
+      - name: Keep CI test artifact temporarily
+        uses: actions/upload-artifact@v4
+        with:
+          name: Petalix-11.1-Personal-Debug-Do-Not-Deploy
+          path: release/*
+          retention-days: 3
+          if-no-files-found: error
