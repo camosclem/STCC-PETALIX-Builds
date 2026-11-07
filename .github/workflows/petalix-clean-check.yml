@@ -57,7 +57,7 @@ jobs:
           APK="$(find upstream/app/build/outputs/apk/full/debug -maxdepth 1 -name '*.apk' -type f | head -n 1)"
           test -n "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" > /tmp/petalix-badging
-          grep -F "name='com.petalix.iptv.preview'" /tmp/petalix-badging
+          grep -F "name='com.petalix.iptv.staging'" /tmp/petalix-badging
           grep -F "versionCode='1794250000'" /tmp/petalix-badging
           echo "PASS: Petalix stock-based DEBUG test build produced."
           echo "NOT CUSTOMER READY: debug signer; no panel PIN migration."
