@@ -68,20 +68,22 @@ class PetalixActivationActivity : ComponentActivity() {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
         }
+        lateinit var activateFromPin: View.OnClickListener
         fun showPin(reason: String) {
             pin.visibility = View.VISIBLE
             button.visibility = View.VISIBLE
             button.isEnabled = true
             button.text = "Activate this TV"
+            button.setOnClickListener(activateFromPin)
             message.text = reason
             pin.requestFocus()
         }
 
-        button.setOnClickListener {
+        activateFromPin = View.OnClickListener {
             val code = pin.text.toString().trim()
             if (!code.matches(Regex("[0-9]{8}"))) {
                 message.text = "Enter the 8-digit PIN from Petalix Control."
-                return@setOnClickListener
+                return@OnClickListener
             }
             button.isEnabled = false
             message.text = "Connecting to Petalix…"
@@ -95,6 +97,8 @@ class PetalixActivationActivity : ComponentActivity() {
                 }
             }
         }
+
+        button.setOnClickListener(activateFromPin)
 
         if (manager.hasSavedActivation) {
             // No new PIN for installed customers unless the panel rejects their session.
