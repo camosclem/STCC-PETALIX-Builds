@@ -18,20 +18,22 @@ class LocalStationMatcherTest {
             LocalStationMatcher.Station("2", "WBTV 3 CBS Charlotte", "Locals"),
             LocalStationMatcher.Station("3", "WCNC-TV NBC Charlotte", "North Carolina"),
             LocalStationMatcher.Station("4", "WJZY Fox 46 Charlotte", "Locals"),
+            LocalStationMatcher.Station("7", "WCCB 18 Charlotte", "Locals"),
+            LocalStationMatcher.Station("8", "WMYT 55 Charlotte", "Locals"),
             LocalStationMatcher.Station("5", "ABC News Live", "National"),
             LocalStationMatcher.Station("6", "FOX Sports 1", "National Sports")
         )
         val matches = LocalStationMatcher.recommendations(market, input)
-        assertEquals(listOf("ABC", "CBS", "NBC", "FOX"), matches.map {it.network})
-        assertEquals(listOf("1", "2", "3", "4"), matches.mapNotNull { it.station?.id })
-        assertEquals(4, matches.count{it.station!=null})
+        assertEquals(listOf("ABC", "CBS", "NBC", "FOX", "WCCB", "WMYT"), matches.map {it.network})
+        assertEquals(listOf("1", "2", "3", "4", "7", "8"), matches.mapNotNull { it.station?.id })
+        assertEquals(6, matches.count{it.station!=null})
     }
     @Test fun zeroAvailableFeedsNotInvented() {
         val market = LocalStationMatcher.findMarket("28601")!!
         val result = LocalStationMatcher.recommendations(market, listOf(
             LocalStationMatcher.Station("other", "ABC News National", "News")
         ))
-        assertEquals(4, result.size)
+        assertEquals(6, result.size)
         assertTrue(result.all{it.station == null})
     }
 }

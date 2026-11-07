@@ -1,0 +1,63 @@
+name: Petalix Native TV v0.7 unified Binged-style test
+on:
+  push:
+    branches: [test/petalix-native-binged-v071]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Enable emulator acceleration
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Check legacy import scripts
+        run: node --check app/src/main/assets/app.js
+      - name: Unit test ZIP and feed matching, compile APK
+        run: gradle --no-daemon testDebugUnitTest assembleDebug
+      - name: Test native launch, D-pad, and ZIP screen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash ci/check-native-v07.sh
+      - name: Attach screenshots and crash logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: petalix-v07-native-test-evidence
+          path: |
+            petalix-v062-*.xml
+            petalix-v062-*.png
+            petalix-v062-log.txt
+            petalix-v07-*.xml
+            petalix-v07-*.png
+          if-no-files-found: ignore
+      - name: Publish tested beta only on success
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Petalix_TV_Binged_Native_Beta_v0.7.1.apk
+          gh release create petalix-tv-native-v0.7.1-beta Petalix_TV_Binged_Native_Beta_v0.7.1.apk \
+            --title 'Petalix Native TV v0.7.1 - Personal playlist import beta' \
+            --notes 'Test-only native Android TV build. Smaller Binged-style nav, focused NOW/NEXT guide and Media3 preview, individual Charlotte/Hickory station selection (including extra channels when present in own catalog), alternate feed selector and error fallback for name-matched playlist sources, and unified Settings wrapper. Private PIN panel not yet hosted; ESPN scoreboard remains beta-only and is not licensed for commercial distribution. Adds private device-side personal source setup file import; provider credentials are NOT included in this APK, repository, or release. Customer-ready QA pending.' \
+            --target test/petalix-native-binged-v071 --prerelease

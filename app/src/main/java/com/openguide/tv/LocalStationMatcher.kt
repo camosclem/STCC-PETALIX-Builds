@@ -21,7 +21,7 @@ object LocalStationMatcher {
     data class Match(val network: String, val callsign: String, val station: Station?)
     val networks = listOf("ABC", "CBS", "NBC", "FOX")
     val markets = listOf(
-        Market("charlotte", "Charlotte / Hickory, NC", mapOf("ABC" to "WSOC", "CBS" to "WBTV", "NBC" to "WCNC", "FOX" to "WJZY"), listOf("charlotte", "hickory", "belmont"), setOf("28601", "28602"), setOf("282")),
+        Market("charlotte", "Charlotte / Hickory, NC", mapOf("ABC" to "WSOC", "CBS" to "WBTV", "NBC" to "WCNC", "FOX" to "WJZY", "WCCB" to "WCCB", "WMYT" to "WMYT"), listOf("charlotte", "hickory", "belmont"), setOf("28601", "28602"), setOf("282")),
         Market("raleigh", "Raleigh / Durham, NC", mapOf("ABC" to "WTVD", "CBS" to "WNCN", "NBC" to "WRAL", "FOX" to "WRAZ"), listOf("raleigh", "durham"), centerPrefixes=setOf("276", "277")),
         Market("greensboro", "Greensboro / Winston-Salem, NC", mapOf("ABC" to "WXLV", "CBS" to "WFMY", "NBC" to "WXII", "FOX" to "WGHP"), listOf("greensboro", "winston-salem"), centerPrefixes=setOf("274", "271")),
         Market("asheville", "Greenville / Asheville, SC-NC", mapOf("ABC" to "WLOS", "CBS" to "WSPA", "NBC" to "WYFF", "FOX" to "WHNS"), listOf("asheville", "greenville sc", "spartanburg"), centerPrefixes=setOf("288")),
@@ -46,7 +46,7 @@ object LocalStationMatcher {
     }
     fun recommendations(market: Market, stations: List<Station>): List<Match> {
         val used = HashSet<String>()
-        return networks.map { network ->
+        return market.calls.keys.map { network ->
             val sign = market.calls.getValue(network)
             val option = stations.asSequence().mapNotNull { station ->
                 val text = (station.name + " " + station.group).uppercase(Locale.US)
@@ -54,7 +54,7 @@ object LocalStationMatcher {
                 val geo = if (market.cityHints.any { text.lowercase(Locale.US).contains(it) }) 40 else 0
                 val type = if (hasToken(text, network)) 15 else 0
                 // Avoid falsely labeling national ABC/CBS/etc channels as local stations.
-                if (callScore == 0 && (geo == 0 || type == 0)) return@mapNotNull null
+                if (callScore == 0 && (network !in networks || geo == 0 || type == 0)) return@mapNotNull null
                 val hd = if (hasToken(text, "HD")) 4 else 0
                 val score = callScore + geo + type + hd
                 Triple(station, score, callScore > 0)

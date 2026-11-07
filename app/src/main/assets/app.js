@@ -161,7 +161,7 @@
     return `<div class="settings-layout">${menu}<div class="settings-pane">${settingsPage()}</div></div>`;}
   function settingsPage(){const page=state.settingsTab;
     if(page==='Playlists')return `<div class="settings-group"><label>PIN ACTIVATION & MASTER PLAYLIST</label><div class="settings-box"><div class="setting-row"><div><strong>${state.managed?'Managed Petalix lineup':'Connect your assigned lineup'}</strong><small>${state.managed?'Your PIN downloads the channels assigned in Petalix Control.':'Your administrator can assign a master lineup through an activation PIN.'}</small></div></div><div class="setting-actions">${button('Enter activation PIN','enter-pin','','blue')}${state.managed?button('Sync master playlist','sync-managed'):''}</div></div></div><h1>Playlists & Sources</h1><p>Import your own M3U URL/file or sign in to a supported Xtream Codes service. Streams aren't included with Petalix.</p>
-      <div class="settings-group"><label>M3U PLAYLIST</label><div class="settings-box"><div class="setting-field"><label for="m3u-name">Source name</label><input id="m3u-name" placeholder="My IPTV"></div><div class="setting-field"><label for="m3u-url">M3U playlist URL</label><input id="m3u-url" placeholder="https://provider.example/playlist.m3u"></div><div class="setting-actions">${button('Add M3U','add-m3u','','blue')}${button('Import M3U file','pick-file')}${button('Refresh all sources','refresh')}</div></div></div>
+      <div class="settings-group"><label>M3U PLAYLIST</label><div class="settings-box"><div class="setting-field"><label for="m3u-name">Source name</label><input id="m3u-name" placeholder="My IPTV"></div><div class="setting-field"><label for="m3u-url">M3U playlist URL</label><input id="m3u-url" placeholder="https://provider.example/playlist.m3u"></div><div class="setting-actions">${button('Add M3U','add-m3u','','blue')}${button('Import M3U / Petalix setup file','pick-file')}${button('Refresh all sources','refresh')}</div></div></div>
       <div class="settings-group"><label>XTREAM CODES LOGIN</label><div class="settings-box"><div class="setting-field"><label for="xc-name">Connection name</label><input id="xc-name" placeholder="Living Room IPTV"></div><div class="setting-field"><label for="xc-server">Server URL (including port if required)</label><input id="xc-server" placeholder="http://provider.example:8080"></div><div class="setting-field"><label for="xc-user">Username</label><input id="xc-user" placeholder="Username" autocapitalize="off" autocomplete="off"></div><div class="setting-field"><label for="xc-pass">Password</label><input id="xc-pass" type="password" placeholder="Password" autocomplete="off"></div><div class="setting-actions">${button('Connect Xtream Codes','connect-xc','','blue')}</div><div class="status-line">Live TV, movies, series, and episode lists are imported from your authorized provider. Credentials stay on this device; they are sent to your provider for login.</div></div></div>
       <div class="settings-group"><label>PROGRAM GUIDE</label><div class="settings-box"><div class="setting-field"><label for="epg-url">XMLTV EPG URL</label><input id="epg-url" placeholder="https://provider.example/xmltv.xml.gz" value="${esc(state.epgUrl)}"></div><div class="setting-actions">${button('Load EPG','load-epg','','blue')}</div></div></div>
       <div class="settings-group"><label>CONNECTED SOURCES</label><div class="settings-box">${state.sources.length?state.sources.map(s=>`<div class="sourcebox"><div><strong>${esc(s.name)} · ${s.type==='xtream'?'Xtream':'M3U'}</strong><small>${esc((s.server||s.url||'Local playlist file').replace(/\?.*/,''))}</small></div><button data-action="remove-source" data-id="${esc(s.id)}">Remove</button></div>`).join(''):'<div class="setting-row"><small>No sources connected yet</small></div>'}</div></div><p class="smalltext">${esc(state.sourceStatus)}</p>`;
@@ -223,6 +223,19 @@
       state.sourceStatus=`${live.length} live · ${movie.length} movies · ${show.length} show entries from ${name}`;save();nav('Home');toast(state.sourceStatus);
     }catch(e){toast(e.message||'Invalid M3U playlist');}}
   window.onNativePlaylist=(content,name)=>{const source=state.sources.find(s=>s.name===name);applyPlaylist(content,name,source&&source.url||'');};
+  // Personal beta setup files are imported locally, never compiled into shared APKs.
+  window.onNativeSetupSource=(url,name)=>{
+    if(!safeUrl(url)) {toast('Invalid setup source URL');return;}
+    const label=(String(name||'My IPTV').trim()||'My IPTV').slice(0,80);
+    const current=state.sources.find(s=>s.name===label&&s.type==='m3u');
+    if(current)current.url=url;
+    else state.sources.push({id:uid(label+'-'+Date.now()),name:label,url,type:'m3u'});
+    save();
+    state.tab='Settings';state.settingsTab='Playlists';render(true);
+    toast('Source saved. Downloading playlist…');
+    if(native)window.AndroidBridge.importPlaylist(url,label);
+  };
+
   // The Android layer streams large provider lists as compact JSON batches, never a giant M3U string.
   window.onNativePlaylistChunk=(batch,name,last,skipped)=>{
     let entries=incomingPlaylist.get(name);
@@ -244,7 +257,11 @@
     state.shows=state.shows.filter(i=>i.sourceId!==sourceId).concat(show);
     state.sourceStatus=`Imported ${live.length} live, ${movie.length} movies, ${show.length} shows`+
       (skipped?` · ${skipped.toLocaleString()} entries excluded to fit this device`:'');
-    save();nav('Home');toast(state.sourceStatus);
+    save();
+    if(native) {
+      state.tab='Settings';state.settingsTab='Playlists';render(true);
+      toast(state.sourceStatus+' · Press Back to return to TV');
+    } else {nav('Home');toast(state.sourceStatus);}
   };
 
   window.onNativeEpg=(content)=>applyEpg(content);

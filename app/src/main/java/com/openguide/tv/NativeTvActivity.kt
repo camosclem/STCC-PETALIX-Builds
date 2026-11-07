@@ -65,11 +65,11 @@ class NativeTvActivity : Activity() {
     @Volatile private var scoreRefreshRunning = false
     private var refreshUiOnNextScores = false
     private val imageCache = object: LruCache<String, Bitmap>(24) {}
-    private val colorBg = Color.rgb(12, 15, 31)
-    private val colorPanel = Color.rgb(38, 44, 69)
+    private val colorBg = Color.rgb(12, 17, 38)
+    private val colorPanel = Color.rgb(36, 46, 78)
     private val colorFocused = Color.rgb(215, 223, 255)
     private val colorMuted = Color.rgb(170, 179, 201)
-    private val colorAccent = Color.rgb(66, 200, 193)
+    private val colorAccent = Color.rgb(74, 180, 252)
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
     private fun pill(bg: Int, border: Int = Color.TRANSPARENT, radius: Int = 15): GradientDrawable =
@@ -186,6 +186,8 @@ class NativeTvActivity : Activity() {
             background = pill(if (focused) colorFocused else colorPanel,
                 if (focused) Color.WHITE else Color.TRANSPARENT)
             setTextColor(if (focused) colorBg else Color.WHITE)
+            animate().cancel()
+            animate().scaleX(if(focused)1.04f else 1f).scaleY(if(focused)1.04f else 1f).setDuration(110).start()
             if (focused) {
                 lastFocusKey = tag as? String
                 post { requestRectangleOnScreen(Rect(0,0,width,height),false) }
@@ -199,7 +201,7 @@ class NativeTvActivity : Activity() {
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
             isFocusable = false
-            setBackgroundColor(Color.rgb(28, 33, 55))
+            setBackgroundColor(Color.rgb(27, 50, 107))
         }
         navRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -215,7 +217,7 @@ class NativeTvActivity : Activity() {
     }
     private fun renderNavigation() {
         navRow.removeAllViews()
-        val mark = caption("●", 27f, colorAccent)
+        val mark = caption("P", 21f, colorAccent)
         mark.gravity = Gravity.CENTER_VERTICAL
         navRow.addView(mark, LinearLayout.LayoutParams(dp(37), dp(45)))
         for (label in listOf("Home", "Live", "Sports", "Teams", "Favorites", "My Locals", "Movies", "TV Shows", "Settings")) {
@@ -617,13 +619,14 @@ class NativeTvActivity : Activity() {
         val stations=channels.map { LocalStationMatcher.Station(it.id,it.name,it.group,it.logo) }
         val found=LocalStationMatcher.recommendations(market,stations)
         val ids=found.mapNotNull { it.station?.id }.toSet()
-        preferences.edit().putStringSet("local_ids",ids).apply()
+        // Recommendations are suggestions, not forced selections; the viewer uses Add / Add all.
+        preferences.edit().putStringSet("suggested_local_ids",ids).apply()
         val matched=found.count{it.station!=null}
-        localMessage=if(matched>0)"Found $matched of 4 affiliates in your imported playlist. Missing networks are not included."
+        localMessage=if(matched>0)"Found $matched local stations in your imported playlist. Press Add or Add all to save them."
             else "No matching affiliates in your imported playlist. Check its local-channel groups or search by call sign."
     }
     private fun renderLocals(column:LinearLayout){
-        addHeading(column,"My Locals","Choose stations from your own playlist — no giant search results")
+        addHeading(column,"Local channels","Find local stations by ZIP, then choose which appear in your guide")
         val zip=preferences.getString("local_zip", "").orEmpty()
         val zipRow=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL }
         val input=EditText(this).apply {
@@ -656,28 +659,48 @@ class NativeTvActivity : Activity() {
         }
         val market=marketForZip(zip)
         if(market!=null){
-            addHeading(column,"Suggested TV market",market.name)
-            addDescription(column,"ABC • CBS • NBC • FOX. Matching uses station call signs in your imported playlist. ZIP prefixes are only starter suggestions; you can correct the market below.")
+            addHeading(column,"Nearest TV market",market.name)
+            addDescription(column,"Stations come from your playlist. Select the stations you want, or Add all. Some ZIP-to-market matches are offline beta hints.")
             val matches=LocalStationMatcher.recommendations(market,channels.map {
                 LocalStationMatcher.Station(it.id,it.name,it.group,it.logo) })
-            val group=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL}
-            for(match in matches){
-                val station=match.station
-                val ch=station?.let{candidate->channels.firstOrNull{it.id==candidate.id}}
-                val checked=ch!=null && locals.contains(ch.id)
-                val label="${match.network} • ${match.callsign}  —  " +
-                    (if(ch==null)"Not found in playlist" else (if(checked)"✓ " else "+ ")+ch.name)
-                val action=tvButton(label) {
-                    if(ch!=null){
-                        val set=locals.toMutableSet()
-                        if(!set.add(ch.id))set.remove(ch.id)
-                        preferences.edit().putStringSet("local_ids",set).apply()
-                        requestedFocusKey="local:${match.network}";renderScreen()
-                    }
+            val available = matches.mapNotNull {match ->
+                val found=match.station ?: return@mapNotNull null
+                val ch=channels.firstOrNull{it.id==found.id} ?: return@mapNotNull null
+                match to ch
+            }
+            if(available.isNotEmpty()){
+                val addAll=tvButton("+ Add all ${available.size} stations"){
+                    val updated=locals.toMutableSet()
+                    available.forEach{updated.add(it.second.id)}
+                    preferences.edit().putStringSet("local_ids",updated).apply()
+                    requestedFocusKey="locals:addAll";renderScreen()
                 }
-                action.tag="local:${match.network}"
-                action.isEnabled=ch!=null
-                group.addView(action,LinearLayout.LayoutParams(-1,dp(53)).apply{bottomMargin=dp(6)})
+                addAll.tag="locals:addAll"
+                column.addView(addAll,LinearLayout.LayoutParams(dp(270),dp(46)).apply{bottomMargin=dp(9)})
+            }
+            val group=LinearLayout(this).apply {orientation=LinearLayout.VERTICAL}
+            matches.chunked(3).forEach { items ->
+                val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
+                items.forEach { match ->
+                    val ch=match.station?.let { station -> channels.firstOrNull { it.id==station.id } }
+                    val checked=ch!=null && locals.contains(ch.id)
+                    val label="${match.network}  •  ${match.callsign}\n"+
+                        (if(ch==null)"Not in your playlist" else (if(checked)"✓ Added" else "+ Add")+"  ${ch.name.take(28)}")
+                    val action=tvButton(label){
+                        if(ch!=null){
+                            val saved=locals.toMutableSet()
+                            if(!saved.add(ch.id))saved.remove(ch.id)
+                            preferences.edit().putStringSet("local_ids",saved).apply()
+                            requestedFocusKey="local:${match.network}";renderScreen()
+                        }
+                    }
+                    action.tag="local:${match.network}"
+                    action.isEnabled=ch!=null
+                    action.textSize=13f
+                    action.gravity=Gravity.CENTER_VERTICAL or Gravity.START
+                    row.addView(action,LinearLayout.LayoutParams(0,dp(77),1f).apply{marginEnd=dp(10)})
+                }
+                group.addView(row,LinearLayout.LayoutParams(-1,dp(84)))
             }
             column.addView(group)
         }else if(zip.length==5){
@@ -761,6 +784,11 @@ class NativeTvActivity : Activity() {
         preferences.edit().putString("recent_channel",ch.id).apply()
         startActivity(Intent(this,PlayerActivity::class.java).apply {
             putExtra("url",ch.url);putExtra("name",ch.name)
+            val alternates=FeedMatcher.candidates(FeedMatcher.Feed(ch.name,ch.url),
+                channels.map{FeedMatcher.Feed(it.name,it.url)})
+            putExtra("feeds_json",JSONArray().apply {
+                alternates.forEach{feed ->put(JSONObject().put("name",feed.name).put("url",feed.url))}
+            }.toString())
         })
     }
     private fun openGuide(selectedGroup:String?=null) {
