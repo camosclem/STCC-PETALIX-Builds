@@ -103,6 +103,13 @@ def main():
     replace_once(gradle, 'variant.applicationId.set(if (testBuild) "com.nuvio.livetv.test" else "com.nuvio.livetv")',
                  'variant.applicationId.set(if (testBuild) "com.petalix.iptv.staging" else "com.petalix.iptv.preview")')
 
+    # Upstream points its DEBUG build to the private release keystore, which is
+    # intentionally unavailable in public staging CI. Restore Android's default
+    # disposable debug keystore; customer updates still require the original
+    # protected Petalix release signer.
+    replace_once(gradle, 'debug {\n            signingConfig = signingConfigs.getByName("release")',
+                 'debug {\n            signingConfig = signingConfigs.getByName("debug")')
+
     # The original upstream updater would install somebody else's APK/signature.
     # The native app's UI and Sports implementation remain otherwise untouched.
     replace_once(gradle, 'buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")',
