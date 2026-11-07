@@ -1,0 +1,53 @@
+{
+  "brand": "Petalix",
+  "upstream": {
+    "repository": "homelessbrian/NuvioPlusIPTV",
+    "release": "1.1.0-beta.11.1",
+    "commit": "a7e67cec36e1e28d79b889b5630c4b2095931888"
+  },
+  "android": {
+    "package": "com.petalix.iptv.preview",
+    "keep_existing_release_signer": true,
+    "require_higher_version_code": true,
+    "keep_native_nuvio_guide_and_sports_code": true,
+    "retain_legal_and_open_source_attribution": true,
+    "use_existing_logo": "tooling/android-build/petalix_metallic_logo.png"
+  },
+  "app": {
+    "display_name": "Petalix",
+    "customer_activation": "preserve_existing_PINS_and_panel_session",
+    "update_delivery": "panel_only_after_signed_device_test",
+    "protect_existing_8_3_installs": true
+  },
+  "live_tv": {
+    "region": "USA",
+    "explicit_exceptions": ["TSN+"],
+    "category_order": [
+      "Locals", "Entertainment", "News", "Sports | Major Networks", "Sports | FanDuel",
+      "Sports | TSN+", "Sports | NFL", "Sports | NBA", "Sports | MLB", "Sports | NHL",
+      "Sports | College", "Sports | Soccer", "Sports | Golf & Tennis",
+      "Sports | Racing", "Sports | Combat", "Sports | Other",
+      "Movies", "Kids & Family", "Lifestyle", "Documentaries", "Western", "Music",
+      "24/7 | TV & Series", "24/7 | Movies", "24/7 | Kids",
+      "24/7 | Music", "24/7 | Other", "Other USA"
+    ],
+    "hide_unavailable_empty_categories": true,
+    "do_not_invent_channels": true,
+    "deduplicate_repeated_network_quality_variants": true,
+    "retain_channel_logos_and_epg_ids": true,
+    "preserve_favorites_when_updating": true,
+    "prioritize": {
+      "Sports | Major Networks": [
+        "ESPN", "ESPN2", "ESPNEWS", "ESPNU", "FS1", "FS2",
+        "NFL NETWORK", "NFL REDZONE", "NBA TV", "MLB NETWORK",
+        "NHL NETWORK", "CBS SPORTS NETWORK", "NBC SPORTS", "GOLF CHANNEL",
+        "TENNIS CHANNEL", "BIG TEN NETWORK", "SEC NETWORK", "ACC NETWORK"
+      ]
+    }
+  },
+  "boundaries": {
+    "do_not_embed_provider_urls_or_credentials_in_repository": true,
+    "do_not_change_stcc": true,
+    "do_not_publish_customer_update_before_signed_test": true
+  }
+}
