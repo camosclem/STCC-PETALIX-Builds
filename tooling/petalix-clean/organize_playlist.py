@@ -78,7 +78,7 @@ def classify(group, name):
         if re.search(r"DRAMA|CRIME|REALITY|COMEDY|SHOW|SERIES|CLASSIC|TV", text):
             return "24/7 | TV & Series"
         return "24/7 | Other"
-    if re.search(r"\bLOCAL\b|AFFILIATE|CALL SIGN", text):
+    if re.search(r"\bLOCALS?\b|AFFILIATE|CALL SIGN", text):
         return "Locals"
     if re.search(r"\bNEWS\b|WEATHER|BUSINESS NEWS", text):
         return "News"
