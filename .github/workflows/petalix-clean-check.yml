@@ -9,6 +9,10 @@ on:
       - .github/workflows/petalix-clean-check.yml
   workflow_dispatch:
 
+concurrency:
+  group: petalix-clean-ci
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
