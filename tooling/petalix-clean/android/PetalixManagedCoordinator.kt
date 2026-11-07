@@ -15,6 +15,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -137,7 +138,7 @@ class PetalixManagedCoordinator @Inject constructor(
                 http.newCall(request.build()).execute().use { response ->
                     if (response.code in listOf(301,302,303,307,308)) {
                         val next = response.header("Location").orEmpty()
-                        val parsed = okhttp3.HttpUrl.Companion.toHttpUrlOrNull(next)
+                        val parsed = next.toHttpUrlOrNull()
                             ?: error("Panel address is unavailable; saved activation retained.")
                         require(parsed.isHttps &&
                             parsed.host in setOf(
