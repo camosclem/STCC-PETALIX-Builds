@@ -209,7 +209,19 @@ class NativeTvActivity : Activity() {
             setPadding(dp(15), dp(7), dp(15), dp(7))
         }
         navScroll.addView(navRow, ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(58)))
-        frame.addView(navScroll, LinearLayout.LayoutParams(-1, dp(58)))
+        // Keep Petalix branding visible on TV while tabs scroll independently.
+        val topBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.rgb(27, 50, 107))
+        }
+        topBar.addView(navScroll, LinearLayout.LayoutParams(0, dp(58), 1f))
+        val brand = caption("PETALIX", 15f, colorAccent).apply {
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        }
+        topBar.addView(brand, LinearLayout.LayoutParams(dp(107), dp(58)))
+        frame.addView(topBar, LinearLayout.LayoutParams(-1, dp(58)))
         contentHost = FrameLayout(this)
         frame.addView(contentHost, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(frame)
@@ -237,7 +249,7 @@ class NativeTvActivity : Activity() {
             }
             navRow.addView(button, LinearLayout.LayoutParams(-2, dp(39)).apply { marginEnd = dp(7) })
         }
-        navRow.addView(blockText("PETALIX", 14f, colorAccent).apply {typeface = Typeface.DEFAULT_BOLD})
+
     }
     private fun addHeading(column: LinearLayout, heading: String, detail: String = "") {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
