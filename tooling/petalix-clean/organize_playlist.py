@@ -46,7 +46,7 @@ def attrs_and_name(extinf):
 
 def classify(group, name):
     text = (group + " " + name).upper()
-    if re.search(r"\bTSN\s*(?:\+|PLUS)\b", text):
+    if re.search(r"\bTSN\s*(?:\+|PLUS)(?=\W|$)", text):
         return "Sports | TSN+"
     if re.search(r"FAN\s*DUEL|FANDUEL|BALLY SPORTS", text):
         return "Sports | FanDuel"
@@ -101,7 +101,7 @@ def classify(group, name):
 
 def foreign(group, name):
     # A Canadian-only TSN+ feed was expressly requested as a sports exception.
-    if re.search(r"\bTSN\s*(?:\+|PLUS)\b", name + " " + group, re.I):
+    if re.search(r"\bTSN\s*(?:\+|PLUS)(?=\W|$)", name + " " + group, re.I):
         return False
     return bool(FOREIGN.search(group))
 
