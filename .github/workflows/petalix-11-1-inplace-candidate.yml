@@ -1,0 +1,103 @@
+# Internal-only candidate: original Petalix package ID, disposable CI signing.
+# Never upload this artifact to Petalix Control or install over a customer's APK.
+name: Petalix 11.1 in-place compatibility CI (NOT installable)
+
+on:
+  push:
+    branches:
+      - feature/petalix-11-1-inplace-candidate-20261107
+    paths:
+      - tooling/petalix-clean/**
+      - .github/workflows/petalix-11-1-inplace-candidate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: petalix-11-1-inplace-compat
+  cancel-in-progress: true
+
+jobs:
+  source-and-keyless-package:
+    name: Check in-place package and saved activation bridge
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CI_USE_DEBUG_SIGNING: "true"
+      GOPROXY: "https://proxy.golang.org|direct"
+      GODEBUG: "http2client=0"
+    steps:
+      - name: Checkout Petalix staging source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run playlist unit tests with synthetic sources
+        run: python3 -m unittest discover -v -s tooling/petalix-clean -p test_organize_playlist.py
+
+      - name: Configure Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+
+      - name: Checkout latest reviewed upstream source
+        run: |
+          git clone --quiet --filter=blob:none --depth=1 --branch=1.1.0-beta.11.1 \
+            https://github.com/homelessbrian/NuvioPlusIPTV.git upstream
+          test "$(git -C upstream rev-parse HEAD)" = "a7e67cec36e1e28d79b889b5630c4b2095931888"
+
+      - name: Apply Petalix branding and current panel PIN bridge
+        run: |
+          python3 -m pip install --disable-pip-version-check Pillow
+          python3 tooling/petalix-clean/prepare_stock.py \
+            --upstream upstream --logo tooling/android-build/petalix_metallic_logo.png
+          python3 tooling/petalix-clean/verify_inplace_candidate.py --upstream upstream
+
+      - name: Compile the original-package release variant WITHOUT production signing
+        working-directory: upstream
+        run: |
+          chmod +x ./gradlew
+          # Deliberately do NOT pass -PlivetvTestBuild=true. That switches the
+          # package to the isolated staging application ID. This job only checks
+          # compatibility and uses a disposable CI signing identity.
+          ./gradlew :app:assembleFullRelease --no-daemon --max-workers=2 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            -Dorg.gradle.jvmargs="-Xmx4608m -XX:MaxMetaspaceSize=768m" \
+            -x :app:lintVitalAnalyzeFullRelease -x :app:lintVitalReportFullRelease -x :app:lintVitalFullRelease
+
+      - name: Check package and forbid mistaken customer distribution
+        run: |
+          set -euo pipefail
+          APK="$(find upstream/app/build/outputs/apk/full/release -maxdepth 1 -name '*.apk' -type f | head -n 1)"
+          test -n "$APK"
+          SDK="$ANDROID_HOME/build-tools/36.0.0"
+          "$SDK/aapt" dump badging "$APK" | tee /tmp/petalix-inplace-badging
+          grep -F "name='com.petalix.iptv.preview'" /tmp/petalix-inplace-badging
+          grep -F "versionCode='1794250000'" /tmp/petalix-inplace-badging
+          "$SDK/apksigner" verify --verbose --print-certs "$APK" > /tmp/petalix-inplace-signer
+          # Never let the publicly executed CI job masquerade as an approved signer.
+          if grep -iq 'b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1' /tmp/petalix-inplace-signer; then
+            echo "Protected production signer must not be present on this runner."
+            exit 1
+          fi
+          echo "PACKAGE COMPILED. DEBUG-SIGNED ONLY. NOT INSTALLABLE AS UPDATE."
+          echo "Activation, saved data and playback still need signed Shield testing."
+
+      - name: Store temporary developer-only compatibility artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DO-NOT-INSTALL-Petalix-11.1-original-id-debug-signer
+          path: upstream/app/build/outputs/apk/full/release/*.apk
+          retention-days: 1
+          if-no-files-found: error
