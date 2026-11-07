@@ -79,6 +79,89 @@ def update_artwork(res, logo_file):
             contain_transparent(image, dims).save(banner)
 
 
+def apply_panel_bridge(root):
+    """Copy only the essential Petalix activation and guide bridge to stock 11.1."""
+    import shutil
+    source_dir = Path(__file__).with_name("android")
+    dest = root/"app/src/main/java/com/nuvio/tv/petalix"
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in ("PetalixManagedCoordinator.kt", "PetalixActivationActivity.kt"):
+        shutil.copyfile(source_dir/name, dest/name)
+    shutil.copyfile(Path(__file__).resolve().parents[1]/"android-build/PanelPlaylist.kt",
+                    dest/"PanelPlaylist.kt")
+
+    gradle = root/"app/build.gradle.kts"
+    with gradle.open("a", encoding="utf-8") as stream:
+        stream.write('\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", '
+                     'buildConfigString("https://petalix-control.pinkgiant5.chatgpt.site"))\n')
+
+    manifest = root/"app/src/main/AndroidManifest.xml"
+    replace_once(manifest,
+        '        <meta-data\n            android:name="io.sentry.auto-init"',
+        '        <activity android:name=".petalix.PetalixActivationActivity" '
+        'android:exported="false" android:screenOrientation="landscape" />\n'
+        '        <meta-data\n            android:name="io.sentry.auto-init"')
+
+    main = root/"app/src/main/java/com/nuvio/tv/MainActivity.kt"
+    replace_once(main, 'open class MainActivity : ComponentActivity() {',
+        'open class MainActivity : ComponentActivity() {\n'
+        '    @javax.inject.Inject lateinit var petalixBridge: '
+        'com.nuvio.tv.petalix.PetalixManagedCoordinator\n')
+    replace_once(main,
+        '        installSplashScreen()\n        super.onCreate(savedInstanceState)',
+        '''        installSplashScreen()
+        super.onCreate(savedInstanceState)
+        if (!petalixBridge.ready) {
+            startActivity(Intent(this, com.nuvio.tv.petalix.PetalixActivationActivity::class.java))
+            finish()
+            return
+        }
+        lifecycleScope.launch {
+            while (true) {
+                try { petalixBridge.refresh() }
+                catch (_: com.nuvio.tv.petalix.PetalixActivationRequired) {
+                    startActivity(Intent(this@MainActivity,
+                        com.nuvio.tv.petalix.PetalixActivationActivity::class.java))
+                    finish()
+                    return@launch
+                }
+                catch (_: Exception) { /* Saved activation and playback remain available offline. */ }
+                kotlinx.coroutines.delay(900_000L)
+            }
+        }''')
+
+    prefs = root/"app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt"
+    raw = prefs.read_text(encoding="utf-8")
+    old = '    private fun profileView(p: Preferences, id: Int): Preferences {'
+    if raw.count(old) != 1:
+        raise RuntimeError("Missing 11.1 profile view; playlist bridge cannot install")
+    start = raw.index(old)
+    stop = raw.index('\n    private suspend fun seedProfile', start)
+    part = raw[start:stop]
+    if part.count('if (id <= 1) return p') != 1 or part.count('return m') != 1:
+        raise RuntimeError("Unexpected profile mapping in 11.1; review guide patch")
+    part = part.replace('if (id <= 1) return p',
+        'if (id <= 1) return com.nuvio.tv.petalix.PanelPlaylist.view(p,"petalix-managed")')
+    part = part.replace('return m',
+        'return com.nuvio.tv.petalix.PanelPlaylist.view(m,"petalix-managed")')
+    raw = raw[:start] + part + raw[stop:]
+    needle = '''        withMyMenu(p0, id)
+    }.map { p ->'''
+    if raw.count(needle) != 1:
+        raise RuntimeError("Unexpected 11.1 guide settings mapping")
+    raw = raw.replace(needle, '''        com.nuvio.tv.petalix.PanelPlaylist.view(withMyMenu(p0, id),"petalix-managed")
+    }.map { p ->''')
+    needle2 = '    suspend fun updatePlaylists(transform: (List<PlaylistSource>) -> List<PlaylistSource>) {'
+    if raw.count(needle2) != 1:
+        raise RuntimeError("Unexpected 11.1 playlist update API")
+    raw = raw.replace(needle2, '''    suspend fun applyPetalixPlaylistRules(document: org.json.JSONObject) {
+        store.edit { p -> com.nuvio.tv.petalix.PanelPlaylist.store(p, document) }
+    }
+
+'''+needle2)
+    prefs.write_text(raw, encoding="utf-8")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--upstream", type=Path, required=True)
@@ -126,6 +209,7 @@ def main():
     spec.loader.exec_module(module)
     module.apply(root, "petalix")
     update_artwork(res, args.logo)
+    apply_panel_bridge(root)
     details = {
         "base_tag": "1.1.0-beta.11.1",
         "base_sha": PINNED_SHA,
@@ -136,6 +220,7 @@ def main():
         "version_name": VERSION_NAME,
         "native_guide": "unaltered",
         "native_sports": "unaltered",
+        "panel_bridge": "Petalix PIN/session and playlist rules (test)",
         "customer_ready": False,
         "reason": "Requires original release signature plus Petalix panel PIN/session migration verification"
     }
