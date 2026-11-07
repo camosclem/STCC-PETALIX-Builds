@@ -117,6 +117,14 @@ def main():
 
     res = root/"app/src/main/res"
     brand_strings(res)
+    # Use the existing reviewed branding-only text substitution for Kotlin UI labels.
+    # It excludes core logic, internal namespaces, upstream URLs and legal credits.
+    import importlib.util
+    patch_path = Path(__file__).resolve().parents[1]/"android-build/branding_patch.py"
+    spec = importlib.util.spec_from_file_location("petalix_branding_patch", patch_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.apply(root, "petalix")
     update_artwork(res, args.logo)
     details = {
         "base_tag": "1.1.0-beta.11.1",
