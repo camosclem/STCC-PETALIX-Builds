@@ -94,8 +94,14 @@ def main():
 
     gradle = root/"app/build.gradle.kts"
     replace_once(gradle, 'applicationId = "com.nuvio.tv"', 'applicationId = "' + APPLICATION_ID + '"')
-    replace_once(gradle, "versionCode = 1074", "versionCode = " + str(VERSION_CODE))
+    replace_once(gradle, "versionCode = 1074", "versionCode = " + str(VERSION_CODE // 100))
+    # Upstream multiplies the base code by 100 below defaultConfig.
     replace_once(gradle, 'versionName = "1.1.0-beta.11"', 'versionName = "' + VERSION_NAME + '"')
+    # Upstream androidComponents otherwise overrides the Gradle applicationId.
+    replace_once(gradle, 'variant.applicationId.set(if (isPlaystore) "com.nuvio.appdebug" else "com.nuvio.livetv")',
+                 'variant.applicationId.set(if (isPlaystore) "com.nuvio.appdebug" else "com.petalix.iptv.staging")')
+    replace_once(gradle, 'variant.applicationId.set(if (testBuild) "com.nuvio.livetv.test" else "com.nuvio.livetv")',
+                 'variant.applicationId.set(if (testBuild) "com.petalix.iptv.staging" else "com.petalix.iptv.preview")')
 
     # The original upstream updater would install somebody else's APK/signature.
     # The native app's UI and Sports implementation remain otherwise untouched.
@@ -110,6 +116,7 @@ def main():
         "base_sha": PINNED_SHA,
         "brand": "Petalix",
         "package_name": APPLICATION_ID,
+        "debug_package_name": "com.petalix.iptv.staging",
         "version_code": VERSION_CODE,
         "version_name": VERSION_NAME,
         "native_guide": "unaltered",
