@@ -97,7 +97,9 @@ import xml.etree.ElementTree as ET,re
 root=ET.parse('petalix-v07-nav.xml').getroot()
 for node in root.iter('node'):
   if node.get('text')=='Live' and node.get('clickable')=='true':
-    a,b,c,d=map(int,re.findall(r'\d+',node.get('bounds','')))
+    parts=[int(item) for item in re.findall('[0-9]+',node.get('bounds',''))]
+    if len(parts)!=4: raise RuntimeError('Live tab has invalid bounds: '+repr(node.attrib))
+    a,b,c,d=parts
     print((a+c)//2,(b+d)//2)
     break
 else: raise RuntimeError('Native Live tab missing')
