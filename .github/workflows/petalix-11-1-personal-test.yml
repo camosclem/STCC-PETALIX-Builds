@@ -4,7 +4,7 @@ name: Build Petalix 11.1 personal playlist test APK
 
 on:
   push:
-    branches: [test/petalix-11-1-local-playlist-20261107]
+    branches: [test/petalix-11-1-curated-lineup-20261108]
     paths:
       - tooling/petalix-clean/prepare_local_test.py
       - .github/workflows/petalix-11-1-personal-test.yml
@@ -25,7 +25,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GOPROXY: "https://proxy.golang.org|direct"
       GODEBUG: "http2client=0"
-      TEST_TAG: petalix-11.1-personal-playlist-test-20261107
+      TEST_TAG: petalix-11.1-personal-curated-20261108
     steps:
       - uses: actions/checkout@v4
         with:
@@ -65,6 +65,14 @@ jobs:
             echo "Dependency/compile attempt $attempt failed; retrying."
             sleep 8
           done
+      - name: Run on-device lineup unit tests (synthetic channels only)
+        working-directory: upstream
+        run: |
+          ./gradlew :app:testFullDebugUnitTest \
+            --tests com.nuvio.tv.petalix.PetalixLineupTest \
+            --no-daemon --max-workers=2 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            -Dorg.gradle.jvmargs="-Xmx4608m -XX:MaxMetaspaceSize=768m"
       - name: Verify APK identity and disposable debug signer
         run: |
           set -euo pipefail
@@ -78,9 +86,9 @@ jobs:
           if grep -iq 'b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1' /tmp/petalix-personal-signer; then
             echo "Unexpected protected production signing identity"; exit 1
           fi
-          cp "$APK" release/Petalix-11.1-Personal-Test-Universal.apk
-          sha256sum release/Petalix-11.1-Personal-Test-Universal.apk > release/Petalix-11.1-Personal-Test-Universal.sha256
-          echo 'Private owner only: native playlist setup works independently of panel PIN in DEBUG builds; not a customer update.' > release/TEST-ONLY.txt
+          cp "$APK" release/Petalix-11.1-Curated-Test-Universal.apk
+          sha256sum release/Petalix-11.1-Curated-Test-Universal.apk > release/Petalix-11.1-Curated-Test-Universal.sha256
+          echo 'Private owner only: USA channel layout and quality-variant grouping run on each imported M3U/Xtream refresh. No embedded playlist URL or PIN; not a customer update.' > release/TEST-ONLY.txt
           echo 'Source: https://github.com/homelessbrian/NuvioPlusIPTV/releases/tag/1.1.0-beta.11.1' >> release/TEST-ONLY.txt
           echo "Verified personal APK package and signature. No production installation/update supported."
       - name: Publish clearly identified personal TEST prerelease
@@ -93,8 +101,8 @@ jobs:
           gh release create "$TEST_TAG" release/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Petalix 11.1 PERSONAL playlist test (DEBUG ONLY)" \
-            --notes "PERSONAL TEST ONLY. Separate Android package: com.petalix.iptv.localtest. Debug signed. Does not update Petalix 8.3 or connect to your managed Petalix PIN/assigned customer account. Native Nuvio+ Live TV guide, Sports hub and on-device playlist setup for streams you are authorized to use. Import your own playlist from the app Settings. No customer deployment, Petalix Control changes, or production signing. Do not use for customers. Owner must verify on Shield." \
+            --title "Petalix 11.1 personal curated USA playlist test (DEBUG ONLY)" \
+            --notes "PERSONAL TEST ONLY. Separate Android package: com.petalix.iptv.localtest. Debug signed. Does not update Petalix 8.3 or connect to your managed Petalix PIN/assigned customer account. Native Nuvio+ Live TV guide, Sports Hub, and automatic USA playlist grouping on each M3U/Xtream import or refresh. Locals, Entertainment, News, Major Sports, FanDuel, TSN+, league sports, Movies, Kids, Western, and condensed 24/7 are ordered by the requested Petalix lineup rules. Backup quality streams remain in Backup Streams. Import your own playlist from the app Settings; provider logins are never embedded. No customer deployment, Petalix Control changes, or production signing. Do not use for customers. Owner must verify on Shield." \
             --prerelease --latest=false
       - name: Keep CI test artifact temporarily
         uses: actions/upload-artifact@v4
