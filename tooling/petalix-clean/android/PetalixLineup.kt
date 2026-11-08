@@ -121,8 +121,20 @@ internal object PetalixLineup {
     }
 
     private fun normalizedName(name: String): String {
+        // Different providers use different names for the same numbered feed.
+        // Unify aliases before deduplication so only the best stream survives.
+        if (fanDuel.containsMatchIn(name)) {
+            number1to5(name)?.let { return "FANDUEL $it" }
+        }
+        if (tsn.containsMatchIn(name)) {
+            number1to5(name)?.let { return "TSN $it" }
+        }
         val label = cleanName(name).uppercase(Locale.ROOT)
             .replace(Regex("""\bESPN\s+2\b"""), "ESPN2")
+            .replace(Regex("""\bESPN\s+NEWS\b"""), "ESPNEWS")
+            .replace(Regex("""\bESPN\s+U\b"""), "ESPNU")
+            .replace(Regex("""\bFOX SPORTS\s*[- ]?\s*1\b"""), "FS1")
+            .replace(Regex("""\bFOX SPORTS\s*[- ]?\s*2\b"""), "FS2")
             .replace(Regex("""\bFS\s*[- ]\s*1\b"""), "FS1")
             .replace(Regex("""\bFS\s*[- ]\s*2\b"""), "FS2")
         return whitespace.replace(label, " ").trim()
