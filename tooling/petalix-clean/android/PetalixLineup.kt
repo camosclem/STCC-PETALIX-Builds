@@ -1,85 +1,97 @@
 package com.nuvio.tv.petalix
 
 import com.nuvio.tv.livetv.model.LiveChannel
+import java.util.Locale
 
 /**
- * Personal Petalix 11.1 guide curation; works on locally imported M3U and Xtream
- * playlists on every refresh. No account URLs, passwords, tokens or EPG data are
- * stored here or sent to the panel.
+ * Personal Petalix Live TV curation. Applies on every locally imported M3U/Xtream refresh.
+ * This is strictly the separate com.petalix.iptv.localtest build, never customer Petalix.
  *
- * IMPORTANT: Channel.key, tvgId, tvgName, url, headers, DRM and catch-up stay
- * unchanged. Alternative qualities move to Backup Streams instead of being
- * discarded, so Nuvio's alternate-feed selector can still reach them.
+ * Rules:
+ * - Sports is ONE group: major networks, FanDuel 1–5, TSN 1–5, then other sports.
+ * - All groups prefer 4K/UHD > 1080/FHD > HD > SD. Show ONE best source per channel.
+ * - No international channels (except explicitly requested TSN 1–5) or VOD in Live TV.
+ * - No backup group, duplicate streams or embedded provider credentials.
+ * - Never change stream URL, stable key, guide ID, logo, headers, DRM, or catch-up.
  */
 internal object PetalixLineup {
     val categoryOrder = listOf(
-        "Locals", "Entertainment", "News",
-        "Sports | Major Networks", "Sports | FanDuel", "Sports | TSN+",
-        "Sports | NFL", "Sports | NBA", "Sports | MLB", "Sports | NHL",
-        "Sports | College", "Sports | Soccer", "Sports | Golf & Tennis",
-        "Sports | Racing", "Sports | Combat", "Sports | Other",
-        "Movies", "Kids & Family", "Lifestyle", "Documentaries", "Western", "Music",
+        "Locals", "Entertainment", "News", "Sports", "Movies", "Kids & Family",
+        "Lifestyle", "Documentaries", "Western", "Music",
         "24/7 | TV & Series", "24/7 | Movies", "24/7 | Kids",
-        "24/7 | Music", "24/7 | Other", "Other USA", "Backup Streams"
+        "24/7 | Music", "24/7 | Other", "Other USA"
     )
-    private val mainNetworks = listOf(
+
+    private val majorNetworks = listOf(
         "ESPN", "ESPN2", "ESPNEWS", "ESPNU", "FS1", "FS2",
         "NFL NETWORK", "NFL REDZONE", "NBA TV", "MLB NETWORK", "NHL NETWORK",
         "CBS SPORTS NETWORK", "NBC SPORTS", "GOLF CHANNEL", "TENNIS CHANNEL",
         "BIG TEN NETWORK", "SEC NETWORK", "ACC NETWORK"
     )
     private val foreignGroup = Regex(
-        """(?i)(?:^|[\s|:/-])(?:CANADA|CANADIAN|UK|UNITED KINGDOM|BRITAIN|INDIA|PAKISTAN|TURKEY|TURKISH|FRANCE|FRENCH|GERMANY|GERMAN|ARABIC|PORTUGAL|BRAZIL|SPAIN|ITALY|MEXICO|LATIN AMERICA)(?:$|[\s|:/-])"""
+        """(?i)(?:^|[\s|:/-])(?:INTERNATIONAL|WORLD|CANADA|CANADIAN|UK|UNITED KINGDOM|BRITAIN|INDIA|PAKISTAN|TURKEY|TURKISH|FRANCE|FRENCH|GERMANY|GERMAN|ARABIC|ARABIA|PORTUGAL|BRAZIL|SPAIN|ITALY|MEXICO|LATIN AMERICA|SOUTH AMERICA|EUROPE|ASIA|AFRICA|AFGHANISTAN|RUSSIA|CHINA|JAPAN|KOREA|POLAND|GREECE|ISRAEL)(?:$|[\s|:/-])"""
     )
-    private val tsnPlus = Regex("""(?i)\bTSN\s*(?:\+|PLUS)(?=\W|$)""")
+    private val foreignNamePrefix = Regex(
+        """(?i)^(?:INTL|INTERNATIONAL|CANADA|CANADIAN|UK|UNITED KINGDOM|INDIA|PAKISTAN|FRANCE|FRENCH|GERMANY|GERMAN|ARABIC|BRAZIL|SPAIN|ITALY|MEXICO|LATINO|RUSSIA|CHINA|JAPAN|KOREA)\s*[-:|]\s*"""
+    )
+    private val onDemandGroup = Regex(
+        """(?i)(?:^|[\s|:/-])(?:VOD|ON[\s-]*DEMAND|MOVIE[\s-]*VOD|SERIES|TV[\s-]*SHOWS|EPISODES)(?:$|[\s|:/-])"""
+    )
+    private val onDemandUrl = Regex(
+        """(?i)/(?:movie|series|vod|episodes?)/|\.(?:mp4|mkv|avi|wmv)(?:[?#]|$)"""
+    )
+    private val fanDuel = Regex("""(?i)\b(?:FAN\s*DUEL|FANDUEL|BALLY SPORTS)\b""")
+    private val tsn = Regex("""(?i)\bTSN(?:\s*\+)?\b""")
+    private val sports = Regex(
+        """(?i)\bSPORTS?\b|\b(?:ESPN|NFL|NBA|MLB|NHL|NCAA|UFC|PGA|NASCAR|FORMULA 1|F1|MLS|SOCCER|FOOTBALL|TENNIS|BOXING|MMA|GOLF|CRICKET|RACING|FS1|FS2|B1G|TSN|FANDUEL)\b"""
+    )
     private val major = Regex(
         """(?i)^(?:ESPN(?:\+|2|U|NEWS)?|FS[12]|FOX SPORTS [12]|NFL NETWORK|NFL REDZONE|NBA TV|MLB NETWORK|NHL NETWORK|CBS SPORTS(?: NETWORK)?|NBC SPORTS(?: NETWORK)?|GOLF CHANNEL|TENNIS CHANNEL|BIG TEN NETWORK|B1G NETWORK|SEC NETWORK|ACC NETWORK)(?:\b|\s|$)"""
     )
-    private val sports = Regex(
-        """(?i)\bSPORTS?\b|\b(?:ESPN|NFL|NBA|MLB|NHL|NCAA|UFC|PGA|NASCAR|FORMULA 1|F1|MLS|SOCCER|FOOTBALL|TENNIS|BOXING|MMA|GOLF|CRICKET|RACING|FANDUEL|TSN)\b"""
-    )
     private val qualitySuffix = Regex(
-        """(?i)(?:\s+|\||\[)(?:UHD|FHD|HD|SD|4K|HEVC|H265|60FPS)\]?$"""
+        """(?i)(?:\s+|\||\[|\()(?:UHD|FHD|HD|SD|4K|2160P|1080P|720P|480P|HEVC|H265|60FPS|50FPS)(?:\]|\))?$"""
     )
+    private val qualityToken = Regex("""(?i)\b(UHD|4K|2160P|FHD|1080P|HD|720P|SD|480P)\b""")
     private val prefix = Regex("""(?i)^(?:US|USA)\s*[-:|]\s*""")
+    private val whitespace = Regex("""\s+""")
+    private val twoToFive = Regex("""(?<!\d)([1-5])(?!\d)""")
+    private val genericLocal = Regex("""(?i)^(?:ABC|CBS|NBC|FOX|PBS|CW)$""")
 
     fun cleanName(name: String): String {
-        var n = prefix.replace(name.trim(), "")
-        while (qualitySuffix.containsMatchIn(n)) n = qualitySuffix.replace(n, "").trim()
-        return n.replace(Regex("""\s+"""), " ")
+        var result = prefix.replace(name.trim(), "")
+        while (qualitySuffix.containsMatchIn(result)) {
+            result = qualitySuffix.replace(result, "").trim()
+        }
+        return whitespace.replace(result, " ")
     }
 
-    fun isForeign(group: String, name: String): Boolean =
-        foreignGroup.containsMatchIn(group) && !tsnPlus.containsMatchIn(name + " " + group)
+    private fun number1to5(name: String): Int? =
+        twoToFive.find(name)?.groupValues?.get(1)?.toIntOrNull()
+
+    /** Only the specific numbered Canadian TSN feeds requested by the owner survive. */
+    private fun allowedTsn(name: String): Boolean =
+        tsn.containsMatchIn(name) && number1to5(name) != null
+
+    fun isForeign(group: String, name: String): Boolean {
+        if (!foreignGroup.containsMatchIn(group) && !foreignNamePrefix.containsMatchIn(name)) return false
+        return !allowedTsn(name)
+    }
+
+    fun isOnDemand(group: String, url: String): Boolean =
+        (onDemandGroup.containsMatchIn(group) && !group.contains("24/7") && !group.contains("24 7")) ||
+            onDemandUrl.containsMatchIn(url)
 
     fun category(group: String, name: String): String {
         val text = group + " " + name
-        val title = cleanName(name)
-        if (tsnPlus.containsMatchIn(text)) return "Sports | TSN+"
-        if (Regex("""(?i)FAN\s*DUEL|FANDUEL|BALLY SPORTS""").containsMatchIn(text)) return "Sports | FanDuel"
-        if (major.containsMatchIn(title)) return "Sports | Major Networks"
-        if (sports.containsMatchIn(text)) {
-            val leagues = listOf(
-                "NFL" to """(?i)\bNFL\b|REDZONE|SUNDAY TICKET""",
-                "NBA" to """(?i)\bNBA\b|LEAGUE PASS""",
-                "MLB" to """(?i)\bMLB\b|BASEBALL""",
-                "NHL" to """(?i)\bNHL\b|HOCKEY""",
-                "College" to """(?i)\bNCAA\b|COLLEGE|BIG TEN|B1G|SEC NETWORK|ACC NETWORK""",
-                "Soccer" to """(?i)\bMLS\b|SOCCER|PREMIER LEAGUE|LA LIGA|CHAMPIONS LEAGUE""",
-                "Golf & Tennis" to """(?i)\bGOLF\b|\bPGA\b|TENNIS|ATP|WTA""",
-                "Racing" to """(?i)\bNASCAR\b|FORMULA 1|\bF1\b|RACING|MOTOGP""",
-                "Combat" to """(?i)\bUFC\b|BOXING|\bMMA\b|WRESTLING|\bWWE\b"""
-            )
-            return "Sports | " + (leagues.firstOrNull { Regex(it.second).containsMatchIn(text) }?.first ?: "Other")
-        }
-        if ("24/7" in text || "24 7" in text) {
-            return "24/7 | " + when {
-                Regex("""(?i)MOVIE|FILM|CINEMA""").containsMatchIn(text) -> "Movies"
-                Regex("""(?i)KID|CARTOON|FAMILY|ANIME""").containsMatchIn(text) -> "Kids"
-                Regex("""(?i)MUSIC|CONCERT|KARAOKE""").containsMatchIn(text) -> "Music"
-                Regex("""(?i)DRAMA|CRIME|REALITY|COMEDY|SHOW|SERIES|CLASSIC|TV""").containsMatchIn(text) -> "TV & Series"
-                else -> "Other"
-            }
+        val n = cleanName(name)
+        if (fanDuel.containsMatchIn(text) || tsn.containsMatchIn(text) ||
+            major.containsMatchIn(n) || sports.containsMatchIn(text)) return "Sports"
+        if (text.contains("24/7") || text.contains("24 7")) return "24/7 | " + when {
+            Regex("""(?i)MOVIE|FILM|CINEMA""").containsMatchIn(text) -> "Movies"
+            Regex("""(?i)KID|CARTOON|FAMILY|ANIME""").containsMatchIn(text) -> "Kids"
+            Regex("""(?i)MUSIC|CONCERT|KARAOKE""").containsMatchIn(text) -> "Music"
+            Regex("""(?i)DRAMA|CRIME|REALITY|COMEDY|SHOW|SERIES|CLASSIC|TV""").containsMatchIn(text) -> "TV & Series"
+            else -> "Other"
         }
         return when {
             Regex("""(?i)\bLOCALS?\b|AFFILIATE|CALL SIGN""").containsMatchIn(text) -> "Locals"
@@ -95,63 +107,92 @@ internal object PetalixLineup {
         }
     }
 
-    private fun quality(name: String): Int = when {
-        Regex("""(?i)\b(?:UHD|4K)\b""").containsMatchIn(name) -> 5
-        Regex("""(?i)\b(?:FHD|1080P)\b""").containsMatchIn(name) -> 4
-        Regex("""(?i)\b(?:HD|720P)\b""").containsMatchIn(name) -> 3
-        Regex("""(?i)\b(?:SD|480P)\b""").containsMatchIn(name) -> 1
-        else -> 2
+    /** Name or provider-group resolution: prefer advertised 4K over FHD, HD and SD. */
+    private fun quality(ch: LiveChannel): Int {
+        val labels = ch.name + " " + ch.group
+        val matches = qualityToken.findAll(labels).map { it.groupValues[1].uppercase(Locale.ROOT) }
+        return matches.map { when (it) {
+            "UHD", "4K", "2160P" -> 5
+            "FHD", "1080P" -> 4
+            "HD", "720P" -> 3
+            "SD", "480P" -> 1
+            else -> 2
+        } }.maxOrNull() ?: 2
+    }
+
+    private fun normalizedName(name: String): String {
+        val label = cleanName(name).uppercase(Locale.ROOT)
+            .replace(Regex("""\bESPN\s+2\b"""), "ESPN2")
+            .replace(Regex("""\bFS\s*[- ]\s*1\b"""), "FS1")
+            .replace(Regex("""\bFS\s*[- ]\s*2\b"""), "FS2")
+        return whitespace.replace(label, " ").trim()
+    }
+
+    private fun networkIndex(name: String): Int {
+        val n = normalizedName(name)
+        return majorNetworks.indexOfFirst { n == it || n.startsWith("$it ") }
+    }
+
+    /** First all major networks, then numbered FanDuel 1–5, TSN 1–5, then other sports. */
+    private fun sportsPriority(ch: LiveChannel): Int {
+        val networkIndex = networkIndex(ch.name)
+        if (networkIndex >= 0) return networkIndex
+        if (fanDuel.containsMatchIn(ch.name)) {
+            val n = number1to5(ch.name)
+            return if (n != null) 100 + n else 199
+        }
+        if (tsn.containsMatchIn(ch.name)) {
+            val n = number1to5(ch.name)
+            return if (n != null) 200 + n else 299
+        }
+        return 300
+    }
+
+    private fun dedupId(ch: LiveChannel): String {
+        val n = normalizedName(ch.name)
+        // Generic "ABC"/"CBS" labels may represent different stations in
+        // different cities; their distinct EPG IDs prevent accidental merging.
+        return if (ch.group == "Locals" && genericLocal.matches(n) && !ch.tvgId.isNullOrBlank())
+            n + "|" + ch.tvgId.lowercase(Locale.ROOT) else n
     }
 
     fun organize(channels: List<LiveChannel>, multiplePlaylists: Boolean): List<LiveChannel> {
         val selected = LinkedHashMap<String, LiveChannel>()
-        val selectedQuality = HashMap<String, Int>()
-        val selectedSourceNames = HashMap<String, String>()
-        val backups = ArrayList<LiveChannel>()
+        val scores = HashMap<String, Int>()
 
-        fun withGroup(ch: LiveChannel, title: String, name: String): LiveChannel =
-            ch.copy(
-                group = title,
-                groupId = if (multiplePlaylists) ch.sourceId + "::" + title else title,
-                name = name
-            )
+        fun regroup(ch: LiveChannel, newGroup: String): LiveChannel = ch.copy(
+            name = cleanName(ch.name),
+            group = newGroup,
+            groupId = if (multiplePlaylists) ch.sourceId + "::" + newGroup else newGroup
+        )
 
         for (channel in channels) {
+            if (isOnDemand(channel.group, channel.url)) continue
             if (isForeign(channel.group, channel.name)) continue
-            val label = cleanName(channel.name)
-            if (label.isBlank()) continue
-            val group = category(channel.group, channel.name)
-            val curated = withGroup(channel, group, label)
-            // Only deduplicate within a playlist. Keep provider variants separate
-            // and do not merge stations with distinct call signs or cities.
-            val dedupKey = channel.sourceId + "|" + group + "|" + label.lowercase()
-            val old = selected[dedupKey]
-            if (old == null) {
-                selected[dedupKey] = curated
-                selectedQuality[dedupKey] = quality(channel.name)
-                selectedSourceNames[dedupKey] = channel.name
-            } else if (quality(channel.name) > (selectedQuality[dedupKey] ?: 0)) {
-                backups += withGroup(old, "Backup Streams", selectedSourceNames[dedupKey] ?: old.name)
-                selected[dedupKey] = curated
-                selectedQuality[dedupKey] = quality(channel.name)
-                selectedSourceNames[dedupKey] = channel.name
-            } else {
-                backups += withGroup(channel, "Backup Streams", channel.name)
+            // The user requested FanDuel and TSN numbered 1–5, not global
+            // event lists, unrelated Canadian channels or unnumbered feeds.
+            if (tsn.containsMatchIn(channel.name) && !allowedTsn(channel.name)) continue
+            if (fanDuel.containsMatchIn(channel.name) && number1to5(channel.name) == null) continue
+            val title = cleanName(channel.name)
+            if (title.isBlank()) continue
+            val grouped = regroup(channel, category(channel.group, title))
+            val id = dedupId(grouped)
+            val score = quality(channel)
+            val previous = selected[id]
+            // Keep exactly ONE stream; prefer higher advertised resolution.
+            // Stable input order resolves tied qualities without multiplying feeds.
+            if (previous == null || score > (scores[id] ?: 0)) {
+                selected[id] = grouped
+                scores[id] = score
             }
         }
 
-        // Keep missing groups out of the UI; categories only appear when populated.
-        // First-seen group order is used by Nuvio's default playlist ordering.
-        val networkRank: (LiveChannel) -> Int = { ch ->
-            if (ch.group != "Sports | Major Networks") 999
-            else mainNetworks.indexOfFirst { ch.name.uppercase() == it || ch.name.uppercase().startsWith(it + " ") }
-                .let { if (it < 0) 999 else it }
-        }
-        return (selected.values + backups).sortedWith(
+        return selected.values.sortedWith(
             compareBy<LiveChannel>(
-                { categoryOrder.indexOf(it.group).let { idx -> if (idx < 0) 999 else idx } },
-                { networkRank(it) },
-                { it.name.lowercase() }
+                { ch -> categoryOrder.indexOf(ch.group).let { if (it < 0) 999 else it } },
+                { ch -> if (ch.group == "Sports") sportsPriority(ch) else 0 },
+                { ch -> -(scores[dedupId(ch)] ?: 2) },
+                { ch -> ch.name.lowercase(Locale.ROOT) }
             )
         )
     }
