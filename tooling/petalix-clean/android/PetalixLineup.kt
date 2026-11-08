@@ -105,6 +105,8 @@ internal object PetalixLineup {
 
     fun organize(channels: List<LiveChannel>, multiplePlaylists: Boolean): List<LiveChannel> {
         val selected = LinkedHashMap<String, LiveChannel>()
+        val selectedQuality = HashMap<String, Int>()
+        val selectedSourceNames = HashMap<String, String>()
         val backups = ArrayList<LiveChannel>()
 
         fun withGroup(ch: LiveChannel, title: String, name: String): LiveChannel =
@@ -126,9 +128,13 @@ internal object PetalixLineup {
             val old = selected[dedupKey]
             if (old == null) {
                 selected[dedupKey] = curated
-            } else if (quality(channel.name) > quality(old.name)) {
-                backups += withGroup(old, "Backup Streams", old.name)
+                selectedQuality[dedupKey] = quality(channel.name)
+                selectedSourceNames[dedupKey] = channel.name
+            } else if (quality(channel.name) > (selectedQuality[dedupKey] ?: 0)) {
+                backups += withGroup(old, "Backup Streams", selectedSourceNames[dedupKey] ?: old.name)
                 selected[dedupKey] = curated
+                selectedQuality[dedupKey] = quality(channel.name)
+                selectedSourceNames[dedupKey] = channel.name
             } else {
                 backups += withGroup(channel, "Backup Streams", channel.name)
             }
