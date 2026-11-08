@@ -39,7 +39,7 @@ internal object PetalixLineup {
         """(?i)\bSPORTS?\b|\b(?:ESPN|NFL|NBA|MLB|NHL|NCAA|UFC|PGA|NASCAR|FORMULA 1|F1|MLS|SOCCER|FOOTBALL|TENNIS|BOXING|MMA|GOLF|CRICKET|RACING|FANDUEL|TSN)\b"""
     )
     private val qualitySuffix = Regex(
-        """(?i)(?:\s+|[|[])(?:UHD|FHD|HD|SD|4K|HEVC|H265|60FPS)\]?$"""
+        """(?i)(?:\s+|\||\[)(?:UHD|FHD|HD|SD|4K|HEVC|H265|60FPS)\]?$"""
     )
     private val prefix = Regex("""(?i)^(?:US|USA)\s*[-:|]\s*""")
 
