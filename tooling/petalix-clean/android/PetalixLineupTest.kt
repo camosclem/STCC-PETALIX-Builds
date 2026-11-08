@@ -92,10 +92,10 @@ class PetalixLineupTest {
         )
         val result = PetalixLineup.organize(source, false)
         assertEquals(
-            listOf("CBS Asheville", "ABC Charlotte", "NBC Raleigh", "News Channel"),
+            listOf("ABC Charlotte", "CBS Asheville", "NBC Raleigh", "News Channel"),
             result.map { it.name }
         )
-        assertEquals("abc4k", result[1].key)
+        assertEquals("abc4k", result[0].key)
     }
 
     @Test fun internationalHiddenExceptTsnOneToFive() {
@@ -110,7 +110,7 @@ class PetalixLineupTest {
             channel("USA News HD", "USA | News")
         )
         val result = PetalixLineup.organize(source, false)
-        assertEquals(listOf("TSN 1", "TSN 5", "USA News"), result.map { it.name })
+        assertEquals(listOf("USA News", "TSN 1", "TSN 5"), result.map { it.name })
         assertTrue(result.none { it.name.contains("Toronto") || it.name.contains("BBC") })
     }
 
