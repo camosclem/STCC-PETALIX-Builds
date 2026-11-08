@@ -21,15 +21,26 @@
   },
   "live_tv": {
     "region": "USA",
-    "explicit_exceptions": ["TSN+"],
+    "explicit_exceptions": [
+      "TSN channels 1-5 only"
+    ],
     "category_order": [
-      "Locals", "Entertainment", "News", "Sports | Major Networks", "Sports | FanDuel",
-      "Sports | TSN+", "Sports | NFL", "Sports | NBA", "Sports | MLB", "Sports | NHL",
-      "Sports | College", "Sports | Soccer", "Sports | Golf & Tennis",
-      "Sports | Racing", "Sports | Combat", "Sports | Other",
-      "Movies", "Kids & Family", "Lifestyle", "Documentaries", "Western", "Music",
-      "24/7 | TV & Series", "24/7 | Movies", "24/7 | Kids",
-      "24/7 | Music", "24/7 | Other", "Other USA"
+      "Locals",
+      "Entertainment",
+      "News",
+      "Sports",
+      "Movies",
+      "Kids & Family",
+      "Lifestyle",
+      "Documentaries",
+      "Western",
+      "Music",
+      "24/7 | TV & Series",
+      "24/7 | Movies",
+      "24/7 | Kids",
+      "24/7 | Music",
+      "24/7 | Other",
+      "Other USA"
     ],
     "hide_unavailable_empty_categories": true,
     "do_not_invent_channels": true,
@@ -37,13 +48,55 @@
     "retain_channel_logos_and_epg_ids": true,
     "preserve_favorites_when_updating": true,
     "prioritize": {
-      "Sports | Major Networks": [
-        "ESPN", "ESPN2", "ESPNEWS", "ESPNU", "FS1", "FS2",
-        "NFL NETWORK", "NFL REDZONE", "NBA TV", "MLB NETWORK",
-        "NHL NETWORK", "CBS SPORTS NETWORK", "NBC SPORTS", "GOLF CHANNEL",
-        "TENNIS CHANNEL", "BIG TEN NETWORK", "SEC NETWORK", "ACC NETWORK"
-      ]
-    }
+      "Sports": {
+        "major_networks": [
+          "ESPN",
+          "ESPN2",
+          "ESPNEWS",
+          "ESPNU",
+          "FS1",
+          "FS2",
+          "NFL NETWORK",
+          "NFL REDZONE",
+          "NBA TV",
+          "MLB NETWORK",
+          "NHL NETWORK",
+          "CBS SPORTS NETWORK",
+          "NBC SPORTS",
+          "GOLF CHANNEL",
+          "TENNIS CHANNEL",
+          "BIG TEN NETWORK",
+          "SEC NETWORK",
+          "ACC NETWORK"
+        ],
+        "then": [
+          "FanDuel 1",
+          "FanDuel 2",
+          "FanDuel 3",
+          "FanDuel 4",
+          "FanDuel 5",
+          "TSN 1",
+          "TSN 2",
+          "TSN 3",
+          "TSN 4",
+          "TSN 5",
+          "Other US sports"
+        ]
+      }
+    },
+    "keep_only_highest_available_resolution": true,
+    "quality_rank": [
+      "UHD/4K/2160p",
+      "FHD/1080p",
+      "HD/720p",
+      "SD/480p",
+      "unlabeled"
+    ],
+    "no_duplicate_channels": true,
+    "no_backup_streams_group": true,
+    "no_international_channels_except_numbered_tsn": true,
+    "live_tv_excludes_vod_and_episodes": true,
+    "sports_grouping": "one Sports group (no separate league/FanDuel/TSN groups)"
   },
   "boundaries": {
     "do_not_embed_provider_urls_or_credentials_in_repository": true,
