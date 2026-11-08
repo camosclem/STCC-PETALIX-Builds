@@ -1,5 +1,6 @@
 # Private-owner testing workflow. Public GitHub prerelease != customer OTA.
 # Debug signing; no Petalix Control build claim or production key.
+# Verification rerun: source expectation corrections (4K local ties alphabetic, News before Sports).
 name: Build Petalix 11.1 personal playlist test APK
 
 on:
