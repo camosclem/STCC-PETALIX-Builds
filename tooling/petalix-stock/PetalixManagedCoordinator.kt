@@ -93,18 +93,23 @@ class PetalixManagedCoordinator @Inject constructor(
     }
 
     private suspend fun ensureLocalHome(profileId: Int) {
-        if (prefs.getInt("nativeCatalogVersion:$profileId", 0) < 3) {
+        if (prefs.getInt("nativeCatalogVersion:$profileId", 0) < 4) {
             val native = context.assets.open("petalix/streaming-services.json").bufferedReader().use { it.readText() }
             val existing = collections.getCurrentCollections(profileId)
             val imported = collections.importFromJson(native)
-            require(imported.size == 1 && imported[0].folders.size == 11)
+            require(imported.size == 1 && imported[0].folders.size == 9)
             val seed = imported.single()
-            val prior = existing.firstOrNull { it.id == seed.id }
+            val removedServices = setOf("folder-73STREAM", "folder-300STREAM")
+            val prior = existing.firstOrNull { it.id == seed.id }?.let { collection ->
+                collection.copy(folders = collection.folders.filterNot { it.id in removedServices }.map { folder ->
+                    if (folder.id == "folder-petalix-britbox") folder.copy(focusGifEnabled = true) else folder
+                })
+            }
             val merged = prior?.copy(folders = prior.folders + seed.folders.filter { fresh -> prior.folders.none { it.id == fresh.id } }) ?: seed
             collections.setCollections(existing.filter { it.id != seed.id } + merged, profileId)
             tmdb.setEnabled(true)
             tmdb.setModernHomeEnabled(true)
-            check(prefs.edit().putBoolean("nativeDefaultsSeeded", true).putInt("nativeCatalogVersion:$profileId", 3).commit())
+            check(prefs.edit().putBoolean("nativeDefaultsSeeded", true).putInt("nativeCatalogVersion:$profileId", 4).commit())
         }
         if (!prefs.getBoolean("nativeHomeServicesV4:$profileId", false)) {
             // Restore the service row as the first experience after a Test 2 update.

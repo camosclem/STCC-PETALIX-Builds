@@ -115,8 +115,8 @@ fun ServiceArtwork(id:String,modifier:Modifier=Modifier) {
 object ArvioServiceMedia {
     private val videos=setOf("netflix","disney","prime","hulu","max","paramount","apple","peacock")
     private val logos=setOf("netflix","disney","prime","hulu","max","paramount","apple","peacock")
-    fun video(id:String)=if(id in videos)"file:///android_asset/petalix2/service-media/$id.mp4" else null
-    fun logo(id:String)=if(id in logos)"file:///android_asset/petalix2/service-logos/$id.svg" else null
+    fun video(id:String)=if(id=="britbox")"file:///android_asset/petalix/britbox-intro/intro.mp4" else if(id in videos)"file:///android_asset/petalix2/service-media/$id.mp4" else null
+    fun logo(id:String)=if(id=="britbox")"file:///android_asset/petalix/britbox-intro/logo.png" else if(id in logos)"file:///android_asset/petalix2/service-logos/$id.svg" else null
 }
 @Composable fun ArvioServiceLogo(service:PetalixService,modifier:Modifier=Modifier) {
     val logo=ArvioServiceMedia.logo(service.id)

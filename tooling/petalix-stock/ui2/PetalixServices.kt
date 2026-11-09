@@ -44,8 +44,6 @@ object PetalixServices {
         PetalixService("paramount","Paramount+","2303",Color(0xFF3C7FFF),Color(0xFF061A36),"paramount",listOf("Action Blockbusters" to "28","Family & Kids" to "10751","Comedy Central" to "35")),
         PetalixService("apple","Apple TV","350",Color(0xFFE4E4E7),Color(0xFF0C0C0D),"apple",listOf("Compelling Drama" to "18","Thought-Provoking Sci-Fi" to "878","Documentary Stories" to "99")),
         PetalixService("peacock","Peacock","387",Color(0xFFFFD644),Color(0xFF080C11),"peacock",listOf("Laugh Out Loud" to "35","Crime & Suspense" to "53","Family Time" to "10751")),
-        PetalixService("tubi","Tubi","73",Color(0xFFF7ED36),Color(0xFF230740),"tubi",listOf("Cult Classics" to "27","Action Favorites" to "28","Comedy Picks" to "35")),
-        PetalixService("pluto","Pluto TV","300",Color(0xFFFEDD00),Color(0xFF0E0E0E),"pluto",listOf("Movie Night" to "28","Comedy" to "35")),
         PetalixService("britbox","BritBox","151|1852|197",Color(0xFFE51B3E),Color(0xFF110A17),"britbox",listOf("British Drama" to "18","Mysteries & Crime" to "9648|80","Comedy Classics" to "35")),
     )
     private val folderIds=mapOf(
@@ -53,7 +51,6 @@ object PetalixServices {
         "folder-8ZBZOMW9" to "disney", "folder-LN9SPMQN" to "hulu",
         "folder-OA4T8NYO" to "max", "folder-IQTF27K8" to "apple",
         "folder-9YQK1ZF1" to "peacock", "folder-ILJM8PD0" to "paramount",
-        "folder-73STREAM" to "tubi", "folder-300STREAM" to "pluto",
         "folder-petalix-britbox" to "britbox"
     )
     fun find(id:String)=all.firstOrNull { it.id==id }
@@ -137,7 +134,7 @@ object ServiceCatalogs {
     }
     fun parse(json:String,service:PetalixService):List<TmdbCollectionSource> {
         val folders=org.json.JSONArray(json).getJSONObject(0).getJSONArray("folders")
-        val title=mapOf("netflix" to "Netflix","prime" to "Prime Video","disney" to "Disney+","hulu" to "Hulu","max" to "HBO Max","apple" to "Apple TV+","paramount" to "Paramount+","peacock" to "Peacock","tubi" to "Tubi TV","pluto" to "Pluto TV","britbox" to "BritBox")[service.id]
+        val title=mapOf("netflix" to "Netflix","prime" to "Prime Video","disney" to "Disney+","hulu" to "Hulu","max" to "HBO Max","apple" to "Apple TV+","paramount" to "Paramount+","peacock" to "Peacock","britbox" to "BritBox")[service.id]
         val folder=(0 until folders.length()).map { folders.getJSONObject(it) }.firstOrNull { it.optString("id")==PetalixServices.folderId(service.id) || it.optString("title")==title } ?: return emptyList()
         val items=folder.getJSONArray("sources")
         return (0 until items.length()).mapNotNull { index ->

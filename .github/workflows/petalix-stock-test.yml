@@ -29,11 +29,12 @@ jobs:
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
           python3 -m pip install --disable-pip-version-check Pillow
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; fi
       - name: Pinned Nuvio + IPTV 13.1
         run: |
           git clone --quiet --depth 1 --branch 1.1.0-beta.13.1 https://github.com/homelessbrian/NuvioPlusIPTV.git upstream
           test "$(git -C upstream rev-parse HEAD)" = c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e
-          python3 tooling/petalix-stock/prepare.py --upstream upstream --version 1794258001
+          python3 tooling/petalix-stock/prepare.py --upstream upstream --version 1794263001
       - name: Compile separate native test APK
         working-directory: upstream
         env:
@@ -53,7 +54,7 @@ jobs:
           test -n "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > /tmp/petalix-identity.txt
           grep -F "name='com.petalix.iptv.hometest'" /tmp/petalix-identity.txt
-          grep -F "versionCode='1794258001'" /tmp/petalix-identity.txt
+          grep -F "versionCode='1794263001'" /tmp/petalix-identity.txt
           grep -F "application-label:'Petalix Home Test'" /tmp/petalix-identity.txt
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" > /tmp/petalix-current-cert.txt
@@ -76,7 +77,18 @@ jobs:
               document=json.loads(catalog)
               assert len(document)==1 and document[0]['id']=='collection-streaming-services-only'
               titles=[folder['title'] for folder in document[0]['folders']]
-              assert titles==['Netflix','Prime Video','Disney+','Hulu','HBO Max','Apple TV+','Peacock','Paramount+','Tubi TV','Pluto TV','BritBox'], titles
+              assert titles==['Netflix','Prime Video','Disney+','Hulu','HBO Max','Apple TV+','Peacock','Paramount+','BritBox'], titles
+              assert len(document[0]['folders'])==9
+              assert document[0]['folders'][-1]['focusGifEnabled'] is True
+              intro=json.loads(apk.read('assets/petalix/britbox-intro/manifest.json'))
+              assert intro['customPetalixIntro'] is True and intro['hasAudio'] is True
+              verified_custom_assets={}
+              for filename,entry in intro['assets'].items():
+                  path='assets/petalix/britbox-intro/'+filename
+                  data=apk.read(path)
+                  assert hashlib.sha256(data).hexdigest()==entry['sha256']
+                  assert data==(root/'app/src/main'/path).read_bytes()
+                  verified_custom_assets[path]=data
               assert b'@panel_' not in catalog, 'Unresolved panel catalog placeholders'
               dex=b''.join(apk.read(name) for name in apk.namelist() if name.startswith('classes') and name.endswith('.dex'))
               for marker in [b'DistinctPetalixServiceScreen',b'PetalixServiceScreen',b'PetalixServiceDetails',b'nativeHomeServicesV3']:
@@ -103,26 +115,26 @@ jobs:
           with zipfile.ZipFile('release/Petalix-13.1-Home-Services-Test-Source.zip') as z:
               assert z.testzip() is None, 'Source archive is damaged'
               assert z.read('petalix-source/app/src/main/'+catalog_path)==catalog
-              for path,data in verified_assets.items():
+              for path,data in {**verified_assets,**verified_custom_assets}.items():
                   assert z.read('petalix-source/app/src/main/'+path)==data, 'Published source media mismatch'
               assert not any(pathlib.PurePosixPath(name).suffix in {'.jks','.keystore'} for name in z.namelist()), 'Signing key must not be published'
-          print('Verified Petalix Home/services restoration: original per-service screens, Home startup, 11 services including BritBox, and matching source.')
+          print('Verified Petalix Home/services restoration: original per-service screens, Home startup, 9 services including BritBox, and matching source.')
           PY
           (cd release && sha256sum Petalix-13.1-Home-Services-Test.apk Petalix-13.1-Home-Services-Test-Source.zip > Petalix-13.1-Home-Services-Test.sha256)
           cat > /tmp/petalix-release-notes.md <<'EOF'
           Restores the horizontal Home service row and the distinct service interfaces from the latest Petalix 8.3 source, on pinned Nuvio + IPTV 1.1.0-beta.13.1.
 
-          Services open directly from the Home row. The separate Streaming Services sidebar/page from the previous Test 2 build is removed. Original bundled service intro videos retain their sound and animation. Netflix, Prime Video, Disney+, Hulu, HBO Max, Apple TV+, Peacock, Paramount+, Tubi TV, Pluto TV and BritBox are included. Native Live TV, guide, Sports, player and settings remain available.
+          Services open directly from the Home row. The separate Streaming Services sidebar/page from the previous Test 2 build is removed. Original bundled service intro videos retain their sound and animation. Netflix, Prime Video, Disney+, Hulu, HBO Max, Apple TV+, Peacock, Paramount+, BritBox are included. Native Live TV, guide, Sports, player and settings remain available.
 
-          Reference: Petalix 8.3 build 1793881218, source SHA-256 88beb6fe08b948b3909c1cfe88e2474010738e715a75f0fb450bda862e8998f9. The restored service layouts and detail screens are taken from that matching published source. Original video intros exist for eight services; other services retain their available artwork and focus animations.
+          Reference: Petalix 8.3 build 1793881218, source SHA-256 88beb6fe08b948b3909c1cfe88e2474010738e715a75f0fb450bda862e8998f9. The restored service layouts and detail screens are taken from that matching published source. Eight services retain their original video/audio intros. BritBox has a new custom Petalix animated intro and original two-note audio cue. Tubi and Pluto are removed from the service row.
 
-          This installs separately as Petalix Home Test, package com.petalix.iptv.hometest, version code 1794258001. The earlier Test 2 build used a runner-generated debug signing key that was not persisted, so this is not an in-place Test 2 update. The new isolated package uses the fixed test signing key from the pinned upstream source; CI verifies its exact certificate digest so later Home Test builds can update it. It does not publish a customer update.
+          This installs separately as Petalix Home Test, package com.petalix.iptv.hometest, version code 1794263001. The earlier Test 2 build used a runner-generated debug signing key that was not persisted, so this is not an in-place Test 2 update. The new isolated package uses the fixed test signing key from the pinned upstream source; CI verifies its exact certificate digest so later Home Test builds can update it. It does not publish a customer update.
 
           Activate this separate test app with your Petalix PIN and an available test device slot. Existing apps and their activation remain installed.
 
           Metadata configuration comes from the existing authenticated panel connection. Provider credentials are not included. The public upstream test key is excluded from the source archive; rebuilders can obtain it from pinned upstream commit c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e at keystore/livetv-fork.jks. Physical TV validation of remote navigation, sound and playback is still required. Matching source and SHA-256 checksums are included.
           EOF
-          gh release create petalix-13.1-home-profile-fix-20261109 release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Petalix 13.1 — Home Services Profile Fix Test' --notes-file /tmp/petalix-release-notes.md --prerelease --latest=false
+          gh release create petalix-13.1-nine-services-20261109 release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Petalix 13.1 — Nine Services and BritBox Motion Test' --notes-file /tmp/petalix-release-notes.md --prerelease --latest=false
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -11,7 +11,7 @@ def once(p,old,new):
 
 def native_catalog(text):
     document=json.loads(text)
-    assert len(document)==1 and len(document[0]['folders'])==11
+    assert len(document)==1 and len(document[0]['folders'])==9
     for folder in document[0]['folders']:
         for source in folder['sources']:
             filters=source.get('filters',{})
@@ -33,7 +33,7 @@ def prepare(root,version):
     once(gradle,'debug {\n            signingConfig = signingConfigs.getByName("release")','debug {\n            signingConfig = signingConfigs.getByName("debug")')
     once(gradle,'buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")','buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "false")')
     with gradle.open('a') as f:
-        f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.home13.1-test2"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
+        f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.home13.1-test3"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
         # Use the pinned upstream TEST key for this isolated package. It is recoverable
         # from the same source commit, unlike an ephemeral runner-generated debug key.
         f.write('''
@@ -120,11 +120,11 @@ android.signingConfigs.getByName("debug").apply {
                 )
             } else com.nuvio.tv.ui.screens.collection.FolderDetailScreen(''')
     # Narrow, independently checked ports; no old application shell or guide replacement.
-    for name in ['prepare_service_media','service_ui_patch','home_services_patch']:
+    for name in ['prepare_service_media','britbox_intro','service_ui_patch','home_services_patch']:
         helper_spec=importlib.util.spec_from_file_location(name,HERE/(name+'.py'))
         helper=importlib.util.module_from_spec(helper_spec);helper_spec.loader.exec_module(helper)
         helper.apply(root)
     assert not list(dest.glob('ManagedPolicy*'))
-    print(json.dumps({'upstream':'1.1.0-beta.13.1','sha':PIN,'package':PACKAGE,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':True,'streamingServices':11,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
+    print(json.dumps({'upstream':'1.1.0-beta.13.1','sha':PIN,'package':PACKAGE,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':True,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--upstream',type=Path,required=True);p.add_argument('--version',type=int,required=True);a=p.parse_args();prepare(a.upstream.resolve(),a.version)
