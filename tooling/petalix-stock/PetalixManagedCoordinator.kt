@@ -11,7 +11,6 @@ import com.nuvio.tv.livetv.data.LiveTvRepository
 import com.nuvio.tv.livetv.model.PlaylistSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -55,6 +54,7 @@ class PetalixManagedCoordinator @Inject constructor(
         ?: UUID.randomUUID().toString().also { prefs.edit().putString("device", it).commit() }
 
     val hasSavedActivation: Boolean get() = token().isNotEmpty()
+    val homeServicesMigrationPending: Boolean get() = !prefs.getBoolean("nativeHomeServicesV3", false)
     val ready: Boolean get() = hasSavedActivation && !prefs.getBoolean("accessDenied", false) && runCatching { Instant.parse(prefs.getString("expires", "")).toEpochMilli() > System.currentTimeMillis() }.getOrDefault(false)
 
     suspend fun activate(pin: String) = mutex.withLock {
@@ -96,13 +96,24 @@ class PetalixManagedCoordinator @Inject constructor(
             tmdb.setModernHomeEnabled(true)
             check(prefs.edit().putBoolean("nativeDefaultsSeeded", true).putInt("nativeCatalogVersion", 2).commit())
         }
-        if (!prefs.getBoolean("nativeUiDefaultsV2", false)) {
-            live.updateSettings { it.copy(showInSidebar = true, openOn = "LIVE_TV") }
-            com.nuvio.tv.livetv.startup.StartPage.save(context, com.nuvio.tv.ui.navigation.Screen.LiveTv.route)
-            layout.setSidebarCollapsedByDefault(false)
+        if (!prefs.getBoolean("nativeHomeServicesV3", false)) {
+            // Restore the service row as the first experience after a Test 2 update.
+            live.updateSettings { it.copy(showInSidebar = true, openOn = "HOME") }
+            com.nuvio.tv.livetv.startup.StartPage.save(context, null)
+            layout.setSidebarCollapsedByDefault(true)
             experience.setMode(com.nuvio.tv.domain.model.ExperienceMode.ADVANCED)
-            if (!layout.hasChosenLayout.first()) layout.setLayout(com.nuvio.tv.domain.model.HomeLayout.MODERN)
-            check(prefs.edit().putBoolean("nativeUiDefaultsV2", true).commit())
+            layout.setLayout(com.nuvio.tv.domain.model.HomeLayout.MODERN)
+            tmdb.setEnabled(true)
+            tmdb.setModernHomeEnabled(true)
+            tmdb.setUseTrailers(true)
+            layout.setFocusedPosterBackdropExpandEnabled(true)
+            layout.setFocusedPosterBackdropExpandDelaySeconds(2)
+            layout.setFocusedPosterBackdropTrailerEnabled(true)
+            layout.setFocusedPosterBackdropTrailerMuted(true)
+            layout.setFocusedPosterBackdropTrailerPlaybackTarget(
+                com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget.HERO_MEDIA
+            )
+            check(prefs.edit().putBoolean("nativeHomeServicesV3", true).commit())
         }
         val serverRaw = doc.optString("server")
         val username = doc.optString("username")

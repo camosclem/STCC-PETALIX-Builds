@@ -1,4 +1,4 @@
-name: Petalix stock Nuvio 13.1 Test 2
+name: Petalix 13.1 — Restore 8.3 Home and services
 on:
   push:
     branches: [test/petalix-stock-13-1-20261109]
@@ -26,10 +26,13 @@ jobs:
         with:
           python-version: '3.11'
       - name: Retain the Test 2 debug signing identity
+        id: signing-cache
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
           key: petalix-stocktest2-debug-keystore-v1
+      - name: Require the existing Test 2 signing key
+        run: test -s ~/.android/debug.keystore
       - name: Android tools and branding dependency
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
@@ -38,7 +41,7 @@ jobs:
         run: |
           git clone --quiet --depth 1 --branch 1.1.0-beta.13.1 https://github.com/homelessbrian/NuvioPlusIPTV.git upstream
           test "$(git -C upstream rev-parse HEAD)" = c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e
-          python3 tooling/petalix-stock/prepare.py --upstream upstream --version 1794250001
+          python3 tooling/petalix-stock/prepare.py --upstream upstream --version 1794254001
       - name: Compile separate native test APK
         working-directory: upstream
         env:
@@ -58,15 +61,33 @@ jobs:
           test -n "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > /tmp/petalix-identity.txt
           grep -F "name='com.petalix.iptv.stocktest2'" /tmp/petalix-identity.txt
-          grep -F "versionCode='1794250001'" /tmp/petalix-identity.txt
+          grep -F "versionCode='1794254001'" /tmp/petalix-identity.txt
           grep -F "application-label:'Petalix Test 2'" /tmp/petalix-identity.txt
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
-          cp "$apk" release/Petalix-Stock-13.1-Test2.apk
+          mkdir -p /tmp/petalix-previous
+          gh release download petalix-stock-13.1-test2-20261109 --repo "$GITHUB_REPOSITORY" --pattern Petalix-Stock-13.1-Test2.apk --dir /tmp/petalix-previous
+          python3 - <<'PYVERIFY'
+          import hashlib,pathlib
+          previous=pathlib.Path('/tmp/petalix-previous/Petalix-Stock-13.1-Test2.apk')
+          assert hashlib.sha256(previous.read_bytes()).hexdigest()=='ba21ecf3901b5dc0d4e423c02cf0932b144c039c74fd5078b44130f8ae03f849', 'Previous APK digest mismatch'
+          PYVERIFY
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" > /tmp/petalix-current-cert.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs /tmp/petalix-previous/Petalix-Stock-13.1-Test2.apk > /tmp/petalix-previous-cert.txt
+          python3 - <<'PYCERT'
+          import pathlib,re
+          def digest(path):
+              match=re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-f]+)',pathlib.Path(path).read_text())
+              assert match, 'Missing verified signing certificate'
+              return match.group(1)
+          assert digest('/tmp/petalix-current-cert.txt')==digest('/tmp/petalix-previous-cert.txt'), 'Signing key changed: cannot update Test 2'
+          print('Verified update compatibility with existing Petalix Test 2 signing identity.')
+          PYCERT
+          cp "$apk" release/Petalix-13.1-Home-Services-Test.apk
           python3 - <<'PY'
-          import json,pathlib,zipfile
+          import hashlib,json,pathlib,zipfile
           root=pathlib.Path('upstream')
           catalog_path='assets/petalix/streaming-services.json'
-          with zipfile.ZipFile('release/Petalix-Stock-13.1-Test2.apk') as apk:
+          with zipfile.ZipFile('release/Petalix-13.1-Home-Services-Test.apk') as apk:
               assert apk.testzip() is None, 'APK archive is damaged'
               catalog=apk.read(catalog_path)
               assert catalog==(root/'app/src/main'/catalog_path).read_bytes(), 'APK catalog does not match source'
@@ -76,34 +97,52 @@ jobs:
               assert titles==['Netflix','Prime Video','Disney+','Hulu','HBO Max','Apple TV+','Peacock','Paramount+','Tubi TV','Pluto TV','BritBox'], titles
               assert b'@panel_' not in catalog, 'Unresolved panel catalog placeholders'
               dex=b''.join(apk.read(name) for name in apk.namelist() if name.startswith('classes') and name.endswith('.dex'))
-              for marker in [b'PetalixServicesScreen',b'PetalixServiceHub',b'nativeUiDefaultsV2']:
-                  assert marker in dex, 'Missing compiled Test 2 feature: '+marker.decode()
-          with zipfile.ZipFile('release/Petalix-Stock-13.1-Test2-Source.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for marker in [b'DistinctPetalixServiceScreen',b'PetalixServiceScreen',b'PetalixServiceDetails',b'nativeHomeServicesV3']:
+                  assert marker in dex, 'Missing compiled restored service feature: '+marker.decode()
+              bundle=json.loads(apk.read('assets/petalix2/service-media-bundle.json'))
+              assert bundle['sourceArchiveSha256']=='88beb6fe08b948b3909c1cfe88e2474010738e715a75f0fb450bda862e8998f9'
+              assert len(bundle['media'])==8 and len(bundle['logos'])==8
+              verified_assets={}
+              for entries in [bundle['media'],bundle['logos']]:
+                  for name,entry in entries.items():
+                      path='assets/'+entry['assetPath']
+                      data=apk.read(path)
+                      assert len(data)==entry['size'], 'Wrong original media size: '+name
+                      assert hashlib.sha256(data).hexdigest()==entry['sha256'], 'Wrong original media digest: '+name
+                      assert data==(root/'app/src/main'/path).read_bytes(), 'Media source/APK mismatch: '+name
+                      verified_assets[path]=data
+              assert all(entry['hasAudio'] for entry in bundle['media'].values())
+              assert bundle['syntheticServiceSounds'] is False
+          with zipfile.ZipFile('release/Petalix-13.1-Home-Services-Test-Source.zip','w',zipfile.ZIP_DEFLATED) as z:
               for p in root.rglob('*'):
                   parts=p.relative_to(root).parts
                   if not p.is_file() or any(v in {'.git','.gradle','.kotlin','.cxx','build'} for v in parts) or p.name in {'local.properties','local.dev.properties'} or p.suffix in {'.jks','.keystore'}:continue
                   z.write(p,str(pathlib.Path('petalix-source')/p.relative_to(root)))
-          with zipfile.ZipFile('release/Petalix-Stock-13.1-Test2-Source.zip') as z:
+          with zipfile.ZipFile('release/Petalix-13.1-Home-Services-Test-Source.zip') as z:
               assert z.testzip() is None, 'Source archive is damaged'
               assert z.read('petalix-source/app/src/main/'+catalog_path)==catalog
+              for path,data in verified_assets.items():
+                  assert z.read('petalix-source/app/src/main/'+path)==data, 'Published source media mismatch'
               assert not any(pathlib.PurePosixPath(name).suffix in {'.jks','.keystore'} for name in z.namelist()), 'Signing key must not be published'
-          print('Verified Petalix Test 2: compiled service hubs, Live TV defaults, 11 services including BritBox, and matching source.')
+          print('Verified Petalix Home/services restoration: original per-service screens, Home startup, 11 services including BritBox, and matching source.')
           PY
-          (cd release && sha256sum Petalix-Stock-13.1-Test2.apk Petalix-Stock-13.1-Test2-Source.zip > Petalix-Stock-13.1-Test2.sha256)
+          (cd release && sha256sum Petalix-13.1-Home-Services-Test.apk Petalix-13.1-Home-Services-Test-Source.zip > Petalix-13.1-Home-Services-Test.sha256)
           cat > /tmp/petalix-release-notes.md <<'EOF'
-          Petalix Test 2 is an owner-only test of Nuvio + IPTV 1.1.0-beta.13.1 with Petalix branding and all native TV settings available.
+          Restores the horizontal Home service row and the distinct service interfaces from the latest Petalix 8.3 source, on pinned Nuvio + IPTV 1.1.0-beta.13.1.
 
-          Live TV is visible in the sidebar and selected as the initial start page. The home screen includes navigation to Live TV, Streaming Services and Settings when its usual content is unavailable. Streaming Services has dedicated service hubs for Netflix, Prime Video, Disney+, Hulu, HBO Max, Apple TV+, Peacock, Paramount+, Tubi TV, Pluto TV and BritBox. Native guide, Sports and player are retained.
+          Services open directly from the Home row. The separate Streaming Services sidebar/page from the previous Test 2 build is removed. Original bundled service intro videos retain their sound and animation. Netflix, Prime Video, Disney+, Hulu, HBO Max, Apple TV+, Peacock, Paramount+, Tubi TV, Pluto TV and BritBox are included. Native Live TV, guide, Sports, player and settings remain available.
 
-          This installs separately from existing Petalix customer apps and the first Petalix Test app, using package com.petalix.iptv.stocktest2 and version code 1794250001. The Test 2 debug signing key is cached for later Test 2 builds and is not included in release files. Existing customer installations, PINs, playlists and the prior test release are unchanged. No customer update rollout.
+          Reference: Petalix 8.3 build 1793881218, source SHA-256 88beb6fe08b948b3909c1cfe88e2474010738e715a75f0fb450bda862e8998f9. The restored service layouts and detail screens are taken from that matching published source. Original video intros exist for eight services; other services retain their available artwork and focus animations.
 
-          Activate with an available Petalix test PIN; account device limits still apply. Metadata configuration comes from the existing authenticated panel connection. Provider credentials are not included. Physical TV validation is still required. Matching GPL source and SHA-256 checksums are included.
+          This updates Petalix Test 2 using package com.petalix.iptv.stocktest2 and version code 1794254001. The build verifies that its signing certificate matches the prior Test 2 APK, preserving the installed test app's activation and data. It does not publish a customer update.
+
+          Metadata configuration comes from the existing authenticated panel connection. Provider credentials and signing keys are not included. Physical TV validation of remote navigation, sound and playback is still required. Matching source and SHA-256 checksums are included.
           EOF
-          gh release create petalix-stock-13.1-test2-20261109 release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Petalix Stock 13.1 — Owner Test 2' --notes-file /tmp/petalix-release-notes.md --prerelease --latest=false
+          gh release create petalix-13.1-home-services-20261109 release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Petalix 13.1 — Restored Home and Services Test' --notes-file /tmp/petalix-release-notes.md --prerelease --latest=false
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Petalix-Stock-13.1-Test2
+          name: Petalix-13.1-Home-Services-Test
           path: release/*
           if-no-files-found: ignore
           retention-days: 7
