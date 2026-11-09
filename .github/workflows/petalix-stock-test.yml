@@ -7,7 +7,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: petalix-stock-13-1-test2
+  group: petalix-home-services-13-1
   cancel-in-progress: false
 jobs:
   build:
@@ -25,14 +25,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Retain the Test 2 debug signing identity
-        id: signing-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: petalix-stocktest2-debug-keystore-v1
-      - name: Require the existing Test 2 signing key
-        run: test -s ~/.android/debug.keystore
       - name: Android tools and branding dependency
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
@@ -60,27 +52,17 @@ jobs:
           if [ -z "$apk" ]; then apk=$(find upstream/app/build/outputs/apk/full/debug -name '*.apk' -type f | head -n 1); fi
           test -n "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > /tmp/petalix-identity.txt
-          grep -F "name='com.petalix.iptv.stocktest2'" /tmp/petalix-identity.txt
+          grep -F "name='com.petalix.iptv.hometest'" /tmp/petalix-identity.txt
           grep -F "versionCode='1794254001'" /tmp/petalix-identity.txt
-          grep -F "application-label:'Petalix Test 2'" /tmp/petalix-identity.txt
+          grep -F "application-label:'Petalix Home Test'" /tmp/petalix-identity.txt
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
-          mkdir -p /tmp/petalix-previous
-          gh release download petalix-stock-13.1-test2-20261109 --repo "$GITHUB_REPOSITORY" --pattern Petalix-Stock-13.1-Test2.apk --dir /tmp/petalix-previous
-          python3 - <<'PYVERIFY'
-          import hashlib,pathlib
-          previous=pathlib.Path('/tmp/petalix-previous/Petalix-Stock-13.1-Test2.apk')
-          assert hashlib.sha256(previous.read_bytes()).hexdigest()=='ba21ecf3901b5dc0d4e423c02cf0932b144c039c74fd5078b44130f8ae03f849', 'Previous APK digest mismatch'
-          PYVERIFY
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" > /tmp/petalix-current-cert.txt
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs /tmp/petalix-previous/Petalix-Stock-13.1-Test2.apk > /tmp/petalix-previous-cert.txt
           python3 - <<'PYCERT'
           import pathlib,re
-          def digest(path):
-              match=re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-f]+)',pathlib.Path(path).read_text())
-              assert match, 'Missing verified signing certificate'
-              return match.group(1)
-          assert digest('/tmp/petalix-current-cert.txt')==digest('/tmp/petalix-previous-cert.txt'), 'Signing key changed: cannot update Test 2'
-          print('Verified update compatibility with existing Petalix Test 2 signing identity.')
+          text=pathlib.Path('/tmp/petalix-current-cert.txt').read_text()
+          match=re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-f]+)',text)
+          assert match and match.group(1)=='e2c9a67239c6297fb28a28b72a088ad32cff8aeb94e0157b02d22ee7aeb5cbd8', 'Isolated test signing certificate changed'
+          print('Verified reproducible Petalix Home Test signing identity.')
           PYCERT
           cp "$apk" release/Petalix-13.1-Home-Services-Test.apk
           python3 - <<'PY'
@@ -134,9 +116,11 @@ jobs:
 
           Reference: Petalix 8.3 build 1793881218, source SHA-256 88beb6fe08b948b3909c1cfe88e2474010738e715a75f0fb450bda862e8998f9. The restored service layouts and detail screens are taken from that matching published source. Original video intros exist for eight services; other services retain their available artwork and focus animations.
 
-          This updates Petalix Test 2 using package com.petalix.iptv.stocktest2 and version code 1794254001. The build verifies that its signing certificate matches the prior Test 2 APK, preserving the installed test app's activation and data. It does not publish a customer update.
+          This installs separately as Petalix Home Test, package com.petalix.iptv.hometest, version code 1794254001. The earlier Test 2 build used a runner-generated debug signing key that was not persisted, so this is not an in-place Test 2 update. The new isolated package uses the fixed test signing key from the pinned upstream source; CI verifies its exact certificate digest so later Home Test builds can update it. It does not publish a customer update.
 
-          Metadata configuration comes from the existing authenticated panel connection. Provider credentials and signing keys are not included. Physical TV validation of remote navigation, sound and playback is still required. Matching source and SHA-256 checksums are included.
+          Activate this separate test app with your Petalix PIN and an available test device slot. Existing apps and their activation remain installed.
+
+          Metadata configuration comes from the existing authenticated panel connection. Provider credentials are not included. The public upstream test key is excluded from the source archive; rebuilders can obtain it from pinned upstream commit c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e at keystore/livetv-fork.jks. Physical TV validation of remote navigation, sound and playback is still required. Matching source and SHA-256 checksums are included.
           EOF
           gh release create petalix-13.1-home-services-20261109 release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Petalix 13.1 — Restored Home and Services Test' --notes-file /tmp/petalix-release-notes.md --prerelease --latest=false
       - uses: actions/upload-artifact@v4

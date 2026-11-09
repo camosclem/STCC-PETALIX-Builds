@@ -3,7 +3,7 @@
 import argparse,hashlib,importlib.util,json,re,shutil,subprocess
 from pathlib import Path
 PIN='c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e'
-PACKAGE='com.petalix.iptv.stocktest2'
+PACKAGE='com.petalix.iptv.hometest'
 HERE=Path(__file__).resolve().parent
 
 def once(p,old,new):
@@ -32,7 +32,18 @@ def prepare(root,version):
     once(gradle,'variant.applicationId.set(if (testBuild) "com.nuvio.livetv.test" else "com.nuvio.livetv")','variant.applicationId.set("'+PACKAGE+'")')
     once(gradle,'debug {\n            signingConfig = signingConfigs.getByName("release")','debug {\n            signingConfig = signingConfigs.getByName("debug")')
     once(gradle,'buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")','buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "false")')
-    with gradle.open('a') as f:f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.stock13.1-test2.1"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
+    with gradle.open('a') as f:
+        f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.home13.1-test1"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
+        # Use the pinned upstream TEST key for this isolated package. It is recoverable
+        # from the same source commit, unlike an ephemeral runner-generated debug key.
+        f.write('''
+android.signingConfigs.getByName("debug").apply {
+    storeFile = rootProject.file("keystore/livetv-fork.jks")
+    storePassword = "livetvfork"
+    keyAlias = "livetv"
+    keyPassword = "livetvfork"
+}
+''')
     from PIL import Image
     art=Image.open(logo).convert('RGBA')
     # IPTV launcher activities use flavor-specific resources that override main.
@@ -46,7 +57,7 @@ def prepare(root,version):
                 brand.contain_transparent(art,dims).save(target)
     branding_spec=importlib.util.spec_from_file_location('labels',HERE.parent/'android-build/branding_patch.py');labels=importlib.util.module_from_spec(branding_spec);branding_spec.loader.exec_module(labels);labels.apply(root,'petalix')
     for strings in (root/'app/src').rglob('strings.xml'):
-        strings.write_text(re.sub(r'(<string\b[^>]*\bname="app_name"[^>]*>).*?(</string>)',r'\1Petalix Test 2\2',strings.read_text(),flags=re.S))
+        strings.write_text(re.sub(r'(<string\b[^>]*\bname="app_name"[^>]*>).*?(</string>)',r'\1Petalix Home Test\2',strings.read_text(),flags=re.S))
     dest=root/'app/src/main/java/com/nuvio/tv/petalix';dest.mkdir(parents=True,exist_ok=True)
     for name in ['PetalixManagedCoordinator.kt','PetalixActivationActivity.kt','PetalixRuntimeConfig.kt']:shutil.copy(HERE/name,dest/name)
     assets=root/'app/src/main/assets/petalix';assets.mkdir(parents=True,exist_ok=True);(assets/'streaming-services.json').write_text(native_catalog((HERE/'streaming-services.json').read_text()))
