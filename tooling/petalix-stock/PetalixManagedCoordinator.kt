@@ -11,6 +11,7 @@ import com.nuvio.tv.livetv.data.LiveTvRepository
 import com.nuvio.tv.livetv.model.PlaylistSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -40,6 +41,8 @@ class PetalixManagedCoordinator @Inject constructor(
     private val live: LiveTvPreferences,
     private val collections: com.nuvio.tv.data.local.CollectionsDataStore,
     private val tmdb: com.nuvio.tv.data.local.TmdbSettingsDataStore,
+    private val layout: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
+    private val experience: com.nuvio.tv.data.local.ExperienceModeDataStore,
     private val repository: LiveTvRepository
 ) {
     // EXACT old preference and keystore aliases, so an in-place signed update retains sessions.
@@ -59,6 +62,9 @@ class PetalixManagedCoordinator @Inject constructor(
         val doc = post("activate", report().put("code", pin), null)
         val freshToken = doc.optString("token")
         require(freshToken.isNotBlank()) { "The panel did not return an activation." }
+        require(listOf("server", "username", "password").all { doc.optString(it).isNotBlank() }) {
+            "Your Petalix account has no playlist assigned. Open the panel and check its provider login."
+        }
         applySettings(doc)
         storeToken(freshToken)
         persistSession(doc)
@@ -77,15 +83,26 @@ class PetalixManagedCoordinator @Inject constructor(
 
     private suspend fun applySettings(doc: JSONObject) {
         doc.optJSONObject("nativeConfig")?.optString("tmdbApiKey")?.let { PetalixRuntimeConfig.store(context, it) }
-        if (!prefs.getBoolean("nativeDefaultsSeeded", false)) {
+        if (prefs.getInt("nativeCatalogVersion", 0) < 2) {
             val native = context.assets.open("petalix/streaming-services.json").bufferedReader().use { it.readText() }
             val existing = collections.getCurrentCollections()
             val imported = collections.importFromJson(native)
-            require(imported.size == 1 && imported[0].folders.size == 10)
-            collections.setCollections(existing + imported.filter { item -> existing.none { it.id == item.id } })
+            require(imported.size == 1 && imported[0].folders.size == 11)
+            val seed = imported.single()
+            val prior = existing.firstOrNull { it.id == seed.id }
+            val merged = seed.copy(folders = seed.folders + prior?.folders.orEmpty().filter { old -> seed.folders.none { it.id == old.id } })
+            collections.setCollections(existing.filter { it.id != seed.id } + merged)
             tmdb.setEnabled(true)
             tmdb.setModernHomeEnabled(true)
-            check(prefs.edit().putBoolean("nativeDefaultsSeeded", true).commit())
+            check(prefs.edit().putBoolean("nativeDefaultsSeeded", true).putInt("nativeCatalogVersion", 2).commit())
+        }
+        if (!prefs.getBoolean("nativeUiDefaultsV2", false)) {
+            live.updateSettings { it.copy(showInSidebar = true, openOn = "LIVE_TV") }
+            com.nuvio.tv.livetv.startup.StartPage.save(context, com.nuvio.tv.ui.navigation.Screen.LiveTv.route)
+            layout.setSidebarCollapsedByDefault(false)
+            experience.setMode(com.nuvio.tv.domain.model.ExperienceMode.ADVANCED)
+            if (!layout.hasChosenLayout.first()) layout.setLayout(com.nuvio.tv.domain.model.HomeLayout.MODERN)
+            check(prefs.edit().putBoolean("nativeUiDefaultsV2", true).commit())
         }
         val serverRaw = doc.optString("server")
         val username = doc.optString("username")

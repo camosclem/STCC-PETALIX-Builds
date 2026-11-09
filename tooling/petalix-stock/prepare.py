@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Stock 13.1 test: branding, native services collection, and a PIN connection only."""
+"""Isolated Petalix Test 2: stock IPTV, complete branding and service browsing."""
 import argparse,hashlib,importlib.util,json,re,shutil,subprocess
 from pathlib import Path
 PIN='c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e'
-PACKAGE='com.petalix.iptv.stocktest'
+PACKAGE='com.petalix.iptv.stocktest2'
 HERE=Path(__file__).resolve().parent
 
 def once(p,old,new):
@@ -11,7 +11,7 @@ def once(p,old,new):
 
 def native_catalog(text):
     document=json.loads(text)
-    assert len(document)==1 and len(document[0]['folders'])==10
+    assert len(document)==1 and len(document[0]['folders'])==11
     for folder in document[0]['folders']:
         for source in folder['sources']:
             filters=source.get('filters',{})
@@ -32,16 +32,29 @@ def prepare(root,version):
     once(gradle,'variant.applicationId.set(if (testBuild) "com.nuvio.livetv.test" else "com.nuvio.livetv")','variant.applicationId.set("'+PACKAGE+'")')
     once(gradle,'debug {\n            signingConfig = signingConfigs.getByName("release")','debug {\n            signingConfig = signingConfigs.getByName("debug")')
     once(gradle,'buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")','buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "false")')
-    with gradle.open('a') as f:f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.stock13.1-test"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
-    brand.brand_strings(root/'app/src/main/res');brand.update_artwork(root/'app/src/main/res',logo)
+    with gradle.open('a') as f:f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.stock13.1-test2"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
+    from PIL import Image
+    art=Image.open(logo).convert('RGBA')
+    # IPTV launcher activities use flavor-specific resources that override main.
+    for res in (root/'app/src').glob('*/res'):
+        brand.brand_strings(res);brand.update_artwork(res,logo)
+        for pattern in ['drawable*/livetv_wordmark_iptv*.png','drawable*/nuvio_text.png',
+                        'drawable*/ic_launcher.png','mipmap*/banner*.png',
+                        'mipmap*/iptv_ic_launcher*.png','mipmap*/iptv_banner*.png']:
+            for target in res.glob(pattern):
+                with Image.open(target) as old:dims=old.size
+                brand.contain_transparent(art,dims).save(target)
     branding_spec=importlib.util.spec_from_file_location('labels',HERE.parent/'android-build/branding_patch.py');labels=importlib.util.module_from_spec(branding_spec);branding_spec.loader.exec_module(labels);labels.apply(root,'petalix')
-    strings=root/'app/src/main/res/values/strings.xml';once(strings,'<string name="app_name">Petalix</string>','<string name="app_name">Petalix Test</string>')
+    for strings in (root/'app/src').rglob('strings.xml'):
+        strings.write_text(re.sub(r'(<string\b[^>]*\bname="app_name"[^>]*>).*?(</string>)',r'\1Petalix Test 2\2',strings.read_text(),flags=re.S))
     dest=root/'app/src/main/java/com/nuvio/tv/petalix';dest.mkdir(parents=True,exist_ok=True)
-    for name in ['PetalixManagedCoordinator.kt','PetalixActivationActivity.kt','PetalixRuntimeConfig.kt']:shutil.copy(HERE/name,dest/name)
+    for name in ['PetalixManagedCoordinator.kt','PetalixActivationActivity.kt','PetalixRuntimeConfig.kt','PetalixServicesUi.kt']:shutil.copy(HERE/name,dest/name)
     assets=root/'app/src/main/assets/petalix';assets.mkdir(parents=True,exist_ok=True);(assets/'streaming-services.json').write_text(native_catalog((HERE/'streaming-services.json').read_text()))
     manifest=root/'app/src/main/AndroidManifest.xml'
     once(manifest,'        <meta-data\n            android:name="io.sentry.auto-init"','        <activity android:name=".petalix.PetalixActivationActivity" android:exported="false" android:screenOrientation="landscape" />\n        <meta-data\n            android:name="io.sentry.auto-init"')
     main=root/'app/src/main/java/com/nuvio/tv/MainActivity.kt'
+    once(main,'                            add(Screen.Home.route)','                            add(Screen.Home.route)\n                            add(com.nuvio.tv.petalix.PETALIX_SERVICES_ROUTE)')
+    once(main,'                            add(\n                                DrawerItem(\n                                    route = Screen.Settings.route,','                            add(DrawerItem(route = com.nuvio.tv.petalix.PETALIX_SERVICES_ROUTE, label = "Streaming Services", icon = Icons.Default.VideoLibrary))\n                            add(\n                                DrawerItem(\n                                    route = Screen.Settings.route,')
     once(main,'open class MainActivity : ComponentActivity() {','open class MainActivity : ComponentActivity() {\n    @javax.inject.Inject lateinit var petalixBridge: com.nuvio.tv.petalix.PetalixManagedCoordinator')
     once(main,'        installSplashScreen()\n        super.onCreate(savedInstanceState)','''        installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -68,7 +81,55 @@ def prepare(root,version):
         s=p.read_text();new=re.sub(r'(?:com\.nuvio\.tv\.)?BuildConfig\.TMDB_API_KEY','com.nuvio.tv.petalix.PetalixRuntimeConfig.apiKey',s)
         new=re.sub(r'private val (\w+) = com.nuvio.tv.petalix.PetalixRuntimeConfig.apiKey',r'private val \1 get() = com.nuvio.tv.petalix.PetalixRuntimeConfig.apiKey',new)
         if new!=s:p.write_text(new)
+    nav=root/'app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt'
+    once(nav,'        composable(Screen.Home.route) {','''        composable(com.nuvio.tv.petalix.PETALIX_SERVICES_ROUTE) {
+            com.nuvio.tv.petalix.PetalixServicesScreen(
+                onLiveTv = { navController.navigate(Screen.LiveTv.route) },
+                onSettings = { navController.navigate(Screen.Settings.route) },
+                onFolder = { collection, folder -> navController.navigate(Screen.FolderDetail.createRoute(collection, folder)) }
+            )
+        }
+        composable(Screen.Home.route) {''')
+    once(nav,'            HomeScreen(\n','''            HomeScreen(
+                onPetalixLiveTv = { navController.navigate(Screen.LiveTv.route) },
+                onPetalixServices = { navController.navigate(com.nuvio.tv.petalix.PETALIX_SERVICES_ROUTE) },
+                onPetalixSettings = { navController.navigate(Screen.Settings.route) },
+''')
+    home=root/'app/src/main/java/com/nuvio/tv/ui/screens/home/HomeScreen.kt'
+    once(home,'fun HomeScreen(\n','''fun HomeScreen(
+    onPetalixLiveTv: () -> Unit = {},
+    onPetalixServices: () -> Unit = {},
+    onPetalixSettings: () -> Unit = {},
+''')
+    once(home,'    val showStartupLoader = when {','''    val petalixFallback = homeStableGateReleased && (!hasAnyContent || !modernPresentationReady)
+    val showStartupLoader = if (petalixFallback) false else when {''')
+    once(home,'        when {\n            !uiState.layoutPreferencesReady -> {','''        when {
+            petalixFallback -> com.nuvio.tv.petalix.PetalixEmptyHome(onPetalixLiveTv, onPetalixServices, onPetalixSettings)
+            !uiState.layoutPreferencesReady -> {''')
+    folder=root/'app/src/main/java/com/nuvio/tv/ui/screens/collection/FolderDetailScreen.kt'
+    once(folder,'    val folder = uiState.folder\n','''    val folder = uiState.folder
+    if (viewModel.isPetalixService) {
+        com.nuvio.tv.petalix.PetalixServiceHub(uiState, onNavigateToDetail, onBack,
+            onRetry = viewModel::retryPetalixService, onMore = viewModel::loadMoreItems)
+        return
+    }
+''')
+    vm=root/'app/src/main/java/com/nuvio/tv/ui/screens/collection/FolderDetailViewModel.kt'
+    once(vm,'    private fun loadFolder() {','''    val isPetalixService: Boolean get() = collectionId == com.nuvio.tv.petalix.PETALIX_SERVICES_COLLECTION
+    fun retryPetalixService() {
+        if (!isPetalixService) return
+        if (_uiState.value.tabs.isEmpty()) {
+            loadFolder()
+            return
+        }
+        val retryTabs = _uiState.value.tabs.withIndex().filter { it.value.source != null && !it.value.isLoading }
+        _uiState.update { state -> state.copy(tabs = state.tabs.mapIndexed { index, tab ->
+            if (retryTabs.any { it.index == index }) tab.copy(isLoading = true, error = null) else tab
+        }) }
+        retryTabs.forEach { (index, tab) -> tab.source?.let { loadSourceForTab(index, it) } }
+    }
+    private fun loadFolder() {''')
     assert not list(dest.glob('ManagedPolicy*'))
-    print(json.dumps({'upstream':'1.1.0-beta.13.1','sha':PIN,'package':PACKAGE,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':True,'streamingServices':10,'customerRollout':False}))
+    print(json.dumps({'upstream':'1.1.0-beta.13.1','sha':PIN,'package':PACKAGE,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':True,'streamingServices':11,'customerRollout':False}))
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--upstream',type=Path,required=True);p.add_argument('--version',type=int,required=True);a=p.parse_args();prepare(a.upstream.resolve(),a.version)
