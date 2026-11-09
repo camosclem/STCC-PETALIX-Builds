@@ -1,0 +1,78 @@
+name: Petalix stock Nuvio 13.1 test
+on:
+  push:
+    branches: [test/petalix-stock-13-1-20261109]
+    paths: [.github/workflows/petalix-stock-test.yml, tooling/petalix-stock/**]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: petalix-stock-13-1-test
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Android tools and branding dependency
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+          python3 -m pip install --disable-pip-version-check Pillow
+      - name: Exact latest released Nuvio + IPTV
+        run: |
+          git clone --quiet --depth 1 --branch 1.1.0-beta.13.1 https://github.com/homelessbrian/NuvioPlusIPTV.git upstream
+          test "$(git -C upstream rev-parse HEAD)" = c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e
+          python3 tooling/petalix-stock/prepare.py --upstream upstream --version 1794250000
+      - name: Compile separate native test APK
+        working-directory: upstream
+        env:
+          GOPROXY: https://proxy.golang.org|direct
+          GODEBUG: http2client=0
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleFullDebug --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=1024m' --stacktrace
+      - name: Verify compiled identity and publish test only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          apk=$(find upstream/app/build/outputs/apk/full/debug -name '*universal*.apk' -type f | head -n 1)
+          if [ -z "$apk" ]; then apk=$(find upstream/app/build/outputs/apk/full/debug -name '*.apk' -type f | head -n 1); fi
+          test -n "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > /tmp/petalix-identity.txt
+          grep -F "name='com.petalix.iptv.stocktest'" /tmp/petalix-identity.txt
+          grep -F "versionCode='1794250000'" /tmp/petalix-identity.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+          cp "$apk" release/Petalix-Stock-13.1-Test.apk
+          sha256sum release/Petalix-Stock-13.1-Test.apk > release/Petalix-Stock-13.1-Test.sha256
+          python3 - <<'PY'
+          import pathlib,zipfile
+          root=pathlib.Path('upstream')
+          with zipfile.ZipFile('release/Petalix-Stock-13.1-Test-Source.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for p in root.rglob('*'):
+                  parts=p.relative_to(root).parts
+                  if not p.is_file() or any(v in {'.git','.gradle','.kotlin','.cxx','build'} for v in parts) or p.name in {'local.properties','local.dev.properties'} or p.suffix in {'.jks','.keystore'}:continue
+                  z.write(p,str(pathlib.Path('petalix-source')/p.relative_to(root)))
+          PY
+          cat > /tmp/petalix-release-notes.md <<'EOF'
+          Owner test only. Stock Nuvio + IPTV 1.1.0-beta.13.1 with Petalix branding, ten native Streaming Services folders and all native TV settings available. Native guide, Sports and player retained. Separate package com.petalix.iptv.stocktest and disposable debug signing. Existing Petalix customer installations, PINs and playlists are unchanged. No customer update rollout. Activate with an available Petalix test PIN; account device limits still apply. Metadata configuration is supplied by the existing authenticated panel connection and no provider credentials are included. Physical TV validation is required. Matching GPL source included.
+          EOF
+          gh release create petalix-stock-13.1-test-20261109 release/* --repo "$GITHUB_REPOSITORY" --title 'Petalix Stock 13.1 — Owner Test' --notes-file /tmp/petalix-release-notes.md --prerelease
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Petalix-Stock-13.1-Test
+          path: release/*
+          if-no-files-found: ignore
+          retention-days: 7
