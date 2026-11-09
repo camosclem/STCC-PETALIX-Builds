@@ -9,6 +9,18 @@ HERE=Path(__file__).resolve().parent
 def once(p,old,new):
     s=p.read_text();assert s.count(old)==1,(p,str(old)[:65],s.count(old));p.write_text(s.replace(old,new))
 
+def native_catalog(text):
+    document=json.loads(text)
+    assert len(document)==1 and len(document[0]['folders'])==10
+    for folder in document[0]['folders']:
+        for source in folder['sources']:
+            filters=source.get('filters',{})
+            for key,value in list(filters.items()):
+                if value=='@panel_today':del filters[key]
+    result=json.dumps(document,ensure_ascii=False,separators=(',',':'))
+    assert '@panel_' not in result
+    return result
+
 def prepare(root,version):
     assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()==PIN
     spec=importlib.util.spec_from_file_location('brand',HERE.parent/'petalix-clean/prepare_stock.py');brand=importlib.util.module_from_spec(spec);spec.loader.exec_module(brand)
@@ -26,7 +38,7 @@ def prepare(root,version):
     strings=root/'app/src/main/res/values/strings.xml';once(strings,'<string name="app_name">Petalix</string>','<string name="app_name">Petalix Test</string>')
     dest=root/'app/src/main/java/com/nuvio/tv/petalix';dest.mkdir(parents=True,exist_ok=True)
     for name in ['PetalixManagedCoordinator.kt','PetalixActivationActivity.kt','PetalixRuntimeConfig.kt']:shutil.copy(HERE/name,dest/name)
-    assets=root/'app/src/main/assets/petalix';assets.mkdir(parents=True,exist_ok=True);shutil.copy(HERE/'streaming-services.json',assets/'streaming-services.json')
+    assets=root/'app/src/main/assets/petalix';assets.mkdir(parents=True,exist_ok=True);(assets/'streaming-services.json').write_text(native_catalog((HERE/'streaming-services.json').read_text()))
     manifest=root/'app/src/main/AndroidManifest.xml'
     once(manifest,'        <meta-data\n            android:name="io.sentry.auto-init"','        <activity android:name=".petalix.PetalixActivationActivity" android:exported="false" android:screenOrientation="landscape" />\n        <meta-data\n            android:name="io.sentry.auto-init"')
     main=root/'app/src/main/java/com/nuvio/tv/MainActivity.kt'

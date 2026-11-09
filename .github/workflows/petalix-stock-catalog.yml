@@ -1,0 +1,68 @@
+name: Petalix stock test catalog packaging
+on:
+  push:
+    branches: [test/petalix-stock-13-1-20261109]
+    paths: [.github/workflows/petalix-stock-catalog.yml]
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Normalize native catalog and verify matching source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p original release
+          gh release download petalix-stock-13.1-test-20261109 --repo "$GITHUB_REPOSITORY" --dir original --pattern '*.apk' --pattern '*Source.zip'
+          echo '15d7ea13a28ee8fa0d3f32d21e18c434170751704245e0dce4a69d16f2226162  original/Petalix-Stock-13.1-Test.apk' | sha256sum --check
+          echo '4c26c3a594f2a957f7d4d03c7269fdb623808bdeb81d1ecf35465e7deb903b32  original/Petalix-Stock-13.1-Test-Source.zip' | sha256sum --check
+          python3 - <<'PY'
+          import json,pathlib,runpy,zipfile
+          normalize=runpy.run_path('tooling/petalix-stock/prepare.py')['native_catalog']
+          template=pathlib.Path('tooling/petalix-stock/streaming-services.json').read_text()
+          native=normalize(template).encode()
+          pairs=[('original/Petalix-Stock-13.1-Test.apk','/tmp/unsigned.apk','assets/petalix/streaming-services.json'),('original/Petalix-Stock-13.1-Test-Source.zip','release/Petalix-Stock-13.1-Test-Source.zip','petalix-source/app/src/main/assets/petalix/streaming-services.json')]
+          for src,dst,asset in pairs:
+              with zipfile.ZipFile(src) as old,zipfile.ZipFile(dst,'w') as new:
+                  assert json.loads(old.read(asset))==json.loads(template)
+                  for entry in old.infolist():
+                      assert not(entry.filename.startswith('META-INF/') and entry.filename.endswith(('.RSA','.DSA','.EC','.SF'))),'Unexpected JAR signing; stop rather than alter signed entries'
+                      new.writestr(entry,native if entry.filename==asset else old.read(entry.filename))
+              with zipfile.ZipFile(dst) as z:
+                  assert z.read(asset)==native and z.testzip() is None
+          print('Ten native Streaming Services folders verified; panel-only date placeholders removed.')
+          PY
+      - name: Align and sign the separate test package
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0'
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -P 16 -f 4 /tmp/unsigned.apk /tmp/aligned.apk
+          export STOCK_SIGN_PASS=$(openssl rand -hex 16)
+          keytool -genkeypair -keystore /tmp/petalix-test.jks -alias petalix-test -storepass "$STOCK_SIGN_PASS" -keypass "$STOCK_SIGN_PASS" -dname 'CN=Petalix Owner Test, O=Petalix, C=US' -keyalg RSA -keysize 2048 -validity 3650
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign --ks /tmp/petalix-test.jks --ks-key-alias petalix-test --ks-pass env:STOCK_SIGN_PASS --key-pass env:STOCK_SIGN_PASS --out release/Petalix-Stock-13.1-Test.apk /tmp/aligned.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose release/Petalix-Stock-13.1-Test.apk
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -P 16 -c 4 release/Petalix-Stock-13.1-Test.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging release/Petalix-Stock-13.1-Test.apk > /tmp/identity.txt
+          grep -F "name='com.petalix.iptv.stocktest'" /tmp/identity.txt
+          grep -F "versionCode='1794250000'" /tmp/identity.txt
+          sha256sum release/Petalix-Stock-13.1-Test.apk > release/Petalix-Stock-13.1-Test.sha256
+      - name: Replace only the owner test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload petalix-stock-13.1-test-20261109 release/Petalix-Stock-13.1-Test.apk release/Petalix-Stock-13.1-Test.sha256 release/Petalix-Stock-13.1-Test-Source.zip --repo "$GITHUB_REPOSITORY" --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Petalix-Stock-13.1-Test-Verified-Catalog
+          path: release/*
+          retention-days: 7
