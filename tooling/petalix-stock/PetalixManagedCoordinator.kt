@@ -10,6 +10,8 @@ import com.nuvio.tv.livetv.data.LiveTvPreferences
 import com.nuvio.tv.livetv.data.LiveTvRepository
 import com.nuvio.tv.livetv.model.PlaylistSource
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -42,6 +44,7 @@ class PetalixManagedCoordinator @Inject constructor(
     private val tmdb: com.nuvio.tv.data.local.TmdbSettingsDataStore,
     private val layout: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
     private val experience: com.nuvio.tv.data.local.ExperienceModeDataStore,
+    private val profiles: com.nuvio.tv.core.profile.ProfileManager,
     private val repository: LiveTvRepository
 ) {
     // EXACT old preference and keystore aliases, so an in-place signed update retains sessions.
@@ -54,7 +57,7 @@ class PetalixManagedCoordinator @Inject constructor(
         ?: UUID.randomUUID().toString().also { prefs.edit().putString("device", it).commit() }
 
     val hasSavedActivation: Boolean get() = token().isNotEmpty()
-    val homeServicesMigrationPending: Boolean get() = !prefs.getBoolean("nativeHomeServicesV3", false)
+    val homeServicesMigrationPending: Boolean get() = !prefs.getBoolean("nativeHomeServicesV4:${profiles.activeProfileId.value}", false)
     val ready: Boolean get() = hasSavedActivation && !prefs.getBoolean("accessDenied", false) && runCatching { Instant.parse(prefs.getString("expires", "")).toEpochMilli() > System.currentTimeMillis() }.getOrDefault(false)
 
     suspend fun activate(pin: String) = mutex.withLock {
@@ -81,22 +84,29 @@ class PetalixManagedCoordinator @Inject constructor(
 
     init { PetalixRuntimeConfig.load(context) }
 
-    private suspend fun applySettings(doc: JSONObject) {
-        doc.optJSONObject("nativeConfig")?.optString("tmdbApiKey")?.let { PetalixRuntimeConfig.store(context, it) }
-        if (prefs.getInt("nativeCatalogVersion", 0) < 2) {
+    /** Seed each profile from bundled assets before contacting the panel. */
+    suspend fun observeProfiles() {
+        profiles.activeProfileReady.first { it }
+        profiles.activeProfileId.collectLatest { profileId ->
+            mutex.withLock { ensureLocalHome(profileId) }
+        }
+    }
+
+    private suspend fun ensureLocalHome(profileId: Int) {
+        if (prefs.getInt("nativeCatalogVersion:$profileId", 0) < 3) {
             val native = context.assets.open("petalix/streaming-services.json").bufferedReader().use { it.readText() }
-            val existing = collections.getCurrentCollections()
+            val existing = collections.getCurrentCollections(profileId)
             val imported = collections.importFromJson(native)
             require(imported.size == 1 && imported[0].folders.size == 11)
             val seed = imported.single()
             val prior = existing.firstOrNull { it.id == seed.id }
-            val merged = seed.copy(folders = seed.folders + prior?.folders.orEmpty().filter { old -> seed.folders.none { it.id == old.id } })
-            collections.setCollections(existing.filter { it.id != seed.id } + merged)
+            val merged = prior?.copy(folders = prior.folders + seed.folders.filter { fresh -> prior.folders.none { it.id == fresh.id } }) ?: seed
+            collections.setCollections(existing.filter { it.id != seed.id } + merged, profileId)
             tmdb.setEnabled(true)
             tmdb.setModernHomeEnabled(true)
-            check(prefs.edit().putBoolean("nativeDefaultsSeeded", true).putInt("nativeCatalogVersion", 2).commit())
+            check(prefs.edit().putBoolean("nativeDefaultsSeeded", true).putInt("nativeCatalogVersion:$profileId", 3).commit())
         }
-        if (!prefs.getBoolean("nativeHomeServicesV3", false)) {
+        if (!prefs.getBoolean("nativeHomeServicesV4:$profileId", false)) {
             // Restore the service row as the first experience after a Test 2 update.
             live.updateSettings { it.copy(showInSidebar = true, openOn = "HOME") }
             com.nuvio.tv.livetv.startup.StartPage.save(context, null)
@@ -113,8 +123,14 @@ class PetalixManagedCoordinator @Inject constructor(
             layout.setFocusedPosterBackdropTrailerPlaybackTarget(
                 com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget.HERO_MEDIA
             )
-            check(prefs.edit().putBoolean("nativeHomeServicesV3", true).commit())
+            check(prefs.edit().putBoolean("nativeHomeServicesV4:$profileId", true).putBoolean("nativeHomeServicesV3", true).commit())
         }
+    }
+
+    private suspend fun applySettings(doc: JSONObject) {
+        doc.optJSONObject("nativeConfig")?.optString("tmdbApiKey")?.let { PetalixRuntimeConfig.store(context, it) }
+        profiles.activeProfileReady.first { it }
+        ensureLocalHome(profiles.activeProfileId.value)
         val serverRaw = doc.optString("server")
         val username = doc.optString("username")
         val password = doc.optString("password")
