@@ -33,7 +33,7 @@ def prepare(root,version):
     once(gradle,'debug {\n            signingConfig = signingConfigs.getByName("release")','debug {\n            signingConfig = signingConfigs.getByName("debug")')
     once(gradle,'buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")','buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "false")')
     with gradle.open('a') as f:
-        f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.home13.1-test3"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
+        f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.home13.1-test4"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
         # Use the pinned upstream TEST key for this isolated package. It is recoverable
         # from the same source commit, unlike an ephemeral runner-generated debug key.
         f.write('''
@@ -59,13 +59,13 @@ android.signingConfigs.getByName("debug").apply {
     for strings in (root/'app/src').rglob('strings.xml'):
         strings.write_text(re.sub(r'(<string\b[^>]*\bname="app_name"[^>]*>).*?(</string>)',r'\1Petalix Home Test\2',strings.read_text(),flags=re.S))
     dest=root/'app/src/main/java/com/nuvio/tv/petalix';dest.mkdir(parents=True,exist_ok=True)
-    for name in ['PetalixManagedCoordinator.kt','PetalixActivationActivity.kt','PetalixRuntimeConfig.kt']:shutil.copy(HERE/name,dest/name)
+    for name in ['PetalixManagedCoordinator.kt','PetalixActivationActivity.kt','PetalixLocalsActivity.kt','PetalixRuntimeConfig.kt']:shutil.copy(HERE/name,dest/name)
     collection_store=root/'app/src/main/java/com/nuvio/tv/data/local/CollectionsDataStore.kt'
     once(collection_store,'suspend fun setCollections(collections: List<Collection>) {\n        store().edit', 'suspend fun setCollections(collections: List<Collection>, profileId: Int = profileManager.activeProfileId.value) {\n        store(profileId).edit')
     once(collection_store,'suspend fun getCurrentCollections(): List<Collection> {\n        val prefs = store().data.first()', 'suspend fun getCurrentCollections(profileId: Int = profileManager.activeProfileId.value): List<Collection> {\n        val prefs = store(profileId).data.first()')
     assets=root/'app/src/main/assets/petalix';assets.mkdir(parents=True,exist_ok=True);(assets/'streaming-services.json').write_text(native_catalog((HERE/'streaming-services.json').read_text()))
     manifest=root/'app/src/main/AndroidManifest.xml'
-    once(manifest,'        <meta-data\n            android:name="io.sentry.auto-init"','        <activity android:name=".petalix.PetalixActivationActivity" android:exported="false" android:screenOrientation="landscape" />\n        <meta-data\n            android:name="io.sentry.auto-init"')
+    once(manifest,'        <meta-data\n            android:name="io.sentry.auto-init"','        <activity android:name=".petalix.PetalixLocalsActivity" android:exported="false" android:screenOrientation="landscape" />\n        <activity android:name=".petalix.PetalixActivationActivity" android:exported="false" android:screenOrientation="landscape" />\n        <meta-data\n            android:name="io.sentry.auto-init"')
     main=root/'app/src/main/java/com/nuvio/tv/MainActivity.kt'
     once(main,'open class MainActivity : ComponentActivity() {','open class MainActivity : ComponentActivity() {\n    @javax.inject.Inject lateinit var petalixBridge: com.nuvio.tv.petalix.PetalixManagedCoordinator')
     once(main,'val openOnRoute = remember { com.nuvio.tv.livetv.startup.StartPage.cachedRoute(this@MainActivity) }',
@@ -74,6 +74,11 @@ android.signingConfigs.getByName("debug").apply {
         super.onCreate(savedInstanceState)
         if (!petalixBridge.ready) {
             startActivity(Intent(this, com.nuvio.tv.petalix.PetalixActivationActivity::class.java))
+            finish()
+            return
+        }
+        if (!petalixBridge.localsSetupDone && !intent.getBooleanExtra("skipLocalsOnce", false)) {
+            startActivity(Intent(this, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java).putExtra("setup", true))
             finish()
             return
         }
@@ -119,6 +124,16 @@ android.signingConfigs.getByName("debug").apply {
                     }
                 )
             } else com.nuvio.tv.ui.screens.collection.FolderDetailScreen(''')
+    settings=root/'app/src/main/java/com/nuvio/tv/ui/screens/settings/LiveTvSettingsContent.kt'
+    once(settings,'    // HUB: one Live TV page', '    val petalixContext = androidx.compose.ui.platform.LocalContext.current\n    // HUB: one Live TV page')
+    once(settings,'            if (show(LiveTvPage.MAIN)) item(key = "channels") {', '''            if (show(LiveTvPage.MAIN)) item(key = "petalix_locals") {
+                SettingsGroupCard {
+                    SettingsActionRow("My Locals", "Choose local stations by ZIP code", onClick = {
+                        petalixContext.startActivity(android.content.Intent(petalixContext, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java))
+                    })
+                }
+            }
+            if (show(LiveTvPage.MAIN)) item(key = "channels") {''')
     # Narrow, independently checked ports; no old application shell or guide replacement.
     for name in ['prepare_service_media','britbox_intro','service_ui_patch','home_services_patch']:
         helper_spec=importlib.util.spec_from_file_location(name,HERE/(name+'.py'))

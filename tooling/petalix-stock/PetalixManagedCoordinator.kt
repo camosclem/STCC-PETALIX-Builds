@@ -60,6 +60,18 @@ class PetalixManagedCoordinator @Inject constructor(
     val homeServicesMigrationPending: Boolean get() = !prefs.getBoolean("nativeHomeServicesV4:${profiles.activeProfileId.value}", false)
     val ready: Boolean get() = hasSavedActivation && !prefs.getBoolean("accessDenied", false) && runCatching { Instant.parse(prefs.getString("expires", "")).toEpochMilli() > System.currentTimeMillis() }.getOrDefault(false)
 
+    val localsSetupDone: Boolean get() = prefs.getBoolean("localsSetupV1", false)
+    val localsZip: String get() = prefs.getString("localsZip", "").orEmpty()
+
+    suspend fun lookupLocals(zip: String): JSONObject = post("locals", report().put("action", "lookup").put("zip", zip), token())
+
+    suspend fun saveLocals(zip: String?) {
+        val result = post("locals", report().put("action", if (zip == null) "default" else "save").put("zip", zip.orEmpty()), token())
+        check(result.optBoolean("saved")) { "The panel did not save your locals." }
+        check(prefs.edit().putBoolean("localsSetupV1", true).putString("localsZip", zip.orEmpty()).commit())
+        repository.reloadAfterSync(setOf("petalix-managed"))
+    }
+
     suspend fun activate(pin: String) = mutex.withLock {
         require(pin.matches(Regex("[0-9]{8}"))) { "Enter your 8-digit activation PIN." }
         val doc = post("activate", report().put("code", pin), null)
