@@ -6,7 +6,7 @@ HERE=Path(__file__).resolve().parent
 def once(p,old,new):
  s=p.read_text();assert s.count(old)==1,(p,str(old)[:80],s.count(old));p.write_text(s.replace(old,new))
 
-def apply(root):
+def apply(root, *, enable_updates=True):
  source=root/'app/src/main/java/com/nuvio/tv';dest=source/'petalix'
  with (root/'app/proguard-rules.pro').open('a') as stream:stream.write('\n-keep class com.nuvio.tv.petalix.** { *; }\n')
  for name in ['ManagedNativeSettings.kt','PetalixPanelSettings.kt','PanelChannelIdentity.kt','PetalixServiceCatalog.kt']:
@@ -116,14 +116,15 @@ def apply(root):
             prefs.edit().putString("revision", result).putInt("settingsPending", 0).putBoolean("settingsError", false).commit()
         } catch (e: kotlinx.coroutines.CancellationException) { throw e }
         catch (_: Exception) { prefs.edit().putInt("settingsPending", 1).putBoolean("settingsError", true).commit() }
-        doc.optJSONObject("appUpdate")?.optString("requestId")?.takeIf { it.isNotBlank() }?.let { pendingUpdateRequest.value = it }
+'''+('''        doc.optJSONObject("appUpdate")?.optString("requestId")?.takeIf { it.isNotBlank() }?.let { pendingUpdateRequest.value = it }
     }
     private val pendingUpdateRequest = kotlinx.coroutines.flow.MutableStateFlow("")
     val updateRequests: kotlinx.coroutines.flow.StateFlow<String> get() = pendingUpdateRequest
     suspend fun appUpdate(): JSONObject = post("update", report(), token())
-
+''' if enable_updates else '''    }
+''')+'''
     private fun persistSession(doc: JSONObject) {''')
- once(coordinator,'JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1"))','JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1", "management-v2", "management-v3", "management-v4", "home-services-first-v1", "service-hubs-v1", "device-updates-v1", "native-panel-settings-v1", "favorites-backup-v1"))')
+ once(coordinator,'JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1"))','JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1", "management-v2", "management-v3", "management-v4", "home-services-first-v1", "service-hubs-v1", "native-panel-settings-v1", "favorites-backup-v1"'+(', "device-updates-v1"' if enable_updates else '')+'))')
  once(coordinator,'        .put("playlistRevision", prefs.getString("playlistRevision", ""))','''        .put("playlistRevision", prefs.getString("playlistRevision", ""))
         .put("settingsApplied", if (prefs.getBoolean("settingsError", false)) 0 else panelSettings.appliedCount)
         .put("hideOtherLocals", panelSettings.hideOtherLocals)
@@ -146,6 +147,7 @@ def apply(root):
  once(services,'                old.copy(rows=merged,loading=false','''                val seen=hashSetOf<String>()
                 val visible=if(!dedup)merged else merged.map { row -> row.copy(items=row.items.filter { item -> seen.add("${item.apiType}:${item.id}") }) }
                 old.copy(rows=visible,loading=false''')
+ if not enable_updates: return
  full=root/'app/src/full/java/com/nuvio/tv/updater'
  shutil.copyfile(HERE/'PanelUpdateRepository.kt',full/'UpdateRepository.kt')
  once(full/'UpdateViewModel.kt','import kotlinx.coroutines.flow.first','import kotlinx.coroutines.flow.first\nimport kotlinx.coroutines.flow.collect')

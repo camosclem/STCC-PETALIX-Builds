@@ -22,7 +22,6 @@ def apply(root):
     source = root / "app/src/main/java/com/nuvio/tv"
     home = source / "ui/screens/home/HomeScreen.kt"
     modern = source / "ui/screens/home/ModernHomeContent.kt"
-    presentation = source / "ui/screens/home/ModernHomePresentation.kt"
     nav = source / "ui/navigation/NuvioNavHost.kt"
     target = source / "petalix"
     target.mkdir(parents=True, exist_ok=True)
@@ -173,7 +172,8 @@ def apply(root):
         requestedPenguCatalogs.forEach(viewModel::requestLazyCatalogLoad)
     }
     val needsPlaylist = referenceShelves.values.any { labels -> penguRows.none { matchesShelf(it.catalogName, labels) } }
-    LaunchedEffect(needsPlaylist) {
+    val vodVersion by vodViewModel.catalogVersion.collectAsStateWithLifecycle()
+    LaunchedEffect(needsPlaylist, vodVersion) {
         if (needsPlaylist) vodViewModel.loadHome()
     }
     val homeRows = remember(sourceState.homeRows, penguRows, playlistRows) {
@@ -221,10 +221,43 @@ def apply(root):
     once(home, "import androidx.compose.runtime.Composable", "import androidx.compose.runtime.Composable\nimport kotlinx.coroutines.launch")
     once(home, "    val onNavigateToDetailStable = remember(onNavigateToDetail) { onNavigateToDetail }",
          "    val onNavigateToDetailStable = openPetalixDetail")
-    once(presentation, "    val lookups = buildCarouselRowLookups(rows)", """    val serviceRows = rows.filter { it.key == com.nuvio.tv.petalix.PETALIX_SERVICES_ROW }
-    val orderedRows = serviceRows + rows.filter { it.catalogId != null }
-    val lookups = buildCarouselRowLookups(orderedRows)""")
-    once(presentation, "        rows = rows.asStable(),", "        rows = orderedRows.asStable(),")
+    vod = source / "livetv/ondemand/OnDemandViewModel.kt"
+    once(vod, "    val status = repository.status", """    val status = repository.status
+    val catalogVersion = repository.version""")
+    modern_observation = "    val modernPresentation by viewModel.modernHomePresentation.collectAsStateWithLifecycle()"
+    once(home, modern_observation + "\n    val initialCwResolved", """    val presentationContext = androidx.compose.ui.platform.LocalContext.current
+    val presentationCache = remember { ModernCarouselRowBuildCache() }
+    val presentationInput = ModernHomePresentationInput(
+        homeRows = uiState.homeRows,
+        catalogRows = uiState.catalogRows,
+        continueWatchingItems = emptyList(),
+        upcomingItems = emptyList(),
+        useLandscapePosters = uiState.modernLandscapePostersEnabled,
+        showCatalogTypeSuffix = false,
+        showFullReleaseDate = uiState.showFullReleaseDate,
+        showImdbRatings = uiState.homeImdbRatingsVisibility.showRatings,
+        detailImdbRatingsVisibility = uiState.detailImdbRatingsVisibility,
+        localeTag = com.nuvio.tv.LocaleCache.localeTag
+    )
+    val modernPresentation by androidx.compose.runtime.produceState(
+        ModernHomePresentationState(), presentationInput, presentationContext
+    ) {
+        value = buildModernHomePresentation(presentationInput, presentationCache, presentationContext)
+    }
+    val initialCwResolved""")
+    once(home, """                            HomeLayout.MODERN -> ModernHomeRoute(
+                                viewModel = viewModel,
+                                uiState = uiState,""", """                            HomeLayout.MODERN -> ModernHomeRoute(
+                                viewModel = viewModel,
+                                uiState = uiState,
+                                modernPresentation = modernPresentation,""")
+    once(home, """private fun ModernHomeRoute(
+    viewModel: HomeViewModel,
+    uiState: HomeUiState,""", """private fun ModernHomeRoute(
+    viewModel: HomeViewModel,
+    uiState: HomeUiState,
+    modernPresentation: ModernHomePresentationState,""")
+    once(home, modern_observation + "\n", "")
 
     # The eight recovered logos are available before the network or video renderer is ready.
     # Keep native artwork for other folders and put native GIF/video layers above the logo.

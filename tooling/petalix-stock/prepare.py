@@ -21,7 +21,9 @@ def native_catalog(text):
     assert '@panel_' not in result
     return result
 
-def prepare(root,version,production=False):
+def prepare(root,version,production=False,owner_test=False):
+    if production and owner_test:
+        raise ValueError("Select either the production package or the isolated test package.")
     package="com.petalix.iptv.preview" if production else PACKAGE
     assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()==PIN
     spec=importlib.util.spec_from_file_location('brand',HERE.parent/'petalix-clean/prepare_stock.py');brand=importlib.util.module_from_spec(spec);spec.loader.exec_module(brand)
@@ -37,6 +39,17 @@ def prepare(root,version,production=False):
         f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.home13.1-test4"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
         # CI builds with Android's debug signing and the protected signing job
         # applies the customer's stable release certificate afterward.
+    if owner_test:
+        with gradle.open('a') as f:
+            f.write("""
+android.signingConfigs.getByName("debug").apply {
+    storeFile = rootProject.file("keystore/livetv-fork.jks")
+    storePassword = "livetvfork"
+    keyAlias = "livetv"
+    keyPassword = "livetvfork"
+}
+android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaultConfig.versionCode
+""")
     if production:
         gradle.write_text(gradle.read_text().replace('"1.1.0-petalix.home13.1-test4"', '"1.1.0-petalix.panel'+str(version)+'"').replace('"FEATURE_IN_APP_UPDATES_ENABLED", "false"', '"FEATURE_IN_APP_UPDATES_ENABLED", "true"'))
     from PIL import Image
@@ -170,12 +183,12 @@ def prepare(root,version,production=False):
         helper_spec=importlib.util.spec_from_file_location(name,HERE/(name+'.py'))
         helper=importlib.util.module_from_spec(helper_spec);helper_spec.loader.exec_module(helper)
         helper.apply(root)
-    if production:
+    if production or owner_test:
         helper_spec=importlib.util.spec_from_file_location('native_customer_patch',HERE/'native_customer_patch.py')
-        helper=importlib.util.module_from_spec(helper_spec);helper_spec.loader.exec_module(helper);helper.apply(root)
+        helper=importlib.util.module_from_spec(helper_spec);helper_spec.loader.exec_module(helper);helper.apply(root, enable_updates=production)
     helper_spec=importlib.util.spec_from_file_location('guide_visual_patch',HERE/'guide_visual_patch.py')
     helper=importlib.util.module_from_spec(helper_spec);helper_spec.loader.exec_module(helper);helper.apply(root)
     assert not list(dest.glob('ManagedPolicy*'))
     print(json.dumps({'upstream':'1.1.0-beta.13.1','sha':PIN,'package':package,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--upstream',type=Path,required=True);p.add_argument('--version',type=int,required=True);p.add_argument('--production',action='store_true');a=p.parse_args();prepare(a.upstream.resolve(),a.version,a.production)
+    p=argparse.ArgumentParser();p.add_argument('--upstream',type=Path,required=True);p.add_argument('--version',type=int,required=True);mode=p.add_mutually_exclusive_group();mode.add_argument('--production',action='store_true');mode.add_argument('--owner-test',action='store_true');a=p.parse_args();prepare(a.upstream.resolve(),a.version,a.production,a.owner_test)
