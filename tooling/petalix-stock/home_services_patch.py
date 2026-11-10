@@ -154,7 +154,8 @@ def apply(root):
             "Now Playing" to listOf("now playing", "in theaters", "in theatres")
         )
     }
-    val playlistRows = vodState.rows.filter { it.catalogId.contains(":petalix-managed:") }
+    val managedPlaylistRows = vodState.rows.filter { it.catalogId.contains(":petalix-managed:") }
+    val playlistRows = managedPlaylistRows.ifEmpty { vodState.rows }
     fun matchesShelf(name: String, labels: List<String>): Boolean {
         val words = name.lowercase().map { if (it.isLetterOrDigit()) it else ' ' }
             .joinToString("").split(' ').filter { it.isNotBlank() }.joinToString(" ")
@@ -179,27 +180,40 @@ def apply(root):
     val homeRows = remember(sourceState.homeRows, penguRows, playlistRows) {
         val seenTitles = mutableSetOf<Pair<String, String>>()
         val seenIds = mutableSetOf<Pair<String, String>>()
-        val rows = referenceShelves.mapNotNull { (title, labels) ->
+        val usedCatalogs = mutableSetOf<CatalogRow>()
+        fun selectRow(row: CatalogRow, title: String): CatalogRow? {
+            if (row in usedCatalogs) return null
+            val items = row.items.asSequence().filter { item ->
+                val kind = item.type.toApiString()
+                val name = item.name.lowercase().filter(Char::isLetterOrDigit)
+                val titleKey = kind to name
+                val idKey = kind to (item.imdbId?.takeIf { it.isNotBlank() } ?: item.id)
+                if (titleKey in seenTitles || idKey in seenIds) false
+                else {
+                    seenTitles.add(titleKey)
+                    seenIds.add(idKey)
+                    true
+                }
+            }.take(16).toList()
+            if (items.isEmpty()) return null
+            usedCatalogs.add(row)
+            return row.copy(catalogName = title, items = items, hasMore = false, supportsSkip = false)
+        }
+        val matched = referenceShelves.mapValues { (title, labels) ->
             val candidates = penguRows.filter { matchesShelf(it.catalogName, labels) } +
                 playlistRows.filter { matchesShelf(it.catalogName, labels) }
-            for (row in candidates) {
-                val items = row.items.filter { item ->
-                    val kind = item.type.toApiString()
-                    val name = item.name.lowercase().filter(Char::isLetterOrDigit)
-                    val titleKey = kind to name
-                    val idKey = kind to (item.imdbId?.takeIf { it.isNotBlank() } ?: item.id)
-                    if (titleKey in seenTitles || idKey in seenIds) false
-                    else {
-                        seenTitles.add(titleKey)
-                        seenIds.add(idKey)
-                        true
-                    }
+            candidates.firstNotNullOfOrNull { selectRow(it, title) }
+        }
+        val fallbackRows = (penguRows + playlistRows).iterator()
+        val rows = matched.values.mapNotNull { matchedRow ->
+            if (matchedRow != null) matchedRow else {
+                var fallback: CatalogRow? = null
+                while (fallback == null && fallbackRows.hasNext()) {
+                    val candidate = fallbackRows.next()
+                    fallback = selectRow(candidate, candidate.catalogName)
                 }
-                if (items.isNotEmpty()) return@mapNotNull row.copy(
-                    catalogName = title, items = items, hasMore = false, supportsSkip = false
-                )
+                fallback
             }
-            null
         }
         sourceState.homeRows.filterIsInstance<HomeRow.CollectionRow>() + rows.map { HomeRow.Catalog(it) }
     }
@@ -218,7 +232,7 @@ def apply(root):
             }
         }
     }""")
-    once(home, "import androidx.compose.runtime.Composable", "import androidx.compose.runtime.Composable\nimport kotlinx.coroutines.launch")
+    once(home, "import androidx.compose.runtime.Composable", "import androidx.compose.runtime.Composable\nimport kotlinx.coroutines.launch\nimport com.nuvio.tv.domain.model.CatalogRow")
     once(home, "    val onNavigateToDetailStable = remember(onNavigateToDetail) { onNavigateToDetail }",
          "    val onNavigateToDetailStable = openPetalixDetail")
     vod = source / "livetv/ondemand/OnDemandViewModel.kt"
