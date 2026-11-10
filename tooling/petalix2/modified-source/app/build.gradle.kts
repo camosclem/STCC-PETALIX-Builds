@@ -420,15 +420,15 @@ androidComponents {
 }
 
 // Petalix source build: a clean preview alongside the existing customer app.
-android.defaultConfig.versionCode = 200002
+android.defaultConfig.versionCode = 200004
 android.defaultConfig.buildConfigField("String", "SERVICE_BRAND", "\"petalix\"")
-android.defaultConfig.versionName = "2.0.0-ui-test.2"
+android.defaultConfig.versionName = "2.0.0-ui-preview.4"
 android.defaultConfig.buildConfigField("String", "PETALIX_PANEL", "\"https://petalix-control.caroliinaconsultant.chatgpt.site\"")
 android.defaultConfig.buildConfigField(
     "String", "PETALIX_VOD_MANIFEST",
     buildConfigString(env("PETALIX_VOD_MANIFEST") ?: localProperties.getProperty("PETALIX_VOD_MANIFEST", ""))
 )
-androidComponents.onVariants { variant -> variant.applicationId.set("com.petalix.iptv.ui2test") }
+androidComponents.onVariants { variant -> variant.applicationId.set("com.petalix.iptv.uipreview4") }
 
 afterEvaluate {
     tasks.withType<L8DexDesugarLibTask>().configureEach {
