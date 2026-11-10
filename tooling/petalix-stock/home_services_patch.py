@@ -288,9 +288,14 @@ def apply(root):
 
             val resolvedHeroState = remember(petalixServiceFocused, petalixBackgroundItems, petalixBackgroundIndex, ''')
     once(content, "                    val activeCarouselItem = activeCarouselItemState.value",
-         '''                    val activeCarouselItem = if (petalixServiceFocused && petalixBackgroundItems.isNotEmpty()) {
-                        petalixBackgroundItems[petalixBackgroundIndex.intValue % petalixBackgroundItems.size]
-                    } else activeCarouselItemState.value''')
+         '''                    val focusedItem = activeCarouselItemState.value
+                    val activeCarouselItem = if (petalixServiceFocused) {
+                        focusedItem?.takeIf {
+                            !it.heroPreview.backdrop.isNullOrBlank() || !it.heroPreview.poster.isNullOrBlank()
+                        } ?: petalixBackgroundItems.getOrNull(
+                            petalixBackgroundIndex.intValue % petalixBackgroundItems.size.coerceAtLeast(1)
+                        )
+                    } else focusedItem''')
 
     # The recovered service media renderer stays transparent until its first real frame.
     once(modern_rows, "                    if (shouldPlayTrailerInCard) {", """                    if (payload != null) {

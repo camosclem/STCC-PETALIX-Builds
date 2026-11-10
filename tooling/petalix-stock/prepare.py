@@ -188,6 +188,13 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
          'prefs[focusedPosterBackdropTrailerEnabledKey] ?: true')
     once(layout_prefs, '?: FocusedPosterTrailerPlaybackTarget.HERO_MEDIA.name',
          '?: FocusedPosterTrailerPlaybackTarget.EXPANDED_CARD.name')
+    stream_selector = root/'app/src/main/java/com/nuvio/tv/core/player/StreamAutoPlaySelector.kt'
+    once(stream_selector,
+         "StreamAutoPlayMode.FIRST_STREAM -> candidateStreams.firstOrNull { isPlayable(it) }",
+         """StreamAutoPlayMode.FIRST_STREAM ->
+                candidateStreams.firstOrNull {
+                    it.addonName.contains("pengu", ignoreCase = true) && isPlayable(it)
+                } ?: candidateStreams.firstOrNull { isPlayable(it) }""")
     player_prefs=root/'app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt'
     once(player_prefs, 'val streamAutoPlayMode: StreamAutoPlayMode = StreamAutoPlayMode.MANUAL',
          'val streamAutoPlayMode: StreamAutoPlayMode = StreamAutoPlayMode.FIRST_STREAM')
