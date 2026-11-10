@@ -170,6 +170,11 @@ def prepare(upstream: Path, *, cache_dir: Path | None = None,
                              "size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
 
     assets = root / "app/src/main/assets"
+    # Current Apple TV styling is a code-native vector derived from the bundled
+    # mark. Apple's press-only JPG package is not redistributed in this app.
+    apple_asset = assets / "petalix/apple-current.svg"
+    apple_asset.parent.mkdir(parents=True, exist_ok=True)
+    _atomic_write(apple_asset, (HERE / "apple-current.svg").read_bytes())
     _atomic_write(assets / "petalix2/service-media-manifest.json", manifest_bytes)
     bundle = {
         "sourceReleaseTag": LEGACY_SOURCE_TAG,

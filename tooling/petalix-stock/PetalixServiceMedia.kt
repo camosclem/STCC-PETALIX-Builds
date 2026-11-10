@@ -50,7 +50,8 @@ private val petalixOriginalServiceIds = mapOf(
 /** Original logos are bundled so a service still has its identity while offline. */
 fun petalixServiceLogoUri(folderId: String): String? =
     if (folderId == "folder-petalix-britbox") "file:///android_asset/petalix/britbox-intro/logo.png" else petalixOriginalServiceIds[folderId]?.let {
-        "file:///android_asset/petalix2/service-logos/$it.svg"
+        if (it == "apple") "file:///android_asset/petalix/apple-current.svg"
+        else "file:///android_asset/petalix2/service-logos/$it.svg"
     }
 
 /** No substitute clip or chime is supplied for services without a recovered original. */
