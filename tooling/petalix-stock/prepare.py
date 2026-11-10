@@ -187,6 +187,8 @@ def prepare(root,version,production=False):
     if production:
         helper_spec=importlib.util.spec_from_file_location('native_customer_patch',HERE/'native_customer_patch.py')
         helper=importlib.util.module_from_spec(helper_spec);helper_spec.loader.exec_module(helper);helper.apply(root)
+    helper_spec=importlib.util.spec_from_file_location('guide_visual_patch',HERE/'guide_visual_patch.py')
+    helper=importlib.util.module_from_spec(helper_spec);helper_spec.loader.exec_module(helper);helper.apply(root)
     assert not list(dest.glob('ManagedPolicy*'))
     print(json.dumps({'upstream':'1.1.0-beta.13.1','sha':PIN,'package':package,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
 if __name__=='__main__':
