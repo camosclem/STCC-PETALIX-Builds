@@ -29,10 +29,9 @@ import androidx.tv.material3.Text
 
 private data class WalkthroughPage(val title: String, val body: String)
 private val pages = listOf(
-    WalkthroughPage("Save favorite channels", "Open Live TV. Highlight a channel and hold OK to open its options, then choose Add to favorites. To save several at once, open a channel group's options and choose Pick favorites in this group."),
-    WalkthroughPage("Find games in Sports", "Open Sports from the side menu. Browse a league or choose My Sports for games connected to the teams and leagues you follow. Your TV guide supplies the channels available for each game."),
-    WalkthroughPage("Follow teams, leagues and names", "In Sports, choose Follow Teams & Leagues. Pick a sport and league, then press OK on a team to follow it. You can follow a whole league too. Search for a player by name; if it is not listed, follow the name to find guide titles that mention it."),
-    WalkthroughPage("Your choices stay yours", "Channel favorites and sports follows are saved on this TV. The panel can back up channel favorites for a replacement device. You can reopen this walkthrough in Settings > About.")
+    WalkthroughPage("Use your remote", "Use the arrows to move between tiles. Press OK to open a tile or play a channel. Press Back to return, or press Left from the first tile to open the side menu."),
+    WalkthroughPage("Find something to watch", "On Home, open a streaming service or browse the movie and show rows below it. Open Live TV from the side menu, then use the arrows to move through the guide and OK to watch."),
+    WalkthroughPage("Make it yours", "In Live TV, hold OK on a channel to add it to Favorites. To choose local stations by ZIP, open Settings, then Live TV and Local stations. You can find this guide again under Settings > About.")
 )
 
 @OptIn(ExperimentalTvMaterial3Api::class)

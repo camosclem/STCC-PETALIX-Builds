@@ -44,7 +44,7 @@ def apply(root):
     once(about, """                            SettingsActionRow(
                                 title = stringResource(R.string.about_privacy_policy),""", """                            SettingsActionRow(
                                 title = "How to use Petalix",
-                                subtitle = "Favorites, Sports and followed teams",
+                                subtitle = "Remote navigation, Home, Live TV and My Locals",
                                 onClick = { showPetalixWalkthrough = true }
                             )
 
@@ -146,26 +146,69 @@ def apply(root):
             it.lowercase().filter(Char::isLetterOrDigit).contains("penguplay")
         } && row.items.isNotEmpty()
     }
-    LaunchedEffect(penguRows.isEmpty()) {
-        if (penguRows.isEmpty()) vodViewModel.loadHome()
+    val referenceShelves = remember {
+        linkedMapOf(
+            "Top Rated" to listOf("top rated", "highest rated"),
+            "Trending" to listOf("trending"),
+            "Upcoming" to listOf("upcoming", "coming soon"),
+            "Popular" to listOf("popular", "most popular"),
+            "Now Playing" to listOf("now playing", "in theaters", "in theatres")
+        )
     }
-    val homeRows = remember(sourceState.homeRows, penguRows, vodState.rows) {
-        val rows = (penguRows.ifEmpty { vodState.rows.filter { it.catalogId.contains(":petalix-managed:") } })
-            .sortedBy { row ->
-                val title = row.catalogName.lowercase()
-                when {
-                    "top rated" in title -> 0
-                    "popular" in title || "trending" in title -> 1
-                    "now playing" in title || "recent" in title -> 2
-                    else -> 3
+    val playlistRows = vodState.rows.filter { it.catalogId.contains(":petalix-managed:") }
+    fun matchesShelf(name: String, labels: List<String>): Boolean {
+        val words = name.lowercase().map { if (it.isLetterOrDigit()) it else ' ' }
+            .joinToString("").split(' ').filter { it.isNotBlank() }.joinToString(" ")
+        return labels.any { label ->
+            words == label || words in setOf("movies $label", "$label movies", "tv $label", "$label tv", "$label tv shows")
+        }
+    }
+    val requestedPenguCatalogs = sourceState.homeRows.filterIsInstance<HomeRow.PlaceholderCatalog>()
+        .filter { placeholder ->
+            listOf(placeholder.addonId, placeholder.addonName).any {
+                it.lowercase().filter(Char::isLetterOrDigit).contains("penguplay")
+            } && referenceShelves.values.any { matchesShelf(placeholder.catalogName, it) }
+        }.map { it.catalogKey }
+    LaunchedEffect(requestedPenguCatalogs) {
+        requestedPenguCatalogs.forEach(viewModel::requestLazyCatalogLoad)
+    }
+    val needsPlaylist = referenceShelves.values.any { labels -> penguRows.none { matchesShelf(it.catalogName, labels) } }
+    LaunchedEffect(needsPlaylist) {
+        if (needsPlaylist) vodViewModel.loadHome()
+    }
+    val homeRows = remember(sourceState.homeRows, penguRows, playlistRows) {
+        val seenTitles = mutableSetOf<Pair<String, String>>()
+        val seenIds = mutableSetOf<Pair<String, String>>()
+        val rows = referenceShelves.mapNotNull { (title, labels) ->
+            val candidates = penguRows.filter { matchesShelf(it.catalogName, labels) } +
+                playlistRows.filter { matchesShelf(it.catalogName, labels) }
+            for (row in candidates) {
+                val items = row.items.filter { item ->
+                    val kind = item.type.toApiString()
+                    val name = item.name.lowercase().filter(Char::isLetterOrDigit)
+                    val titleKey = kind to name
+                    val idKey = kind to (item.imdbId?.takeIf { it.isNotBlank() } ?: item.id)
+                    if (titleKey in seenTitles || idKey in seenIds) false
+                    else {
+                        seenTitles.add(titleKey)
+                        seenIds.add(idKey)
+                        true
+                    }
                 }
-            }.take(2)
+                if (items.isNotEmpty()) return@mapNotNull row.copy(
+                    catalogName = title, items = items, hasMore = false, supportsSkip = false
+                )
+            }
+            null
+        }
         sourceState.homeRows.filterIsInstance<HomeRow.CollectionRow>() + rows.map { HomeRow.Catalog(it) }
     }
-    val uiState = sourceState.copy(homeRows = homeRows)
+    val uiState = sourceState.copy(
+        homeRows = homeRows, catalogRows = homeRows.filterIsInstance<HomeRow.Catalog>().map { it.row }
+    )
     val petalixVodScope = androidx.compose.runtime.rememberCoroutineScope()
     val openPetalixDetail: (String, String, String) -> Unit = { id, type, addon ->
-        val item = if (penguRows.isEmpty()) vodViewModel.homeItem(id) else null
+        val item = if (addon == com.nuvio.tv.livetv.ondemand.VodHomeIds.ADDON_ID) vodViewModel.homeItem(id) else null
         if (item == null) onNavigateToDetail(id, type, addon)
         else petalixVodScope.launch {
             when (val target = vodViewModel.targetFor(item)) {
@@ -179,8 +222,7 @@ def apply(root):
     once(home, "    val onNavigateToDetailStable = remember(onNavigateToDetail) { onNavigateToDetail }",
          "    val onNavigateToDetailStable = openPetalixDetail")
     once(presentation, "    val lookups = buildCarouselRowLookups(rows)", """    val serviceRows = rows.filter { it.key == com.nuvio.tv.petalix.PETALIX_SERVICES_ROW }
-    val orderedRows = serviceRows + rows.filter { it.key == "continue_watching" } +
-        rows.filter { it.catalogId != null }.take(2)
+    val orderedRows = serviceRows + rows.filter { it.catalogId != null }
     val lookups = buildCarouselRowLookups(orderedRows)""")
     once(presentation, "        rows = rows.asStable(),", "        rows = orderedRows.asStable(),")
 
