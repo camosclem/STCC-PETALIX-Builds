@@ -47,9 +47,12 @@ jobs:
           GODEBUG: http2client=0
         run: |
           chmod +x gradlew
-          ./gradlew :app:testFullDebugUnitTest --tests 'com.nuvio.tv.petalix.*' :app:assembleFullDebug \
+          ./gradlew :app:testFullDebugUnitTest --tests 'com.nuvio.tv.petalix.*' \
             --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=1024m'
+          ./gradlew :app:assembleFullDebug --no-daemon --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx7680m -XX:MaxMetaspaceSize=1024m'
       - name: Verify signature, package and APK contents
         run: |
           set -euo pipefail
