@@ -74,6 +74,13 @@ jobs:
           with zipfile.ZipFile('release/Petalix-Owner-Test.apk') as apk:
               assert apk.testzip() is None
               names = apk.namelist()
+              size_by_group = {}
+              for entry in apk.infolist():
+                  group = '/'.join(entry.filename.split('/')[:2]) if entry.filename.startswith('lib/') else entry.filename.split('/')[0]
+                  size_by_group[group] = size_by_group.get(group, 0) + entry.compress_size
+              print(f"Universal APK: {pathlib.Path(apk.filename).stat().st_size / 1024**2:.1f} MiB")
+              for group, size in sorted(size_by_group.items(), key=lambda pair: pair[1], reverse=True)[:12]:
+                  print(f"  {group}: {size / 1024**2:.1f} MiB")
               assert any(n.startswith('lib/arm64-v8a/') for n in names)
               assert any(n.startswith('lib/armeabi-v7a/') for n in names)
               stations = json.loads(apk.read('assets/petalix/local-stations.json'))['stations']
@@ -84,7 +91,7 @@ jobs:
                   'Peacock', 'Paramount+', 'BritBox'
               ]
               dex = b''.join(apk.read(n) for n in names if n.startswith('classes') and n.endswith('.dex'))
-              for marker in (b'PetalixLocalStations', b'localsPromptResolvedV2', b'PetalixWalkthrough',
+              for marker in (b'PetalixLocalStations', b'localsPromptResolvedV2', b'Scan to text Petalix',
                              b'Top Rated', b'Trending', b'Upcoming', b'Popular', b'Now Playing',
                              b'PetalixPanelSettings', b'home-lineup-v3'):
                   assert marker in dex, f'Missing compiled feature: {marker!r}'
@@ -124,4 +131,4 @@ jobs:
           gh release create "petalix-owner-test-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" release/* \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
             --title 'Petalix Owner Test APK' \
-            --notes 'Manual Shield and Android TV testing. Installs as Petalix Home Test alongside regular Petalix. Activate with a Petalix PIN and a free test device slot. Includes the five Home rows, dynamic artwork, native Live TV guide styling, nationwide My Locals, and a shorter walkthrough.'
+            --notes 'Manual Shield and Android TV testing. Installs as Petalix Home Test alongside regular Petalix. Activate with a Petalix PIN and a free test device slot. Includes the five Home rows, dynamic artwork, native Live TV guide styling, nationwide My Locals, and contact and payment QR choices. Universal ARM APK for compatible Android TV devices.'
