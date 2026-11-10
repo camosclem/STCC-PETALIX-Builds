@@ -126,6 +126,7 @@ android.signingConfigs.getByName("debug").apply {
     }
 ''','')
     loading=root/'app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvLoadingHost.kt'
+    once(loading,'import androidx.compose.runtime.getValue', 'import androidx.compose.runtime.getValue\nimport androidx.compose.runtime.setValue')
     once(loading,'    val message = when {','''    val localsPrefs = remember(context) { context.getSharedPreferences("petalix_session_v2", android.content.Context.MODE_PRIVATE) }
     var showLocals by remember { androidx.compose.runtime.mutableStateOf(false) }
     val channelCount by entry.liveTvRepository().channels.collectAsState()
