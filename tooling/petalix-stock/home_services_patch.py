@@ -148,6 +148,7 @@ def apply(root):
     once(modern_rows, "                Box(modifier = mediaLayerModifier) {\n", """                Box(modifier = mediaLayerModifier) {
                     if (petalixLogoUri != null) com.nuvio.tv.petalix.PetalixServiceTileBackdrop(
                         folderId = payload!!.folderId,
+                        focused = isFocused,
                         modifier = Modifier.matchParentSize()
                     )
 """)
@@ -186,6 +187,7 @@ def apply(root):
             val activeImageUrl = petalixLogoUri ?: collectionFolderCardImageUrl(folder, isFocused)""")
         once(path, "            if (!activeImageUrl.isNullOrBlank()) {", """            if (petalixLogoUri != null) com.nuvio.tv.petalix.PetalixServiceTileBackdrop(
                 folderId = folder.id,
+                focused = isFocused,
                 modifier = Modifier.matchParentSize()
             )
             if (!activeImageUrl.isNullOrBlank()) {""")

@@ -17,8 +17,9 @@ object PetalixPanelPolicy {
     val state = MutableStateFlow(Triple(false, false, false))
     fun blocked(route: String): Boolean {
         val p = state.value
-        return ((p.first || p.second) && (route == "settings" || route.endsWith("_settings"))) ||
-            (p.third && route in setOf("addon_manager", "plugins", "catalog_order", "media_servers"))
+        // Customers need the native Settings screens for their ZIP, favorites and
+        // playback preferences even when the panel supplies managed defaults.
+        return p.third && route in setOf("addon_manager", "plugins", "catalog_order", "media_servers")
     }
 }
 

@@ -9,6 +9,8 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -62,7 +64,7 @@ fun petalixServiceIntroUri(folderId: String): String? =
 
 /** A soft tinted surface makes transparent service marks readable without black squares. */
 @Composable
-fun PetalixServiceTileBackdrop(folderId: String, modifier: Modifier = Modifier) {
+fun PetalixServiceTileBackdrop(folderId: String, focused: Boolean, modifier: Modifier = Modifier) {
     val colors = when (folderId) {
         "folder-WFGY1XPD" -> listOf(Color(0xFF402733), Color(0xFF262B42))
         "folder-AT8KYHZO" -> listOf(Color(0xFF28465C), Color(0xFF30374E))
@@ -75,7 +77,13 @@ fun PetalixServiceTileBackdrop(folderId: String, modifier: Modifier = Modifier) 
         "folder-petalix-britbox" -> listOf(Color(0xFF6E9CB4), Color(0xFF536D91))
         else -> return
     }
-    Box(modifier.background(Brush.linearGradient(colors)))
+    val top by animateColorAsState(if (focused) colors[0] else colors[0].copy(alpha = .72f), tween(260), label = "serviceBackdropTop")
+    val bottom by animateColorAsState(if (focused) colors[1] else colors[1].copy(alpha = .75f), tween(260), label = "serviceBackdropBottom")
+    Box(modifier.background(Brush.linearGradient(listOf(top, bottom)))) {
+        if (focused) Box(Modifier.matchParentSize().background(
+            Brush.radialGradient(listOf(Color.White.copy(alpha = .20f), Color.Transparent))
+        ))
+    }
 }
 
 /**
