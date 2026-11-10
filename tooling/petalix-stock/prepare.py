@@ -59,6 +59,26 @@ def prepare(root,version,production=False):
     once(collection_store,'suspend fun setCollections(collections: List<Collection>) {\n        store().edit', 'suspend fun setCollections(collections: List<Collection>, profileId: Int = profileManager.activeProfileId.value) {\n        store(profileId).edit')
     once(collection_store,'suspend fun getCurrentCollections(): List<Collection> {\n        val prefs = store().data.first()', 'suspend fun getCurrentCollections(profileId: Int = profileManager.activeProfileId.value): List<Collection> {\n        val prefs = store(profileId).data.first()')
     assets=root/'app/src/main/assets/petalix';assets.mkdir(parents=True,exist_ok=True);(assets/'streaming-services.json').write_text(native_catalog((HERE/'streaming-services.json').read_text()))
+    shutil.copyfile(HERE.parent/'android-build/local-stations.json', assets/'local-stations.json')
+    shutil.copyfile(HERE/'PetalixLocalStations.kt', dest/'PetalixLocalStations.kt')
+    live_prefs=root/'app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt'
+    once(live_prefs, '    suspend fun createCustomGroup(name: String): String {', '''    suspend fun petalixLocalKeys(): List<String> {
+        val key = my(Keys.customGroups)
+        return decodeCustomGroups(store.data.first()[key])
+            .firstOrNull { it.id == com.nuvio.tv.livetv.model.ChannelGroup.CUSTOM_PREFIX + "petalix_locals" }
+            ?.channelKeys.orEmpty()
+    }
+
+    suspend fun savePetalixLocalKeys(keys: List<String>) {
+        val id = com.nuvio.tv.livetv.model.ChannelGroup.CUSTOM_PREFIX + "petalix_locals"
+        val group = CustomGroup(id, "My Locals", keys.distinct())
+        updateCustomGroups { groups ->
+            if (groups.any { it.id == id }) groups.map { if (it.id == id) group else it }
+            else groups + group
+        }
+    }
+
+    suspend fun createCustomGroup(name: String): String {''')
     manifest=root/'app/src/main/AndroidManifest.xml'
     once(manifest,'        <meta-data\n            android:name="io.sentry.auto-init"','        <activity android:name=".petalix.PetalixLocalsActivity" android:exported="false" android:screenOrientation="landscape" />\n        <activity android:name=".petalix.PetalixActivationActivity" android:exported="false" android:screenOrientation="landscape" />\n        <meta-data\n            android:name="io.sentry.auto-init"')
     main=root/'app/src/main/java/com/nuvio/tv/MainActivity.kt'
@@ -69,6 +89,12 @@ def prepare(root,version,production=False):
         super.onCreate(savedInstanceState)
         if (!petalixBridge.ready) {
             startActivity(Intent(this, com.nuvio.tv.petalix.PetalixActivationActivity::class.java))
+            finish()
+            return
+        }
+        if (petalixBridge.shouldPromptForLocals && !intent.getBooleanExtra("skipLocalsOnce", false)) {
+            startActivity(Intent(this, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java)
+                .putExtra("setup", true))
             finish()
             return
         }
@@ -120,46 +146,6 @@ def prepare(root,version,production=False):
         return
     }
 ''','')
-    loading=root/'app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvLoadingHost.kt'
-    once(loading,'import androidx.compose.runtime.getValue', 'import androidx.compose.runtime.getValue\nimport androidx.compose.runtime.setValue')
-    once(loading,'    val message = when {','''    val localsPrefs = remember(context) { context.getSharedPreferences("petalix_session_v2", android.content.Context.MODE_PRIVATE) }
-    var showLocals by remember { androidx.compose.runtime.mutableStateOf(false) }
-    val channelCount by entry.liveTvRepository().channels.collectAsState()
-    fun dismissLocalsPrompt() {
-        localsPrefs.edit().putBoolean("localsPromptShownV1", true).apply()
-        showLocals = false
-    }
-    androidx.compose.runtime.LaunchedEffect(route, live.loading, channelCount.size) {
-        if (route == Screen.LiveTv.route && !live.loading && channelCount.isNotEmpty() &&
-            !localsPrefs.getBoolean("localsSetupV1", false) && !localsPrefs.getBoolean("localsPromptShownV1", false)) {
-            showLocals = true
-        }
-    }
-    val message = when {''')
-    once(loading,'    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {','''    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-        if (showLocals && route == Screen.LiveTv.route) {
-            androidx.compose.ui.window.Dialog(onDismissRequest = { dismissLocalsPrompt() }) {
-                val chooseFocus = remember { androidx.compose.ui.focus.FocusRequester() }
-                androidx.compose.runtime.LaunchedEffect(Unit) { chooseFocus.requestFocus() }
-                Row(modifier = Modifier
-                    .background(Color(0xFF192536), RoundedCornerShape(14.dp))
-                    .border(2.dp, Color(0xFF79B8FF), RoundedCornerShape(14.dp))
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    LiveText("Show local stations for your ZIP?", color = Color.White, size = 16.sp)
-                    androidx.compose.material3.Button(
-                        onClick = {
-                            dismissLocalsPrompt()
-                            context.startActivity(android.content.Intent(context, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java))
-                        }, modifier = Modifier.padding(start = 12.dp).focusRequester(chooseFocus)
-                    ) { androidx.compose.material3.Text("Choose ZIP") }
-                    androidx.compose.material3.TextButton(onClick = { dismissLocalsPrompt() }) {
-                        androidx.compose.material3.Text("Later")
-                    }
-                }
-            }
-        }''')
-    once(loading,'import androidx.compose.runtime.getValue','import androidx.compose.runtime.getValue\nimport androidx.compose.ui.focus.focusRequester')
     settings=root/'app/src/main/java/com/nuvio/tv/ui/screens/settings/LiveTvSettingsContent.kt'
     layout_prefs=root/'app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt'
     once(layout_prefs, 'prefs[focusedPosterBackdropTrailerEnabledKey] ?: false',

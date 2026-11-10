@@ -46,7 +46,7 @@ class PetalixPanelSettings @Inject constructor(
         val values = managed.getJSONObject("values")
         val raw = doc.optJSONObject("settings")?.optJSONObject("values") ?: JSONObject()
         hideOtherLocals = values.optBoolean("pref:live_tv:petalix_hide_other_locals", true)
-        val stamp = revision + ":" + doc.optJSONObject("settings")?.optString("revision").orEmpty() + ":" + profiles.activeProfileId.value + ":service-visuals-v2"
+        val stamp = revision + ":" + doc.optJSONObject("settings")?.optString("revision").orEmpty() + ":" + profiles.activeProfileId.value + ":home-lineup-v3"
         PetalixPanelPolicy.state.value = Triple(values.optBoolean("mode.hideSettings"), values.optBoolean("mode.lockSettings"), values.optBoolean("mode.lockSources"))
         if (stamp == prefs.getString("stamp", "") && !values.optBoolean("mode.lockSettings")) {
             appliedCount = prefs.getInt("count", 0)

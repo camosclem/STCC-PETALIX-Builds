@@ -125,10 +125,63 @@ def apply(root):
     }
     if (hasCollections && !hasPetalixServices && !hasCatalogs && uiState.installedAddonsCount > 0 && uiState.isLoading) {""")
 
-    # Keep Continue Watching and services on Home; catalogs remain within the service views.
-    once(presentation,
-         "    val lookups = buildCarouselRowLookups(rows)",
-         "    val orderedRows = com.nuvio.tv.petalix.petalixServicesFirst(rows) { it.key }\n    val lookups = buildCarouselRowLookups(orderedRows)")
+    # Use native catalog rows and native playlist VOD, with a small Home selection.
+    once(home, "    onPetalixLiveTv: () -> Unit = {},", """    onPetalixLiveTv: () -> Unit = {},
+    onPetalixVod: () -> Unit = {},
+    onPetalixVodDetail: (String, String, String?, String) -> Unit = { _, _, _, _ -> },
+""".rstrip())
+    once(nav, "                onPetalixLiveTv = { navController.navigate(Screen.LiveTv.route) },", """                onPetalixLiveTv = { navController.navigate(Screen.LiveTv.route) },
+                onPetalixVod = { navController.navigate(Screen.OnDemand.route) },
+                onPetalixVodDetail = { id, type, addon, uid ->
+                    navController.navigate(Screen.Detail.createRoute(id, type, addon))
+                    navController.currentBackStackEntry?.savedStateHandle?.set(
+                        com.nuvio.tv.livetv.ondemand.OnDemandPlay.KEY, uid
+                    )
+                },""")
+    once(home, "    val uiState by viewModel.uiState.collectAsStateWithLifecycle()", """    val sourceState by viewModel.uiState.collectAsStateWithLifecycle()
+    val vodViewModel: com.nuvio.tv.livetv.ondemand.OnDemandViewModel = hiltViewModel()
+    val vodState by vodViewModel.home.collectAsStateWithLifecycle()
+    val penguRows = sourceState.catalogRows.filter { row ->
+        listOf(row.addonId, row.addonName).any {
+            it.lowercase().filter(Char::isLetterOrDigit).contains("penguplay")
+        } && row.items.isNotEmpty()
+    }
+    LaunchedEffect(penguRows.isEmpty()) {
+        if (penguRows.isEmpty()) vodViewModel.loadHome()
+    }
+    val homeRows = remember(sourceState.homeRows, penguRows, vodState.rows) {
+        val rows = (penguRows.ifEmpty { vodState.rows.filter { it.catalogId.contains(":petalix-managed:") } })
+            .sortedBy { row ->
+                val title = row.catalogName.lowercase()
+                when {
+                    "top rated" in title -> 0
+                    "popular" in title || "trending" in title -> 1
+                    "now playing" in title || "recent" in title -> 2
+                    else -> 3
+                }
+            }.take(2)
+        sourceState.homeRows.filterIsInstance<HomeRow.CollectionRow>() + rows.map { HomeRow.Catalog(it) }
+    }
+    val uiState = sourceState.copy(homeRows = homeRows)
+    val petalixVodScope = androidx.compose.runtime.rememberCoroutineScope()
+    val openPetalixDetail: (String, String, String) -> Unit = { id, type, addon ->
+        val item = if (penguRows.isEmpty()) vodViewModel.homeItem(id) else null
+        if (item == null) onNavigateToDetail(id, type, addon)
+        else petalixVodScope.launch {
+            when (val target = vodViewModel.targetFor(item)) {
+                is com.nuvio.tv.livetv.ondemand.OnDemandTarget.Details ->
+                    onPetalixVodDetail(target.itemId, target.itemType, target.addonBaseUrl, target.uid)
+                is com.nuvio.tv.livetv.ondemand.OnDemandTarget.Provider -> onPetalixVod()
+            }
+        }
+    }""")
+    once(home, "import androidx.compose.runtime.Composable", "import androidx.compose.runtime.Composable\nimport kotlinx.coroutines.launch")
+    once(home, "    val onNavigateToDetailStable = remember(onNavigateToDetail) { onNavigateToDetail }",
+         "    val onNavigateToDetailStable = openPetalixDetail")
+    once(presentation, "    val lookups = buildCarouselRowLookups(rows)", """    val serviceRows = rows.filter { it.key == com.nuvio.tv.petalix.PETALIX_SERVICES_ROW }
+    val orderedRows = serviceRows + rows.filter { it.key == "continue_watching" } +
+        rows.filter { it.catalogId != null }.take(2)
+    val lookups = buildCarouselRowLookups(orderedRows)""")
     once(presentation, "        rows = rows.asStable(),", "        rows = orderedRows.asStable(),")
 
     # The eight recovered logos are available before the network or video renderer is ready.
@@ -168,6 +221,33 @@ def apply(root):
                             fallback = if (petalixLogoUri != null) null else backgroundPainter,
                             contentScale = if (petalixLogoUri != null) ContentScale.Fit else imageContentScale,
 """)
+
+    content = source / "ui/screens/home/ModernHomeContent.kt"
+    once(content, "            val resolvedHeroState = remember(", '''            val petalixBackgroundItems = remember(carouselRows) {
+                carouselRows.list.flatMap { it.items.list }.filter {
+                    it.payload is ModernPayload.Catalog &&
+                        (!it.heroPreview.backdrop.isNullOrBlank() || !it.heroPreview.poster.isNullOrBlank())
+                }.distinctBy { it.key }.take(24)
+            }
+            val petalixBackgroundIndex = remember { mutableIntStateOf(0) }
+            val petalixServiceFocused = activeRowKey.value == com.nuvio.tv.petalix.PETALIX_SERVICES_ROW
+            LaunchedEffect(petalixServiceFocused, petalixBackgroundItems) {
+                if (petalixServiceFocused && petalixBackgroundItems.isNotEmpty()) {
+                    while (true) {
+                        delay(8_000L)
+                        if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+                            petalixBackgroundIndex.intValue =
+                                (petalixBackgroundIndex.intValue + 1) % petalixBackgroundItems.size
+                        }
+                    }
+                }
+            }
+
+            val resolvedHeroState = remember(petalixServiceFocused, petalixBackgroundItems, petalixBackgroundIndex, ''')
+    once(content, "                    val activeCarouselItem = activeCarouselItemState.value",
+         '''                    val activeCarouselItem = if (petalixServiceFocused && petalixBackgroundItems.isNotEmpty()) {
+                        petalixBackgroundItems[petalixBackgroundIndex.intValue % petalixBackgroundItems.size]
+                    } else activeCarouselItemState.value''')
 
     # The recovered service media renderer stays transparent until its first real frame.
     once(modern_rows, "                    if (shouldPlayTrailerInCard) {", """                    if (payload != null) {

@@ -54,6 +54,7 @@ def apply(root):
         store().edit { if (manifest == null) it.remove(pref) else it[pref] = manifest }
     }
     suspend fun applyManagedCncverse(manifest: String?) = applyPanelAddon("cncverse", manifest)
+    suspend fun applyManagedPengu(manifest: String?) = applyPanelAddon("pengu", manifest)
     suspend fun applyManagedKaptain(manifest: String?) = applyPanelAddon("kaptain", manifest)
     suspend fun ensureMigrated() {''')
  coordinator=dest/'PetalixManagedCoordinator.kt'

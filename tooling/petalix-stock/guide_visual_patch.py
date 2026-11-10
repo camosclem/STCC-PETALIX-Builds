@@ -16,7 +16,7 @@ def apply(root: Path) -> None:
     replace_once(components, '''    val c = NuvioTheme.colors.Background
     val alpha = when (LocalGuideDarkness.current) { "solid" -> 0.94f; "standard" -> 0.50f; else -> 0.66f }
     return (if (c.luminance() < 0.003f) Color(0xFF0E0E12) else c).copy(alpha = alpha)''', '''    val base = androidx.compose.ui.graphics.lerp(
-        NuvioTheme.colors.BackgroundElevated, Color(0xFF21334B), 0.24f
+        NuvioTheme.colors.BackgroundElevated, Color(0xFF172C46), 0.34f
     )
     val alpha = when (LocalGuideDarkness.current) { "solid" -> 0.98f; "standard" -> 0.84f; else -> 0.92f }
     return base.copy(alpha = alpha)''')
@@ -36,7 +36,7 @@ def apply(root: Path) -> None:
             NuvioTheme.colors.FocusRing, NuvioTheme.colors.TextPrimary
         )''')
     replace_once(components, 'return LiveCorners.radius.collectAsState().value.dp',
-                 'return LiveCorners.radius.collectAsState().value.coerceIn(16, 24).dp')
+                 'return LiveCorners.radius.collectAsState().value.coerceIn(10, 16).dp')
 
     strip = guide / "GuideRowStrip.kt"
     replace_once(strip, 'title = base.copy(fontSize = titleSize, fontWeight = FontWeight.Normal)',
@@ -46,3 +46,12 @@ def apply(root: Path) -> None:
     screen = guide / "LiveTvGuideScreen.kt"
     replace_once(screen, 'color = colors.text.copy(alpha = if (focused) 0.6f else 0.42f)',
                  'color = colors.text.copy(alpha = if (focused) 0.82f else 0.62f)')
+
+    replace_once(screen, 'val channelFocused = moving || nameFocused',
+                 'val channelFocused = moving || nameFocused || focusColumn != null')
+    replace_once(screen, 'else liveCellColors(focused = nameFocused, idle = guideSurface())',
+                 'else liveCellColors(focused = channelFocused, idle = guideSurface())')
+    replace_once(screen, 'weight = if (isPlaying) FontWeight.Bold else FontWeight.Normal,',
+                 'weight = if (isPlaying || channelFocused) FontWeight.Bold else FontWeight.Medium,')
+    replace_once(screen, 'if (strip.isNotEmpty()) GuideRowStrip(strip, titleSize = gsp(14f), smallSize = gsp(12f)',
+                 'if (strip.isNotEmpty()) GuideRowStrip(strip, titleSize = gsp(15f), smallSize = gsp(12f)')

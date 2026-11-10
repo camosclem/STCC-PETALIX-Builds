@@ -94,7 +94,12 @@ class ManagedNativeSettings @Inject constructor(
     val controlCount get()=26+controls.size
     val profileId get()=profiles.activeProfileId.value
     fun validate(values:JSONObject) {
-        values.keys().forEach { key->if(key.startsWith("pref:")||key.startsWith("sport:")||key.startsWith("addon:")) {
+        if (values.optBoolean("addon:penguplay")) {
+            val url = values.optString("addon:penguplay_manifest").toHttpUrlOrNull()
+            require(url != null && url.isHttps && url.username.isEmpty() && url.password.isEmpty() &&
+                url.fragment == null && url.encodedPath.endsWith("/manifest.json", true)) { "Invalid Pengu Play manifest URL" }
+        }
+        values.keys().forEach { key->if(key !in setOf("addon:penguplay", "addon:penguplay_manifest") && (key.startsWith("pref:")||key.startsWith("sport:")||key.startsWith("addon:"))) {
             val spec=controls.firstOrNull { it.key==key }?:error("Unsupported native setting")
             spec.native(values.get(key))
         } }
@@ -127,6 +132,7 @@ class ManagedNativeSettings @Inject constructor(
         // Finish one-time native migrations before assigning managed values.
         player.playerSettings.first();badges.settings.first()
         addons.applyManagedCncverse(if(values.has("addon:cncverse"))values.getString("addon:cncverse") else null)
+        addons.applyManagedPengu(values.optString("addon:penguplay_manifest").takeIf { values.optBoolean("addon:penguplay") })
         addons.applyManagedKaptain(if(values.has("addon:kaptain"))values.getString("addon:kaptain") else null)
         applyControls(controls.filter { it.feature!="managed_addons" },prepared,"")
     }

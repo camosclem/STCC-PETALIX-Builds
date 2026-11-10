@@ -60,16 +60,29 @@ class PetalixManagedCoordinator @Inject constructor(
     val homeServicesMigrationPending: Boolean get() = !prefs.getBoolean("nativeHomeServicesV4:${profiles.activeProfileId.value}", false)
     val ready: Boolean get() = hasSavedActivation && !prefs.getBoolean("accessDenied", false) && runCatching { Instant.parse(prefs.getString("expires", "")).toEpochMilli() > System.currentTimeMillis() }.getOrDefault(false)
 
-    val localsSetupDone: Boolean get() = prefs.getBoolean("localsSetupV1", false)
+    val shouldPromptForLocals: Boolean get() = !prefs.getBoolean("localsPromptResolvedV2", false)
     val localsZip: String get() = prefs.getString("localsZip", "").orEmpty()
 
-    suspend fun lookupLocals(zip: String): JSONObject = post("locals", report().put("action", "lookup").put("zip", zip), token())
+    fun dismissLocalsPrompt() {
+        prefs.edit().putBoolean("localsPromptResolvedV2", true).apply()
+    }
 
-    suspend fun saveLocals(zip: String?) {
-        val result = post("locals", report().put("action", if (zip == null) "default" else "save").put("zip", zip.orEmpty()), token())
-        check(result.optBoolean("saved")) { "The panel did not save your locals." }
-        check(prefs.edit().putBoolean("localsSetupV1", true).putString("localsZip", zip.orEmpty()).commit())
-        repository.reloadAfterSync(setOf("petalix-managed"))
+    internal suspend fun lookupLocals(zip: String): PetalixLocalStations.Result {
+        val stations = PetalixLocalStations(context, http)
+        return stations.lookup(zip) {
+            repository.ensureLoaded()
+            kotlinx.coroutines.withTimeoutOrNull(15_000L) {
+                repository.channels.first { it.isNotEmpty() }
+            }.orEmpty()
+        }
+    }
+
+    suspend fun localKeys(): List<String> = live.petalixLocalKeys()
+
+    suspend fun saveLocals(zip: String, keys: List<String>) {
+        require(keys.isNotEmpty()) { "Choose at least one local station." }
+        live.savePetalixLocalKeys(keys)
+        check(prefs.edit().putBoolean("localsPromptResolvedV2", true).putString("localsZip", zip).commit())
     }
 
     suspend fun activate(pin: String) = mutex.withLock {
