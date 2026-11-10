@@ -1,7 +1,9 @@
 package com.nuvio.tv.petalix
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
@@ -33,7 +35,10 @@ class PetalixActivationActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dp(40), dp(25), dp(40), dp(25))
-            setBackgroundColor(Color.rgb(15, 16, 22))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(49, 30, 69), Color.rgb(16, 13, 24), Color.rgb(16, 13, 24))
+            )
         }
         fun line(value: String, size: Float) = TextView(this).apply {
             text = value
@@ -59,9 +64,24 @@ class PetalixActivationActivity : ComponentActivity() {
             filters = arrayOf(android.text.InputFilter.LengthFilter(8))
         }
         content.addView(pin, LinearLayout.LayoutParams(dp(360), dp(60)))
-        val button = Button(this).apply { text = "Activate this TV"; isAllCaps = false }
+        val button = Button(this).apply {
+            text = "Activate this TV"
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList(
+                arrayOf(
+                    intArrayOf(-android.R.attr.state_enabled),
+                    intArrayOf(android.R.attr.state_focused),
+                    intArrayOf()
+                ),
+                intArrayOf(Color.rgb(54, 47, 66), Color.rgb(106, 66, 165), Color.rgb(67, 44, 100))
+            )
+        }
         content.addView(button, LinearLayout.LayoutParams(dp(360), dp(58)))
         content.addView(message)
+        content.addView(line("Need help activating? Text Petalix at 252-204-3258", 14f).apply {
+            setTextColor(Color.rgb(220, 197, 255))
+        })
         setContentView(content, ViewGroup.LayoutParams(-1, -1))
 
         fun enterApp() {

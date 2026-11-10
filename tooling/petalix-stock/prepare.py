@@ -64,6 +64,29 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
                 with Image.open(target) as old:dims=old.size
                 brand.contain_transparent(art,dims).save(target)
     branding_spec=importlib.util.spec_from_file_location('labels',HERE.parent/'android-build/branding_patch.py');labels=importlib.util.module_from_spec(branding_spec);branding_spec.loader.exec_module(labels);labels.apply(root,'petalix')
+    theme = root/'app/src/main/java/com/nuvio/tv/ui/theme/ThemeColors.kt'
+    once(theme, "    fun getColorPalette(", """    val Petalix = ThemeColorPalette(
+        secondary = Color(0xFFDCC5FF),
+        secondaryVariant = Color(0xFFBA93F5),
+        onSecondary = Color(0xFF21132F),
+        onSecondaryVariant = Color(0xFF21132F),
+        accentGradient = listOf(Color(0xFFF1DFFF), Color(0xFFBA93F5)),
+        focusRing = Color(0xFFE6CDFF),
+        focusRingGradient = listOf(Color(0xFFFFE6B7), Color(0xFFC397FF)),
+        focusBackground = Color(0xFF45315D),
+        background = Color(0xFF100D18),
+        backgroundElevated = Color(0xFF1B1528),
+        backgroundCard = Color(0xFF241C33),
+        surface = Color(0xFF21192E),
+        surfaceVariant = Color(0xFF322541),
+        panel = Color(0xFF1B1528),
+        field = Color(0xFF2C213A),
+        menu = Color(0xFF21192E),
+        modal = Color(0xFF1B1528)
+    )
+
+    fun getColorPalette(""")
+    once(theme, "AppTheme.WHITE -> White", "AppTheme.WHITE -> Petalix")
     for strings in (root/'app/src').rglob('strings.xml'):
         strings.write_text(re.sub(r'(<string\b[^>]*\bname="app_name"[^>]*>).*?(</string>)',(r'\1Petalix\2' if production else r'\1Petalix Home Test\2'),strings.read_text(),flags=re.S))
     dest=root/'app/src/main/java/com/nuvio/tv/petalix';dest.mkdir(parents=True,exist_ok=True)
