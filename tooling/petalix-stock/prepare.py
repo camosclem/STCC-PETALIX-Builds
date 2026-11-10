@@ -66,23 +66,23 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
     branding_spec=importlib.util.spec_from_file_location('labels',HERE.parent/'android-build/branding_patch.py');labels=importlib.util.module_from_spec(branding_spec);branding_spec.loader.exec_module(labels);labels.apply(root,'petalix')
     theme = root/'app/src/main/java/com/nuvio/tv/ui/theme/ThemeColors.kt'
     once(theme, "    fun getColorPalette(", """    val Petalix = ThemeColorPalette(
-        secondary = Color(0xFFDCC5FF),
-        secondaryVariant = Color(0xFFBA93F5),
-        onSecondary = Color(0xFF21132F),
-        onSecondaryVariant = Color(0xFF21132F),
-        accentGradient = listOf(Color(0xFFF1DFFF), Color(0xFFBA93F5)),
-        focusRing = Color(0xFFE6CDFF),
-        focusRingGradient = listOf(Color(0xFFFFE6B7), Color(0xFFC397FF)),
-        focusBackground = Color(0xFF45315D),
-        background = Color(0xFF100D18),
-        backgroundElevated = Color(0xFF1B1528),
-        backgroundCard = Color(0xFF241C33),
-        surface = Color(0xFF21192E),
-        surfaceVariant = Color(0xFF322541),
-        panel = Color(0xFF1B1528),
-        field = Color(0xFF2C213A),
-        menu = Color(0xFF21192E),
-        modal = Color(0xFF1B1528)
+        secondary = Color(0xFFDCE3EE),
+        secondaryVariant = Color(0xFFA9B5C5),
+        onSecondary = Color(0xFF101722),
+        onSecondaryVariant = Color(0xFF101722),
+        accentGradient = listOf(Color(0xFFF3F6FC), Color(0xFF8696AA)),
+        focusRing = Color(0xFFF0F5FF),
+        focusRingGradient = listOf(Color(0xFFFF525D), Color(0xFFE5ECF6)),
+        focusBackground = Color(0xFF343F52),
+        background = Color(0xFF090D15),
+        backgroundElevated = Color(0xFF151C29),
+        backgroundCard = Color(0xFF202A39),
+        surface = Color(0xFF192231),
+        surfaceVariant = Color(0xFF303D50),
+        panel = Color(0xFF151C29),
+        field = Color(0xFF253143),
+        menu = Color(0xFF192231),
+        modal = Color(0xFF151C29)
     )
 
     fun getColorPalette(""")

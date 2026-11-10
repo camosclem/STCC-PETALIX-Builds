@@ -37,7 +37,7 @@ class PetalixActivationActivity : ComponentActivity() {
             setPadding(dp(40), dp(25), dp(40), dp(25))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(49, 30, 69), Color.rgb(16, 13, 24), Color.rgb(16, 13, 24))
+                intArrayOf(Color.rgb(31, 43, 61), Color.rgb(10, 14, 23), Color.rgb(10, 14, 23))
             )
         }
         fun line(value: String, size: Float) = TextView(this).apply {
@@ -74,13 +74,13 @@ class PetalixActivationActivity : ComponentActivity() {
                     intArrayOf(android.R.attr.state_focused),
                     intArrayOf()
                 ),
-                intArrayOf(Color.rgb(54, 47, 66), Color.rgb(106, 66, 165), Color.rgb(67, 44, 100))
+                intArrayOf(Color.rgb(46, 52, 61), Color.rgb(166, 30, 48), Color.rgb(90, 35, 47))
             )
         }
         content.addView(button, LinearLayout.LayoutParams(dp(360), dp(58)))
         content.addView(message)
         content.addView(line("Need help activating? Text Petalix at 252-204-3258", 14f).apply {
-            setTextColor(Color.rgb(220, 197, 255))
+            setTextColor(Color.rgb(201, 212, 227))
         })
         setContentView(content, ViewGroup.LayoutParams(-1, -1))
 

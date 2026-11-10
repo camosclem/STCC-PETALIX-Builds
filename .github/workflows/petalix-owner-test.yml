@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      TEST_VERSION: '1794336003'
+      TEST_VERSION: '1794336004'
     steps:
       - uses: actions/checkout@v4
         with:
