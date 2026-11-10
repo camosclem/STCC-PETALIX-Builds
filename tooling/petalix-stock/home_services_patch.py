@@ -64,6 +64,20 @@ def apply(root):
          count=2)
     once(home, "    val showStartupLoader = when {", """    val petalixFallback = homeStableGateReleased && (!hasAnyContent || !modernPresentationReady)
     val showStartupLoader = if (petalixFallback) false else when {""")
+    once(home, "    Box(\n        modifier = Modifier.fillMaxSize()\n    ) {\n        when {", """    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // A direct My Locals entry is available even when the full Home row loaded.
+        if (homeStableGateReleased && !petalixFallback) {
+            val petalixContext = androidx.compose.ui.platform.LocalContext.current
+            androidx.tv.material3.Button(
+                onClick = {
+                    petalixContext.startActivity(android.content.Intent(petalixContext, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java))
+                },
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 28.dp)
+            ) { androidx.tv.material3.Text("My Locals") }
+        }
+        when {""")
     once(home, "        when {\n            !uiState.layoutPreferencesReady -> {", """        when {
             petalixFallback -> com.nuvio.tv.petalix.PetalixHomeServicesFallback(
                 onLiveTv = onPetalixLiveTv,

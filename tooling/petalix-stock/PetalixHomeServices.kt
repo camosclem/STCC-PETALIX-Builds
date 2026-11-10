@@ -129,6 +129,9 @@ fun PetalixHomeServicesFallback(
                 onClick = onLiveTv,
                 modifier = if (services == null) Modifier.focusRequester(contentFocusRequester) else Modifier
             ) { Text("Live TV") }
+            Button(onClick = {
+                context.startActivity(android.content.Intent(context, PetalixLocalsActivity::class.java))
+            }) { Text("My Locals") }
             Button(onClick = onSettings) { Text("Settings") }
         }
     }

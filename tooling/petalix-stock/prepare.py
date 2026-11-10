@@ -130,8 +130,8 @@ android.signingConfigs.getByName("debug").apply {
     once(loading,'    val message = when {','''    val localsPrefs = remember(context) { context.getSharedPreferences("petalix_session_v2", android.content.Context.MODE_PRIVATE) }
     var showLocals by remember { androidx.compose.runtime.mutableStateOf(false) }
     val channelCount by entry.liveTvRepository().channels.collectAsState()
-    androidx.compose.runtime.LaunchedEffect(route, live.loading, channelCount.size) {
-        if (route == Screen.LiveTv.route && !live.loading && channelCount.isNotEmpty() &&
+    androidx.compose.runtime.LaunchedEffect(route, live.loading, channelCount.size, playing) {
+        if (route == Screen.LiveTv.route && !playing && !live.loading && channelCount.isNotEmpty() &&
             !localsPrefs.getBoolean("localsSetupV1", false) && !localsPrefs.getBoolean("localsPromptShownV1", false)) {
             if (localsPrefs.edit().putBoolean("localsPromptShownV1", true).commit()) showLocals = true
         }
