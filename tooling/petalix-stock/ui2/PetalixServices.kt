@@ -134,7 +134,7 @@ object ServiceCatalogs {
     }
     fun parse(json:String,service:PetalixService):List<TmdbCollectionSource> {
         val folders=org.json.JSONArray(json).getJSONObject(0).getJSONArray("folders")
-        val title=mapOf("netflix" to "Netflix","prime" to "Prime Video","disney" to "Disney+","hulu" to "Hulu","max" to "HBO Max","apple" to "Apple TV+","paramount" to "Paramount+","peacock" to "Peacock","britbox" to "BritBox")[service.id]
+        val title=mapOf("netflix" to "Netflix","prime" to "Prime Video","disney" to "Disney+","hulu" to "Hulu","max" to "HBO Max","apple" to "Apple TV","paramount" to "Paramount+","peacock" to "Peacock","britbox" to "BritBox")[service.id]
         val folder=(0 until folders.length()).map { folders.getJSONObject(it) }.firstOrNull { it.optString("id")==PetalixServices.folderId(service.id) || it.optString("title")==title } ?: return emptyList()
         val items=folder.getJSONArray("sources")
         return (0 until items.length()).mapNotNull { index ->

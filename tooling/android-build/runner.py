@@ -214,13 +214,17 @@ def sign_and_release():
                     for marker in [b'PetalixPanelSettings',b'PetalixLocalsActivity',b'native-panel-settings-v1',b'favorites-backup-v1',b'petalix-stock-native-v1',b'management-v4',b'device-updates-v1']:
                         if marker not in dex:raise RuntimeError('Native customer feature missing: '+marker.decode())
                     catalog=json.loads(z.read('assets/petalix/streaming-services.json'))
-                    assert [f['title'] for f in catalog[0]['folders']]==['Netflix','Prime Video','Disney+','Hulu','HBO Max','Apple TV+','Peacock','Paramount+','BritBox']
+                    assert [f['title'] for f in catalog[0]['folders']]==['Netflix','Prime Video','Disney+','Hulu','HBO Max','Apple TV','Peacock','Paramount+','BritBox']
                     bundle=json.loads(z.read('assets/petalix2/service-media-bundle.json'))
                     for entry in [*bundle['media'].values(),*bundle['logos'].values()]:
                         assert hashlib.sha256(z.read('assets/'+entry['assetPath'])).hexdigest()==entry['sha256']
                     intro=json.loads(z.read('assets/petalix/britbox-intro/manifest.json'))
+                    if not intro.get('officialBritBoxIdent') or not intro.get('hasAudio'):
+                        raise RuntimeError('BritBox animation and sound source missing')
+                    if not z.read('assets/petalix/apple-current.svg'):
+                        raise RuntimeError('Current Apple TV artwork missing')
                     for name,entry in intro['assets'].items():assert hashlib.sha256(z.read('assets/petalix/britbox-intro/'+name)).hexdigest()==entry['sha256']
-                meta.update(testOnly=True,recipeRevision='petalix-native-panel-13-1-v1',supportsNativePanelPlaylist=True,supportsFavoritesBackup=True,supportsAllSettings=True,supportsPanelPenguPlay=False,supportsPenguPlay=False,supportsServiceHubs=True,supportsServicesFirst=True,supportsDeviceUpdates=True,notes='Signed native Nuvio + IPTV 13.1 customer-update candidate. Uses the existing Petalix package, signing certificate and saved activation. Includes panel settings delivery with apply receipts, per-profile favorites backup/restore, stable favorite identities, the curated panel lineup, sports groups, My Locals and optional one-time ZIP suggestion after channels load, and nine streaming services with intros. Prepared for owner testing. Customer send requires the panel test approval and a separate Send updates action.')
+                meta.update(testOnly=True,recipeRevision='petalix-native-panel-13-1-v1',supportsNativePanelPlaylist=True,supportsFavoritesBackup=True,supportsAllSettings=True,supportsPanelPenguPlay=False,supportsPenguPlay=False,supportsServiceHubs=True,supportsServicesFirst=True,supportsDeviceUpdates=True,notes='Signed Petalix native 13.1 customer-update candidate. Uses the existing Petalix package, signing certificate and saved activation. Includes panel settings delivery with apply receipts, per-profile favorites backup/restore, stable favorite identities, the curated panel lineup, sports groups, a one-time ZIP suggestion with local stations in Settings, a skippable first-run guide, and nine streaming services with intros. Prepared for owner testing. Customer send requires the panel test approval and a separate Send updates action.')
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')
