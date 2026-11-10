@@ -27,6 +27,7 @@ def apply(root):
     target = source / "petalix"
     target.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(HERE / "PetalixHomeServices.kt", target / "PetalixHomeServices.kt")
+    shutil.copyfile(HERE / "PetalixWalkthrough.kt", target / "PetalixWalkthrough.kt")
 
     # Keep folder navigation on Home; each folder opens its original service experience.
     once(home, "fun HomeScreen(\n", """fun HomeScreen(
@@ -37,6 +38,30 @@ def apply(root):
                 onPetalixLiveTv = { navController.navigate(Screen.LiveTv.route) },
                 onPetalixSettings = { navController.navigate(Screen.Settings.route) },
 """)
+    about = source / "ui/screens/settings/AboutScreen.kt"
+    once(about, "    val aboutScrollState = rememberScrollState()", """    var showPetalixWalkthrough by remember { mutableStateOf(false) }
+    val aboutScrollState = rememberScrollState()""")
+    once(about, """                            SettingsActionRow(
+                                title = stringResource(R.string.about_privacy_policy),""", """                            SettingsActionRow(
+                                title = "How to use Petalix",
+                                subtitle = "Favorites, Sports and followed teams",
+                                onClick = { showPetalixWalkthrough = true }
+                            )
+
+                            SettingsActionRow(
+                                title = stringResource(R.string.about_privacy_policy),""")
+    once(about, """                SettingsVerticalScrollIndicators(state = aboutScrollState)
+            }
+        }
+    }
+}""", """                SettingsVerticalScrollIndicators(state = aboutScrollState)
+            }
+        }
+    }
+    if (showPetalixWalkthrough) com.nuvio.tv.petalix.PetalixWalkthrough(
+        onDismiss = { showPetalixWalkthrough = false }
+    )
+}""")
 
     collection_anchor = "    val hasCollectionContent = uiState.homeRows.any { it is HomeRow.CollectionRow }\n"
     once(home, collection_anchor, collection_anchor + """    val hasPetalixServices = uiState.homeRows.any {
@@ -52,6 +77,17 @@ def apply(root):
 
     LaunchedEffect(Unit) {
         // Safety timeout""")
+    once(home, "    var homeStableGateReleased by rememberSaveable { mutableStateOf(false) }", """    var homeStableGateReleased by rememberSaveable { mutableStateOf(false) }
+    val petalixContext = androidx.compose.ui.platform.LocalContext.current
+    val walkthroughPrefs = remember(petalixContext) {
+        petalixContext.getSharedPreferences("petalix_session_v2", android.content.Context.MODE_PRIVATE)
+    }
+    var showPetalixWalkthrough by remember { mutableStateOf(false) }
+    LaunchedEffect(homeStableGateReleased) {
+        if (homeStableGateReleased && !walkthroughPrefs.getBoolean("walkthroughSeenV1", false)) {
+            showPetalixWalkthrough = true
+        }
+    }""")
 
     # Source errors must not obscure a collection already stored on the TV.
     once(home,
@@ -67,6 +103,10 @@ def apply(root):
     once(home, "    Box(\n        modifier = Modifier.fillMaxSize()\n    ) {\n        when {", """    Box(
         modifier = Modifier.fillMaxSize()
     ) {
+        if (showPetalixWalkthrough) com.nuvio.tv.petalix.PetalixWalkthrough(onDismiss = {
+            walkthroughPrefs.edit().putBoolean("walkthroughSeenV1", true).apply()
+            showPetalixWalkthrough = false
+        })
         when {""")
     once(home, "        when {\n            !uiState.layoutPreferencesReady -> {", """        when {
             petalixFallback -> com.nuvio.tv.petalix.PetalixHomeServicesFallback(
