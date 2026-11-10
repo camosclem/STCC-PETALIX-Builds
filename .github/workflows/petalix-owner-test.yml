@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      TEST_VERSION: '1794336006'
+      TEST_VERSION: '1794336007'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,7 +93,7 @@ jobs:
               dex = b''.join(apk.read(n) for n in names if n.startswith('classes') and n.endswith('.dex'))
               for marker in (b'PetalixLocalStations', b'localsPromptResolvedV2', b'Scan to text Petalix',
                              b'Top Rated', b'Trending', b'Upcoming', b'Popular', b'Now Playing',
-                             b'PetalixPanelSettings', b'home-lineup-v3'):
+                             b'PetalixPanelSettings', b'home-lineup-v4', b'Continue to Petalix'):
                   assert marker in dex, f'Missing compiled feature: {marker!r}'
           with zipfile.ZipFile('release/Petalix-Owner-Test-Source.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
               for file in source.rglob('*'):

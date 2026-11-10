@@ -51,7 +51,6 @@ class PetalixActivationActivity : ComponentActivity() {
             setImageResource(R.drawable.app_logo_wordmark)
             scaleType = ImageView.ScaleType.FIT_CENTER
         }, LinearLayout.LayoutParams(dp(440), dp(110)))
-        content.addView(line("Welcome to Petalix", 24f))
         val message = line("Activate with your existing 8-digit Petalix PIN.", 15f)
         val pin = EditText(this).apply {
             hint = "8-digit activation PIN"
@@ -79,40 +78,6 @@ class PetalixActivationActivity : ComponentActivity() {
         }
         content.addView(button, LinearLayout.LayoutParams(dp(360), dp(58)))
         content.addView(message)
-        content.addView(line("Need help? Text 252-204-3258", 14f))
-        val contactOptions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        val contactQr = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "Scan to text Petalix"
-        }
-        val contactLabel = line("Scan to text Petalix", 14f)
-        val contacts = listOf(
-            Triple("Text", "sms:+12522043258", "Scan to text Petalix"),
-            Triple("Venmo", "https://venmo.com/u/Petalix", "Scan to pay with Venmo"),
-            Triple("Cash App", "https://cash.app/\$Petalix", "Scan to pay with Cash App")
-        )
-        fun showContact(index: Int) {
-            val (_, url, label) = contacts[index]
-            contactLabel.text = label
-            contactQr.contentDescription = label
-            contactQr.setImageBitmap(com.nuvio.tv.core.qr.QrCodeGenerator.generate(url, dp(184)))
-        }
-        contacts.forEachIndexed { index, (name, _, _) ->
-            contactOptions.addView(Button(this).apply {
-                text = name
-                isAllCaps = false
-                setTextColor(Color.WHITE)
-                backgroundTintList = ColorStateList.valueOf(Color.rgb(50, 60, 77))
-                setOnClickListener { showContact(index) }
-            })
-        }
-        content.addView(contactOptions)
-        content.addView(contactQr, LinearLayout.LayoutParams(dp(184), dp(184)))
-        content.addView(contactLabel)
-        showContact(0)
         setContentView(content, ViewGroup.LayoutParams(-1, -1))
 
         fun enterApp() {

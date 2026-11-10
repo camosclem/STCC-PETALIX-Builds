@@ -92,6 +92,8 @@ def apply(root):
                     )
                 },""")
     once(home, "    val uiState by viewModel.uiState.collectAsStateWithLifecycle()", """    val sourceState by viewModel.uiState.collectAsStateWithLifecycle()
+    val homeCatalogViewModel: com.nuvio.tv.petalix.PetalixHomeCatalogViewModel = hiltViewModel()
+    val homeChartRows by homeCatalogViewModel.rows.collectAsStateWithLifecycle()
     val vodViewModel: com.nuvio.tv.livetv.ondemand.OnDemandViewModel = hiltViewModel()
     val vodState by vodViewModel.home.collectAsStateWithLifecycle()
     val penguRows = sourceState.catalogRows.filter { row ->
@@ -131,7 +133,7 @@ def apply(root):
     LaunchedEffect(needsPlaylist, vodVersion) {
         if (needsPlaylist) vodViewModel.loadHome()
     }
-    val homeRows = remember(sourceState.homeRows, penguRows, playlistRows) {
+    val homeRows = remember(sourceState.homeRows, penguRows, playlistRows, homeChartRows) {
         val seenTitles = mutableSetOf<Pair<String, String>>()
         val seenIds = mutableSetOf<Pair<String, String>>()
         val usedCatalogs = mutableSetOf<CatalogRow>()
@@ -155,20 +157,10 @@ def apply(root):
         }
         val matched = referenceShelves.mapValues { (title, labels) ->
             val candidates = penguRows.filter { matchesShelf(it.catalogName, labels) } +
-                playlistRows.filter { matchesShelf(it.catalogName, labels) }
+                homeChartRows.filter { it.catalogName == title } + playlistRows.filter { matchesShelf(it.catalogName, labels) }
             candidates.firstNotNullOfOrNull { selectRow(it, title) }
         }
-        val fallbackRows = (penguRows + playlistRows).iterator()
-        val rows = matched.values.mapNotNull { matchedRow ->
-            if (matchedRow != null) matchedRow else {
-                var fallback: CatalogRow? = null
-                while (fallback == null && fallbackRows.hasNext()) {
-                    val candidate = fallbackRows.next()
-                    fallback = selectRow(candidate, candidate.catalogName)
-                }
-                fallback
-            }
-        }
+        val rows = matched.values.filterNotNull()
         sourceState.homeRows.filterIsInstance<HomeRow.CollectionRow>() + rows.map { HomeRow.Catalog(it) }
     }
     val uiState = sourceState.copy(
@@ -290,11 +282,9 @@ def apply(root):
     once(content, "                    val activeCarouselItem = activeCarouselItemState.value",
          '''                    val focusedItem = activeCarouselItemState.value
                     val activeCarouselItem = if (petalixServiceFocused) {
-                        focusedItem?.takeIf {
-                            !it.heroPreview.backdrop.isNullOrBlank() || !it.heroPreview.poster.isNullOrBlank()
-                        } ?: petalixBackgroundItems.getOrNull(
+                        petalixBackgroundItems.getOrNull(
                             petalixBackgroundIndex.intValue % petalixBackgroundItems.size.coerceAtLeast(1)
-                        )
+                        ) ?: focusedItem
                     } else focusedItem''')
 
     # The recovered service media renderer stays transparent until its first real frame.

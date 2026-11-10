@@ -14,6 +14,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 object PetalixPanelPolicy {
+    val showLocals = MutableStateFlow(false)
     val state = MutableStateFlow(Triple(false, false, false))
     fun blocked(route: String): Boolean {
         val p = state.value
@@ -45,8 +46,9 @@ class PetalixPanelSettings @Inject constructor(
         require(revision.matches(Regex("[a-f0-9]{64}")))
         val values = managed.getJSONObject("values")
         val raw = doc.optJSONObject("settings")?.optJSONObject("values") ?: JSONObject()
+        PetalixPanelPolicy.showLocals.value = values.optBoolean("pref:live_tv:petalix_show_locals", false)
         hideOtherLocals = values.optBoolean("pref:live_tv:petalix_hide_other_locals", true)
-        val stamp = revision + ":" + doc.optJSONObject("settings")?.optString("revision").orEmpty() + ":" + profiles.activeProfileId.value + ":home-lineup-v3"
+        val stamp = revision + ":" + doc.optJSONObject("settings")?.optString("revision").orEmpty() + ":" + profiles.activeProfileId.value + ":home-lineup-v4"
         PetalixPanelPolicy.state.value = Triple(values.optBoolean("mode.hideSettings"), values.optBoolean("mode.lockSettings"), values.optBoolean("mode.lockSources"))
         if (stamp == prefs.getString("stamp", "") && !values.optBoolean("mode.lockSettings")) {
             appliedCount = prefs.getInt("count", 0)

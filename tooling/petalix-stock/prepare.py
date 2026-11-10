@@ -91,6 +91,12 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
         strings.write_text(re.sub(r'(<string\b[^>]*\bname="app_name"[^>]*>).*?(</string>)',(r'\1Petalix\2' if production else r'\1Petalix Home Test\2'),strings.read_text(),flags=re.S))
     dest=root/'app/src/main/java/com/nuvio/tv/petalix';dest.mkdir(parents=True,exist_ok=True)
     for name in ['PetalixManagedCoordinator.kt','PetalixActivationActivity.kt','PetalixLocalsActivity.kt','PetalixRuntimeConfig.kt']:shutil.copy(HERE/name,dest/name)
+    shutil.copyfile(HERE/'PetalixWelcomeScreen.kt', dest/'PetalixWelcomeScreen.kt')
+    shutil.copyfile(HERE/'PetalixHomeCatalogViewModel.kt', dest/'PetalixHomeCatalogViewModel.kt')
+    once(root/'app/src/main/java/com/nuvio/tv/data/remote/api/TmdbApi.kt', 'interface TmdbApi {', 'interface TmdbApi {\n    @GET("{chart}")\n    suspend fun petalixHomeChart(@Path(value = "chart", encoded = true) chart: String,\n        @Query("api_key") key: String, @Query("region") region: String = "US",\n        @Query("language") language: String = "en-US"): Response<okhttp3.ResponseBody>\n')
+    # Keep the native account screen available in Settings; onboarding uses Petalix contact QRs.
+    auth=root/'app/src/main/java/com/nuvio/tv/ui/screens/account/AuthQrSignInScreen.kt'
+    once(auth, '    val uiState by viewModel.uiState.collectAsState()', '    if (onContinue != null) {\n        com.nuvio.tv.petalix.PetalixWelcomeScreen(onContinue = onContinue, onBackPress = onBackPress)\n        return\n    }\n    val uiState by viewModel.uiState.collectAsState()')
     collection_store=root/'app/src/main/java/com/nuvio/tv/data/local/CollectionsDataStore.kt'
     once(collection_store,'suspend fun setCollections(collections: List<Collection>) {\n        store().edit', 'suspend fun setCollections(collections: List<Collection>, profileId: Int = profileManager.activeProfileId.value) {\n        store(profileId).edit')
     once(collection_store,'suspend fun getCurrentCollections(): List<Collection> {\n        val prefs = store().data.first()', 'suspend fun getCurrentCollections(profileId: Int = profileManager.activeProfileId.value): List<Collection> {\n        val prefs = store(profileId).data.first()')
