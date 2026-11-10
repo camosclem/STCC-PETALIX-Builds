@@ -28,8 +28,6 @@ def apply(root):
     target.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(HERE / "PetalixHomeServices.kt", target / "PetalixHomeServices.kt")
 
-    if 'import androidx.compose.ui.zIndex' not in home.read_text():
-        once(home,'import androidx.compose.ui.Modifier','import androidx.compose.ui.Modifier\nimport androidx.compose.ui.zIndex')
     # Keep folder navigation on Home; each folder opens its original service experience.
     once(home, "fun HomeScreen(\n", """fun HomeScreen(
     onPetalixLiveTv: () -> Unit = {},
@@ -69,16 +67,6 @@ def apply(root):
     once(home, "    Box(\n        modifier = Modifier.fillMaxSize()\n    ) {\n        when {", """    Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // A direct My Locals entry is available even when the full Home row loaded.
-        if (homeStableGateReleased && !petalixFallback) {
-            val petalixContext = androidx.compose.ui.platform.LocalContext.current
-            androidx.tv.material3.Button(
-                onClick = {
-                    petalixContext.startActivity(android.content.Intent(petalixContext, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java))
-                },
-                modifier = Modifier.align(Alignment.TopEnd).zIndex(5f).padding(top = 20.dp, end = 28.dp)
-            ) { androidx.tv.material3.Text("My Locals") }
-        }
         when {""")
     once(home, "        when {\n            !uiState.layoutPreferencesReady -> {", """        when {
             petalixFallback -> com.nuvio.tv.petalix.PetalixHomeServicesFallback(
@@ -97,7 +85,7 @@ def apply(root):
     }
     if (hasCollections && !hasPetalixServices && !hasCatalogs && uiState.installedAddonsCount > 0 && uiState.isLoading) {""")
 
-    # Preserve every native row and its own relative order while putting services first.
+    # Keep Continue Watching and services on Home; catalogs remain within the service views.
     once(presentation,
          "    val lookups = buildCarouselRowLookups(rows)",
          "    val orderedRows = com.nuvio.tv.petalix.petalixServicesFirst(rows) { it.key }\n    val lookups = buildCarouselRowLookups(orderedRows)")
@@ -117,6 +105,12 @@ def apply(root):
     once(modern_rows,
          "                    val isPlaceholderItem = item.imageUrl.isPlaceholder()",
          "                    val isPlaceholderItem = petalixLogoUri == null && item.imageUrl.isPlaceholder()")
+    once(modern_rows, "                Box(modifier = mediaLayerModifier) {\n", """                Box(modifier = mediaLayerModifier) {
+                    if (petalixLogoUri != null) com.nuvio.tv.petalix.PetalixServiceTileBackdrop(
+                        folderId = payload!!.folderId,
+                        modifier = Modifier.matchParentSize()
+                    )
+""")
     once(modern_rows, """                            contentDescription = item.title,
                             modifier = Modifier.fillMaxSize(),
                             placeholder = backgroundPainter,
@@ -124,11 +118,13 @@ def apply(root):
                             modifier = Modifier.fillMaxSize().then(
                                 if (petalixLogoUri != null) Modifier.padding(16.dp) else Modifier
                             ),
-                            placeholder = backgroundPainter,
+                            placeholder = if (petalixLogoUri != null) null else backgroundPainter,
 """)
-    once(modern_rows, """                            fallback = backgroundPainter,
+    once(modern_rows, """                            error = backgroundPainter,
+                            fallback = backgroundPainter,
                             contentScale = imageContentScale,
-""", """                            fallback = backgroundPainter,
+""", """                            error = if (petalixLogoUri != null) null else backgroundPainter,
+                            fallback = if (petalixLogoUri != null) null else backgroundPainter,
                             contentScale = if (petalixLogoUri != null) ContentScale.Fit else imageContentScale,
 """)
 
@@ -148,6 +144,11 @@ def apply(root):
              "            val activeImageUrl = collectionFolderCardImageUrl(folder, isFocused)",
              """            val petalixLogoUri = com.nuvio.tv.petalix.petalixServiceLogoUri(folder.id)
             val activeImageUrl = petalixLogoUri ?: collectionFolderCardImageUrl(folder, isFocused)""")
+        once(path, "            if (!activeImageUrl.isNullOrBlank()) {", """            if (petalixLogoUri != null) com.nuvio.tv.petalix.PetalixServiceTileBackdrop(
+                folderId = folder.id,
+                modifier = Modifier.matchParentSize()
+            )
+            if (!activeImageUrl.isNullOrBlank()) {""")
         if relative.endswith("CollectionRowSection.kt"):
             once(path, """                    contentDescription = if (folder.hideTitle) folder.title else null,
                     modifier = Modifier

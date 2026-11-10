@@ -9,7 +9,7 @@ def once(p,old,new):
 def apply(root):
  source=root/'app/src/main/java/com/nuvio/tv';dest=source/'petalix'
  with (root/'app/proguard-rules.pro').open('a') as stream:stream.write('\n-keep class com.nuvio.tv.petalix.** { *; }\n')
- for name in ['ManagedNativeSettings.kt','PetalixPanelSettings.kt','PanelChannelIdentity.kt']:
+ for name in ['ManagedNativeSettings.kt','PetalixPanelSettings.kt','PanelChannelIdentity.kt','PetalixServiceCatalog.kt']:
   shutil.copyfile(HERE/name,dest/name)
  for name in ['managed-native-controls.json','pin-settings-map.json']:
   shutil.copyfile(HERE/name,root/'app/src/main/assets'/name)

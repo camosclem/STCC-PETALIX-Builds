@@ -35,16 +35,8 @@ def prepare(root,version,production=False):
     once(gradle,'buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")','buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "false")')
     with gradle.open('a') as f:
         f.write('\nandroid.defaultConfig.versionCode = '+str(version)+'\nandroid.defaultConfig.versionName = "1.1.0-petalix.home13.1-test4"\nandroid.defaultConfig.buildConfigField("String", "PETALIX_PANEL", buildConfigString("https://petalix-control.caroliinaconsultant.chatgpt.site"))\n')
-        # Use the pinned upstream TEST key for this isolated package. It is recoverable
-        # from the same source commit, unlike an ephemeral runner-generated debug key.
-        f.write('''
-android.signingConfigs.getByName("debug").apply {
-    storeFile = rootProject.file("keystore/livetv-fork.jks")
-    storePassword = "livetvfork"
-    keyAlias = "livetv"
-    keyPassword = "livetvfork"
-}
-''')
+        # CI builds with Android's debug signing and the protected signing job
+        # applies the customer's stable release certificate afterward.
     if production:
         gradle.write_text(gradle.read_text().replace('"1.1.0-petalix.home13.1-test4"', '"1.1.0-petalix.panel'+str(version)+'"').replace('"FEATURE_IN_APP_UPDATES_ENABLED", "false"', '"FEATURE_IN_APP_UPDATES_ENABLED", "true"'))
     from PIL import Image
@@ -133,21 +125,21 @@ android.signingConfigs.getByName("debug").apply {
     once(loading,'    val message = when {','''    val localsPrefs = remember(context) { context.getSharedPreferences("petalix_session_v2", android.content.Context.MODE_PRIVATE) }
     var showLocals by remember { androidx.compose.runtime.mutableStateOf(false) }
     val channelCount by entry.liveTvRepository().channels.collectAsState()
-    androidx.compose.runtime.LaunchedEffect(route, live.loading, channelCount.size, playing) {
-        if (route == Screen.LiveTv.route && !playing && !live.loading && channelCount.isNotEmpty() &&
+    androidx.compose.runtime.LaunchedEffect(route, live.loading, channelCount.size) {
+        if (route == Screen.LiveTv.route && !live.loading && channelCount.isNotEmpty() &&
             !localsPrefs.getBoolean("localsSetupV1", false) && !localsPrefs.getBoolean("localsPromptShownV1", false)) {
             if (localsPrefs.edit().putBoolean("localsPromptShownV1", true).commit()) showLocals = true
         }
     }
     val message = when {''')
     once(loading,'    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {','''    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-        if (showLocals && route == Screen.LiveTv.route && !playing) {
+        if (showLocals && route == Screen.LiveTv.route) {
             Row(modifier = Modifier.align(Alignment.BottomCenter)
                 .padding(bottom = 64.dp)
                 .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(14.dp))
                 .padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                LiveText("Set up My Locals by ZIP?", color = Color.White, size = 14.sp)
+                LiveText("Show local stations for your ZIP?", color = Color.White, size = 14.sp)
                 androidx.compose.material3.TextButton(onClick = {
                     showLocals = false
                     context.startActivity(android.content.Intent(context, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java))
@@ -161,7 +153,7 @@ android.signingConfigs.getByName("debug").apply {
     once(settings,'    // HUB: one Live TV page', '    val petalixContext = androidx.compose.ui.platform.LocalContext.current\n    // HUB: one Live TV page')
     once(settings,'            if (show(LiveTvPage.MAIN)) item(key = "channels") {', '''            if (show(LiveTvPage.MAIN)) item(key = "petalix_locals") {
                 SettingsGroupCard {
-                    SettingsActionRow("My Locals", "Choose local stations by ZIP code", onClick = {
+                    SettingsActionRow("Local stations", "Change ZIP code or local stations", onClick = {
                         petalixContext.startActivity(android.content.Intent(petalixContext, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java))
                     })
                 }

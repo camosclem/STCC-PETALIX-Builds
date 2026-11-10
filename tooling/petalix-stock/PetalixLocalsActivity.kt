@@ -42,7 +42,7 @@ class PetalixLocalsActivity : ComponentActivity() {
             text = value; textSize = size; setTextColor(Color.WHITE)
             gravity = Gravity.CENTER; setPadding(0, dp(5), 0, dp(5))
         }
-        content.addView(line("My Locals", 26f))
+        content.addView(line("Local stations", 26f))
         content.addView(line("Enter your ZIP, then confirm the stations available in Petalix.", 16f))
         val zip = EditText(this).apply {
             hint = "5-digit ZIP code"; setHintTextColor(Color.GRAY); setTextColor(Color.WHITE)

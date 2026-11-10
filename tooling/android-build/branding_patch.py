@@ -17,6 +17,14 @@ def apply(root, brand):
                 return match.group(0)
             return prefix + (label if name == 'app_name' else copy(value, label)) + suffix
         path.write_text(RESOURCE.sub(resource, path.read_text()))
+    # The full IPTV flavor overrides the launcher label in a separate file for
+    # every locale; strings.xml alone leaves "Nuvio + IPTV" on the TV launcher.
+    for path in (root/'app/src').rglob('livetv_app_name.xml'):
+        path.write_text(RESOURCE.sub(
+            lambda match: match.group(1) + label + match.group(4)
+            if match.group(2) == 'app_name' else match.group(0),
+            path.read_text()
+        ))
     for path in (root/'app/src').rglob('*.kt'):
         if any('/'+part+'/' in str(path) for part in ['test','androidTest','data','domain','core','petalix','updater']) or path.name.endswith(('Repository.kt','Preferences.kt','ViewModel.kt')):
             continue

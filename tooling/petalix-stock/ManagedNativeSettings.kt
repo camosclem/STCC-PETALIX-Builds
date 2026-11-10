@@ -73,7 +73,7 @@ internal fun nativePreferencePatch(old:Preferences,specs:List<NativeControl>,val
 
 @Singleton
 class ManagedNativeSettings @Inject constructor(
-    @ApplicationContext context:Context,
+    @ApplicationContext private val context:Context,
     private val factory:ProfileDataStoreFactory,
     private val profiles:ProfileManager,
     private val live:LiveTvPreferences,
@@ -119,11 +119,16 @@ class ManagedNativeSettings @Inject constructor(
     private fun save(key:String,value:JSONObject) { check(backup.edit().putString(key,value.toString()).commit()) }
     suspend fun apply(values:JSONObject) {
         validate(values)
+        val prepared=JSONObject(values.toString())
+        val collectionKey="pref:collections:collections_json"
+        if(prepared.has(collectionKey)) prepared.put(collectionKey,PetalixServiceCatalog.reconcile(
+            prepared.getString(collectionKey),context.assets.open("petalix/streaming-services.json").bufferedReader().use { it.readText() }
+        ))
         // Finish one-time native migrations before assigning managed values.
         player.playerSettings.first();badges.settings.first()
         addons.applyManagedCncverse(if(values.has("addon:cncverse"))values.getString("addon:cncverse") else null)
         addons.applyManagedKaptain(if(values.has("addon:kaptain"))values.getString("addon:kaptain") else null)
-        applyControls(controls.filter { it.feature!="managed_addons" },values,"")
+        applyControls(controls.filter { it.feature!="managed_addons" },prepared,"")
     }
     suspend fun applyRaw(raw:JSONObject) {
         val specs=mutableListOf<NativeControl>();val values=JSONObject()

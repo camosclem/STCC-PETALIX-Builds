@@ -43,11 +43,10 @@ import kotlinx.coroutines.flow.map
 const val PETALIX_SERVICES_COLLECTION = "collection-streaming-services-only"
 internal const val PETALIX_SERVICES_ROW = "collection_collection-streaming-services-only"
 
-/** Move the service row first without removing, duplicating, or reordering other native rows. */
+/** A calm Home: service tiles and Continue Watching, with catalogs inside each service. */
 internal fun <T> petalixServicesFirst(rows: List<T>, key: (T) -> String): List<T> {
-    if (rows.none { key(it) == PETALIX_SERVICES_ROW }) return rows
-    return rows.filter { key(it) == PETALIX_SERVICES_ROW } +
-        rows.filterNot { key(it) == PETALIX_SERVICES_ROW }
+    val service = rows.filter { key(it) == PETALIX_SERVICES_ROW }
+    return service + rows.filter { key(it) == "continue_watching" }
 }
 
 @EntryPoint
@@ -129,9 +128,6 @@ fun PetalixHomeServicesFallback(
                 onClick = onLiveTv,
                 modifier = if (services == null) Modifier.focusRequester(contentFocusRequester) else Modifier
             ) { Text("Live TV") }
-            Button(onClick = {
-                context.startActivity(android.content.Intent(context, PetalixLocalsActivity::class.java))
-            }) { Text("My Locals") }
             Button(onClick = onSettings) { Text("Settings") }
         }
     }

@@ -7,6 +7,8 @@ package com.nuvio.tv.petalix
 import android.graphics.Color as AndroidColor
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -54,6 +58,24 @@ fun petalixServiceIntroUri(folderId: String): String? =
     if (folderId == "folder-petalix-britbox") "file:///android_asset/petalix/britbox-intro/intro.mp4" else petalixOriginalServiceIds[folderId]?.let {
         "file:///android_asset/petalix2/service-media/$it.mp4"
     }
+
+/** A soft tinted surface makes transparent service marks readable without black squares. */
+@Composable
+fun PetalixServiceTileBackdrop(folderId: String, modifier: Modifier = Modifier) {
+    val colors = when (folderId) {
+        "folder-WFGY1XPD" -> listOf(Color(0xFF402733), Color(0xFF262B42))
+        "folder-AT8KYHZO" -> listOf(Color(0xFF28465C), Color(0xFF30374E))
+        "folder-8ZBZOMW9" -> listOf(Color(0xFF324868), Color(0xFF413958))
+        "folder-LN9SPMQN" -> listOf(Color(0xFF31605A), Color(0xFF35434D))
+        "folder-OA4T8NYO" -> listOf(Color(0xFF493B64), Color(0xFF354254))
+        "folder-ILJM8PD0" -> listOf(Color(0xFF365674), Color(0xFF3A4567))
+        "folder-IQTF27K8" -> listOf(Color(0xFF485768), Color(0xFF303F55))
+        "folder-9YQK1ZF1" -> listOf(Color(0xFF43536A), Color(0xFF3F3D5B))
+        "folder-petalix-britbox" -> listOf(Color(0xFF6E9CB4), Color(0xFF536D91))
+        else -> return
+    }
+    Box(modifier.background(Brush.linearGradient(colors)))
+}
 
 /**
  * Draw after the native card's image/GIF. It stays transparent until the first
