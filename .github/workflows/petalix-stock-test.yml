@@ -34,7 +34,7 @@ jobs:
         run: |
           git clone --quiet --depth 1 --branch 1.1.0-beta.13.1 https://github.com/homelessbrian/NuvioPlusIPTV.git upstream
           test "$(git -C upstream rev-parse HEAD)" = c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e
-          python3 tooling/petalix-stock/prepare.py --upstream upstream --version 1794263002
+          python3 tooling/petalix-stock/prepare.py --upstream upstream --version 1794263003
       - name: Compile separate native test APK
         working-directory: upstream
         env:
@@ -54,7 +54,7 @@ jobs:
           test -n "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > /tmp/petalix-identity.txt
           grep -F "name='com.petalix.iptv.hometest'" /tmp/petalix-identity.txt
-          grep -F "versionCode='1794263002'" /tmp/petalix-identity.txt
+          grep -F "versionCode='1794263003'" /tmp/petalix-identity.txt
           grep -F "application-label:'Petalix Home Test'" /tmp/petalix-identity.txt
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" > /tmp/petalix-current-cert.txt
@@ -122,7 +122,7 @@ jobs:
           PY
           (cd release && sha256sum Petalix-13.1-Home-Services-Test.apk Petalix-13.1-Home-Services-Test-Source.zip > Petalix-13.1-Home-Services-Test.sha256)
           cat > /tmp/petalix-release-notes.md <<'EOF'
-          Adds first-open ZIP lookup and station confirmation. Change your ZIP in Settings > Live TV > Setup > My Locals. ZIP matching uses the saved curated panel lineup and its hidden-channel rules. Choose NC, SC and MN as the fallback. Unmapped ZIPs or markets without matching stations do not save an empty lineup.
+          Shows a one-time, small ZIP suggestion only after Live TV has channels. Removes the blank guide startup gate. Change your ZIP in Settings > Live TV > Setup > My Locals. ZIP matching uses the saved curated panel lineup and its hidden-channel rules. Choose NC, SC and MN as the fallback. Unmapped ZIPs or markets without matching stations do not save an empty lineup.
 
           Restores the horizontal Home service row and the distinct service interfaces from the latest Petalix 8.3 source, on pinned Nuvio + IPTV 1.1.0-beta.13.1.
 
@@ -130,13 +130,13 @@ jobs:
 
           Reference: Petalix 8.3 build 1793881218, source SHA-256 88beb6fe08b948b3909c1cfe88e2474010738e715a75f0fb450bda862e8998f9. The restored service layouts and detail screens are taken from that matching published source. Eight services retain their original video/audio intros. BritBox has a new custom Petalix animated intro and original two-note audio cue. Tubi and Pluto are removed from the service row.
 
-          This installs separately as Petalix Home Test, package com.petalix.iptv.hometest, version code 1794263002. This updates the previous Petalix Home Test in place. The older Test 2 package used a different signing key and package. The new isolated package uses the fixed test signing key from the pinned upstream source; CI verifies its exact certificate digest so later Home Test builds can update it. It does not publish a customer update.
+          This installs separately as Petalix Home Test, package com.petalix.iptv.hometest, version code 1794263003. This updates the previous Petalix Home Test in place. The older Test 2 package used a different signing key and package. The new isolated package uses the fixed test signing key from the pinned upstream source; CI verifies its exact certificate digest so later Home Test builds can update it. It does not publish a customer update.
 
           Activate this separate test app with your Petalix PIN and an available test device slot. Existing apps and their activation remain installed.
 
           Metadata configuration comes from the existing authenticated panel connection. Provider credentials are not included. The public upstream test key is excluded from the source archive; rebuilders can obtain it from pinned upstream commit c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e at keystore/livetv-fork.jks. Physical TV validation of remote navigation, sound and playback is still required. Matching source and SHA-256 checksums are included.
           EOF
-          gh release create petalix-13.1-zip-locals-20261109 release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Petalix 13.1 — ZIP Locals Test' --notes-file /tmp/petalix-release-notes.md --prerelease --latest=false
+          gh release create petalix-13.1-guide-test-20261109 release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'Petalix 13.1 — Live TV Guide Test' --notes-file /tmp/petalix-release-notes.md --prerelease --latest=false
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -77,11 +77,6 @@ android.signingConfigs.getByName("debug").apply {
             finish()
             return
         }
-        if (!petalixBridge.localsSetupDone && !intent.getBooleanExtra("skipLocalsOnce", false)) {
-            startActivity(Intent(this, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java).putExtra("setup", true))
-            finish()
-            return
-        }
         lifecycleScope.launch { petalixBridge.observeProfiles() }
         lifecycleScope.launch {
             while (true) {
@@ -124,6 +119,40 @@ android.signingConfigs.getByName("debug").apply {
                     }
                 )
             } else com.nuvio.tv.ui.screens.collection.FolderDetailScreen(''')
+    guide=root/'app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt'
+    once(guide,'''    if (!viewModel.isSettingsLoaded(loadedSettings) || !menuLoaded) {
+        Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background))
+        return
+    }
+''','')
+    loading=root/'app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvLoadingHost.kt'
+    once(loading,'    val message = when {','''    val localsPrefs = remember(context) { context.getSharedPreferences("petalix_session_v2", android.content.Context.MODE_PRIVATE) }
+    var showLocals by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val channelCount by entry.liveTvRepository().channels.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(route, live.loading, channelCount.size) {
+        if (route == Screen.LiveTv.route && !live.loading && channelCount.isNotEmpty() &&
+            !localsPrefs.getBoolean("localsSetupV1", false) && !localsPrefs.getBoolean("localsPromptShownV1", false)) {
+            if (localsPrefs.edit().putBoolean("localsPromptShownV1", true).commit()) showLocals = true
+        }
+    }
+    val message = when {''')
+    once(loading,'    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {','''    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
+        if (showLocals && route == Screen.LiveTv.route && !playing) {
+            Row(modifier = Modifier.align(Alignment.BottomCenter)
+                .padding(bottom = 64.dp)
+                .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(14.dp))
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                LiveText("Set up My Locals by ZIP?", color = Color.White, size = 14.sp)
+                androidx.compose.material3.TextButton(onClick = {
+                    showLocals = false
+                    context.startActivity(android.content.Intent(context, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java))
+                }) { androidx.compose.material3.Text("Choose ZIP") }
+                androidx.compose.material3.TextButton(onClick = { showLocals = false }) {
+                    androidx.compose.material3.Text("Later")
+                }
+            }
+        }''')
     settings=root/'app/src/main/java/com/nuvio/tv/ui/screens/settings/LiveTvSettingsContent.kt'
     once(settings,'    // HUB: one Live TV page', '    val petalixContext = androidx.compose.ui.platform.LocalContext.current\n    // HUB: one Live TV page')
     once(settings,'            if (show(LiveTvPage.MAIN)) item(key = "channels") {', '''            if (show(LiveTvPage.MAIN)) item(key = "petalix_locals") {
