@@ -80,7 +80,19 @@ def prepare_home_baseline(item,brand,work,cache):
         from splash_screen_patch import apply as apply_startup_splash
         apply_startup_splash(work,brand)
     return version
+def prepare_native_panel(item,brand,work,cache):
+    if brand!='petalix' or item['source']['sha']!='c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e':raise RuntimeError('Native customer build identity changed')
+    run(['git','clone','--quiet','--depth','1','--branch','1.1.0-beta.13.1','https://github.com/homelessbrian/NuvioPlusIPTV.git',work])
+    import importlib.util
+    helper=pathlib.Path(__file__).resolve().parents[1]/'petalix-stock/prepare.py'
+    spec=importlib.util.spec_from_file_location('native_panel',helper);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    module.prepare(work,item['versionCode'],production=True)
+    (work/'local.properties').write_text('sdk.dir='+os.environ.get('ANDROID_HOME',os.environ.get('ANDROID_SDK_ROOT',''))+'\n')
+    (work/'gradlew').chmod(0o755)
+    return '1.1.0-petalix.panel'+str(item['versionCode'])
+
 def prepare(item,brand,work,cache):
+    if item.get('recipeRevision')=='petalix-native-panel-13-1-v1':return prepare_native_panel(item,brand,work,cache)
     if os.environ.get("PETALIX_UI2_TEST") == "true" and brand == "petalix":
         # Only a manually approved, panel-issued job may produce a branded 2.0
         # update. Keep the exact same Petalix PIN code and signed package ID.

@@ -87,9 +87,10 @@ def android_tools():
 
 def sign_and_release():
     item=job();out=pathlib.Path('release');out.mkdir(exist_ok=True)
+    native=item.get('recipeRevision')=='petalix-native-panel-13-1-v1'
     ui2=os.environ.get('PETALIX_UI2_TEST')=='true'
     petalix_only=os.environ.get('PETALIX_ONLY_TEST')=='true'
-    if petalix_only and not ui2:
+    if petalix_only and not ui2 and not native:
         raise RuntimeError('Petalix-only publication requires the authorized UI2 test mode')
     if ui2:
         from home_baseline import UPSTREAM
@@ -111,7 +112,7 @@ def sign_and_release():
     tools=android_tools();artifacts=pathlib.Path('artifacts')
     with tempfile.TemporaryDirectory(prefix='android-signing-') as private:
         key=pathlib.Path(private)/'release.jks';key.write_bytes(base64.b64decode(credentials['key']));key.chmod(0o600)
-        brands=[('petalix','Petalix','com.petalix.iptv.preview',0)] if petalix_only else [('petalix','Petalix','com.petalix.iptv.preview',0),('stcc','STCC','com.stcc.iptv',1)]
+        brands=[('petalix','Petalix','com.petalix.iptv.preview',0)] if petalix_only or native else [('petalix','Petalix','com.petalix.iptv.preview',0),('stcc','STCC','com.stcc.iptv',1)]
         for brand,label,package,offset in brands:
             number=item['versionCode']+offset;version='1.1.0-'+brand+'.panel'+str(number)
             is_ui2=ui2 and brand=='petalix'
@@ -133,11 +134,11 @@ def sign_and_release():
             import zipfile
             with zipfile.ZipFile(apk) as z:
                 if not any(b'device-updates-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Individual-device update capability missing')
-                for capability in ([b'panel-session-origin-v1',b'service-hubs-v1'] if is_ui2 else [b'panel-session-origin-v1',b'seek-previews-test-v1',b'service-hubs-v1'] if trial else [b'panel-session-origin-v1'] if home else [b'pengu-play-panel-v1',b'service-hubs-v1',b'panel-session-origin-v1']):
+                for capability in ([b'panel-session-origin-v1',b'service-hubs-v1'] if is_ui2 or native else [b'panel-session-origin-v1',b'seek-previews-test-v1',b'service-hubs-v1'] if trial else [b'panel-session-origin-v1'] if home else [b'pengu-play-panel-v1',b'service-hubs-v1',b'panel-session-origin-v1']):
                     if not any(capability in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Test app capability missing: '+capability.decode())
                 if legacy and any(legacy.encode() in z.read(n) or legacy.removesuffix('/manifest.json').encode() in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n) or n.startswith('assets/')):raise RuntimeError('A private built-in Pengu Play URL remains in the APK')
-                if not home and not is_ui2 and not any(b'pengu-play-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Pengu Play access capability missing')
-                if not home and not is_ui2 and not any(b'home-services-first-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Streaming Services first-row capability missing')
+                if not native and not home and not is_ui2 and not any(b'pengu-play-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Pengu Play access capability missing')
+                if not native and not home and not is_ui2 and not any(b'home-services-first-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Streaming Services first-row capability missing')
                 if is_ui2:
                     dex_files=[n for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)]
                     for marker in [b'petalix-motion-v2',b'petalix-visible-intro-v2',b'petalix-distinct-service-layouts-v3',b'petalix-native-guide-v14',b'management-v4',b'remote-control-v1']:
@@ -160,7 +161,7 @@ def sign_and_release():
                     doc=loads(z.read(catalog))
                     if len(doc)!=1 or len(doc[0].get('folders',[]))!=10:
                         raise RuntimeError('Petalix 2 should have 10 service-specific browsing folders')
-                if not any(tmdb.encode() in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('The TMDB key was not included in the built app.')
+                if not native and not any(tmdb.encode() in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('The TMDB key was not included in the built app.')
             source_candidates=list(artifacts.rglob(brand+'-source.zip'))
             if len(source_candidates)!=1:raise RuntimeError('Corresponding source missing')
             source_name=(label+'-UI2-Authorized-Test-'+str(number)+'-Source.zip') if is_ui2 else ((label+'-Seek-Previews-and-Service-Templates-Test-Source.zip') if trial else label+'-'+str(number)+'-Source.zip')
@@ -207,6 +208,19 @@ def sign_and_release():
                     physicalDeviceActivationVerified=False,
                     notes='Petalix 2 FULL UI TEST, properly signed with original Petalix release certificate, using original com.petalix.iptv.preview application ID and original PIN integration. Installs as an UPDATE over existing Petalix (not side-by-side). Not customer-approved until a real Shield/Android TV activation and playback smoke test passes. No automatic customer deployment.'
                 )
+            if native:
+                with zipfile.ZipFile(apk) as z:
+                    dex=b''.join(z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n))
+                    for marker in [b'PetalixPanelSettings',b'PetalixLocalsActivity',b'native-panel-settings-v1',b'favorites-backup-v1',b'petalix-stock-native-v1',b'management-v4',b'device-updates-v1']:
+                        if marker not in dex:raise RuntimeError('Native customer feature missing: '+marker.decode())
+                    catalog=json.loads(z.read('assets/petalix/streaming-services.json'))
+                    assert [f['title'] for f in catalog[0]['folders']]==['Netflix','Prime Video','Disney+','Hulu','HBO Max','Apple TV+','Peacock','Paramount+','BritBox']
+                    bundle=json.loads(z.read('assets/petalix2/service-media-bundle.json'))
+                    for entry in [*bundle['media'].values(),*bundle['logos'].values()]:
+                        assert hashlib.sha256(z.read('assets/'+entry['assetPath'])).hexdigest()==entry['sha256']
+                    intro=json.loads(z.read('assets/petalix/britbox-intro/manifest.json'))
+                    for name,entry in intro['assets'].items():assert hashlib.sha256(z.read('assets/petalix/britbox-intro/'+name)).hexdigest()==entry['sha256']
+                meta.update(testOnly=True,recipeRevision='petalix-native-panel-13-1-v1',supportsNativePanelPlaylist=True,supportsFavoritesBackup=True,supportsAllSettings=True,supportsPanelPenguPlay=False,supportsPenguPlay=False,supportsServiceHubs=True,supportsServicesFirst=True,supportsDeviceUpdates=True,notes='Signed native Nuvio + IPTV 13.1 customer-update candidate. Uses the existing Petalix package, signing certificate and saved activation. Includes panel settings delivery with apply receipts, per-profile favorites backup/restore, stable favorite identities, the curated panel lineup, sports groups, My Locals and optional one-time ZIP suggestion after channels load, and nine streaming services with intros. Prepared for owner testing. Customer send requires the panel test approval and a separate Send updates action.')
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')
@@ -214,13 +228,13 @@ def sign_and_release():
     if existing.returncode==0:raise RuntimeError('This build release already exists. Verify its state before retrying publication.')
     run(['gh','release','create',tag,'--repo',REPOSITORY,'--title','STCC + Petalix · '+(item['source']['tag'] or item['source']['sha'][:10]),'--notes-file',notes,'--prerelease',*assets])
     release=json.loads(run(['gh','api','repos/'+REPOSITORY+'/releases/tags/'+tag],capture_output=True,text=True).stdout)
-    if petalix_only:
+    if petalix_only and not native:
         # The paired panel request remains incomplete because STCC was explicitly deferred.
         # Publish the verified Petalix prerelease without offering a customer update.
         panel('failed',{'id':item['id'],'error':'Petalix-only signed test APK published for manual testing: '+release['html_url']+'. STCC deferred; the paired panel request is not complete.'})
         print('Petalix signed test APK published: '+release['html_url'],flush=True)
         return
-    panel('complete',{'id':item['id'],'release':release,'metadata':{brand:json.loads((out/(brand+'-release.json')).read_text()) for brand in ['petalix','stcc']}})
+    panel('complete',{'id':item['id'],'release':release,'metadata':{brand:json.loads((out/(brand+'-release.json')).read_text()) for brand in (['petalix'] if native else ['petalix','stcc'])}})
     print('Both signed builds were published for review. Customer deployment remains a separate panel action.')
 def recover():
     identifier=os.environ.get('RECOVER_BUILD_ID','')

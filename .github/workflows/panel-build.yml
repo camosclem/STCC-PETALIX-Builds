@@ -69,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        brand: ${{ fromJSON(inputs.petalix_only && '["petalix"]' || '["petalix","stcc"]') }}
+        brand: ${{ fromJSON(contains(needs.claim.outputs.job, 'petalix-native-panel-13-1-v1') && '["petalix"]' || inputs.petalix_only && '["petalix"]' || '["petalix","stcc"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -85,6 +85,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Pinned Petalix 2 full-screen UI source
         if: ${{ inputs.ui2_test && matrix.brand == 'petalix' }}
         uses: actions/checkout@v4
@@ -96,6 +99,10 @@ jobs:
       - name: Android SDK
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+      - name: Native service media dependencies
+        run: |
+          python3 -m pip install --disable-pip-version-check Pillow
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; fi
       - name: Shared app defaults
         run: python3 tooling/android-build/runner.py defaults
       - name: Merge, test and build
