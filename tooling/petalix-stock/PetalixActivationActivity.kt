@@ -1,7 +1,9 @@
 package com.nuvio.tv.petalix
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
@@ -33,7 +35,10 @@ class PetalixActivationActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dp(40), dp(25), dp(40), dp(25))
-            setBackgroundColor(Color.rgb(15, 16, 22))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(31, 43, 61), Color.rgb(10, 14, 23), Color.rgb(10, 14, 23))
+            )
         }
         fun line(value: String, size: Float) = TextView(this).apply {
             text = value
@@ -46,7 +51,6 @@ class PetalixActivationActivity : ComponentActivity() {
             setImageResource(R.drawable.app_logo_wordmark)
             scaleType = ImageView.ScaleType.FIT_CENTER
         }, LinearLayout.LayoutParams(dp(440), dp(110)))
-        content.addView(line("Welcome to Petalix", 24f))
         val message = line("Activate with your existing 8-digit Petalix PIN.", 15f)
         val pin = EditText(this).apply {
             hint = "8-digit activation PIN"
@@ -59,7 +63,19 @@ class PetalixActivationActivity : ComponentActivity() {
             filters = arrayOf(android.text.InputFilter.LengthFilter(8))
         }
         content.addView(pin, LinearLayout.LayoutParams(dp(360), dp(60)))
-        val button = Button(this).apply { text = "Activate this TV"; isAllCaps = false }
+        val button = Button(this).apply {
+            text = "Activate this TV"
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList(
+                arrayOf(
+                    intArrayOf(-android.R.attr.state_enabled),
+                    intArrayOf(android.R.attr.state_focused),
+                    intArrayOf()
+                ),
+                intArrayOf(Color.rgb(46, 52, 61), Color.rgb(166, 30, 48), Color.rgb(90, 35, 47))
+            )
+        }
         content.addView(button, LinearLayout.LayoutParams(dp(360), dp(58)))
         content.addView(message)
         setContentView(content, ViewGroup.LayoutParams(-1, -1))

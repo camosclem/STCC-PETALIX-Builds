@@ -69,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        brand: ${{ fromJSON(contains(needs.claim.outputs.job, 'petalix-native-panel-13-1-v1') && '["petalix"]' || inputs.petalix_only && '["petalix"]' || '["petalix","stcc"]') }}
+        brand: ${{ fromJSON((contains(needs.claim.outputs.job, 'petalix-native-panel-13-1-v1') || contains(needs.claim.outputs.job, 'petalix-native-panel-13-2-v1')) && '["petalix"]' || inputs.petalix_only && '["petalix"]' || '["petalix","stcc"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

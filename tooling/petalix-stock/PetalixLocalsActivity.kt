@@ -1,6 +1,11 @@
 package com.nuvio.tv.petalix
 
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.StateListDrawable
+import android.view.ViewGroup
+import android.widget.CheckedTextView
 import android.graphics.Color
 import android.os.Bundle
 import android.text.InputFilter
@@ -53,7 +58,15 @@ class PetalixLocalsActivity : ComponentActivity() {
             setTextColor(Color.WHITE)
             setPadding(0, dp(4), 0, dp(4))
         }
-        fun button(label: String) = Button(this).apply { text = label; isAllCaps = false }
+        fun button(label: String) = Button(this).apply {
+            text = label
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList(
+                arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf(android.R.attr.state_focused), intArrayOf()),
+                intArrayOf(Color.rgb(42, 43, 52), Color.rgb(100, 61, 166), Color.rgb(57, 58, 73))
+            )
+        }
         fun row() = LinearLayout(this).also { content.addView(it) }
 
         content.addView(line("My Locals", 26f))
@@ -88,6 +101,11 @@ class PetalixLocalsActivity : ComponentActivity() {
         content.addView(search)
         val list = ListView(this).apply {
             choiceMode = ListView.CHOICE_MODE_MULTIPLE
+            selector = StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), ColorDrawable(Color.rgb(88, 49, 155)))
+                addState(intArrayOf(android.R.attr.state_pressed), ColorDrawable(Color.rgb(88, 49, 155)))
+                addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))
+            }
             visibility = View.INVISIBLE
         }
         content.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -115,7 +133,17 @@ class PetalixLocalsActivity : ComponentActivity() {
             }
             val labels = visibleStations.map { it.name }
             list.clearChoices()
-            list.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_multiple_choice, labels)
+            list.adapter = object : ArrayAdapter<String>(
+                this, android.R.layout.simple_list_item_multiple_choice, labels
+            ) {
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    return (super.getView(position, convertView, parent) as CheckedTextView).apply {
+                        setTextColor(Color.WHITE)
+                        checkMarkTintList = ColorStateList.valueOf(Color.WHITE)
+                        minHeight = dp(44)
+                    }
+                }
+            }
             visibleStations.forEachIndexed { index, channel -> list.setItemChecked(index, channel.key in selected) }
             toggle.text = if (showAll) "Show nearby locals" else "Browse all locals"
             message.text = if (data.available.isEmpty()) {

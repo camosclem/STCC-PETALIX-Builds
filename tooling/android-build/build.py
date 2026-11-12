@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Merge a pinned upstream tree with the saved managed app source, then build without release keys."""
 import hashlib,json,os,pathlib,re,shutil,subprocess,sys,tarfile,tempfile,urllib.request,zipfile
-from runner import ORIGIN,run
+from runner import NATIVE_PANEL_RECIPES, ORIGIN, run
 BASE='39aa0cd17a417497d1e6a77479a12fa21bdc0f5c'
 SOURCES={'petalix':('Petalix-7.5-Controls-Source.zip','fb9383b8078cd82b9271c8ca0474329a032e6e055fc91f35300a47e50eb79a77'),'stcc':('STCC-7.5-Controls-Source.zip','af42529c12a412e7f47dee89b02cc43a5e80d880447c2071f3002eed0b82b3dd')}
 def download(url,path):
@@ -81,8 +81,10 @@ def prepare_home_baseline(item,brand,work,cache):
         apply_startup_splash(work,brand)
     return version
 def prepare_native_panel(item,brand,work,cache):
-    if brand!='petalix' or item['source']['sha']!='c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e':raise RuntimeError('Native customer build identity changed')
-    run(['git','clone','--quiet','--depth','1','--branch','1.1.0-beta.13.1','https://github.com/homelessbrian/NuvioPlusIPTV.git',work])
+    tag, revision = NATIVE_PANEL_RECIPES[item['recipeRevision']]
+    if brand != 'petalix' or item['source']['sha'] != revision:
+        raise RuntimeError('Native customer build identity changed')
+    run(['git','clone','--quiet','--depth','1','--branch',tag,'https://github.com/homelessbrian/NuvioPlusIPTV.git',work])
     import importlib.util
     helper=pathlib.Path(__file__).resolve().parents[1]/'petalix-stock/prepare.py'
     spec=importlib.util.spec_from_file_location('native_panel',helper);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -92,7 +94,7 @@ def prepare_native_panel(item,brand,work,cache):
     return '1.1.0-petalix.panel'+str(item['versionCode'])
 
 def prepare(item,brand,work,cache):
-    if item.get('recipeRevision')=='petalix-native-panel-13-1-v1':return prepare_native_panel(item,brand,work,cache)
+    if item.get('recipeRevision') in NATIVE_PANEL_RECIPES: return prepare_native_panel(item,brand,work,cache)
     if os.environ.get("PETALIX_UI2_TEST") == "true" and brand == "petalix":
         # Only a manually approved, panel-issued job may produce a branded 2.0
         # update. Keep the exact same Petalix PIN code and signed package ID.
