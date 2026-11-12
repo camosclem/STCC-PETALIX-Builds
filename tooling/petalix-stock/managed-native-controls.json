@@ -1531,9 +1531,9 @@
     "optional": true,
     "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:596",
     "type": "number",
-    "min": 0.0,
-    "max": 120000.0,
-    "step": 5000.0,
+    "min": 0,
+    "max": 120000,
+    "step": 5000,
     "scale": 1000,
     "unit": "seconds",
     "integer": true,
@@ -1552,7 +1552,7 @@
     "type": "number",
     "min": 1000,
     "max": 60000,
-    "step": 1000.0,
+    "step": 1000,
     "scale": 1000,
     "unit": "seconds",
     "integer": true,
@@ -1628,7 +1628,7 @@
     "type": "number",
     "min": 1000,
     "max": 30000,
-    "step": 1000.0,
+    "step": 1000,
     "scale": 1000,
     "unit": "seconds",
     "integer": true,
@@ -1692,7 +1692,7 @@
     "kind": "boolean",
     "group": "Buffering & caching",
     "label": "Managed Memory Budget",
-    "help": "Caps the buffer to a safe share of this device's memory. Turn off to set the Target Buffer Size yourself (advanced \u2014 large values can crash low-memory devices).",
+    "help": "Caps the buffer to a safe share of this device's memory. Turn off to set the Target Buffer Size yourself (advanced — large values can crash low-memory devices).",
     "optional": true,
     "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:565",
     "type": "boolean",
@@ -1878,9 +1878,9 @@
     "optional": true,
     "source": "app/src/main/java/com/nuvio/tv/data/local/LayoutPreferenceDataStore.kt:89",
     "type": "number",
-    "min": 0.0,
-    "max": 10.0,
-    "step": 1.0,
+    "min": 0,
+    "max": 10,
+    "step": 1,
     "scale": 1,
     "unit": "seconds",
     "integer": true
@@ -2995,7 +2995,7 @@
       ],
       [
         "NAME",
-        "Name (A\u2013Z)"
+        "Name (A–Z)"
       ]
     ]
   },
@@ -3006,7 +3006,7 @@
     "kind": "string",
     "group": "Live TV & guide",
     "label": "Channel Up / Down Moves Within",
-    "help": "Which channels Up and Down (or CH+ and CH\u2212) step through while watching",
+    "help": "Which channels Up and Down (or CH+ and CH−) step through while watching",
     "optional": true,
     "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:74",
     "type": "select",
@@ -3169,11 +3169,11 @@
       ],
       [
         "NAME_AZ",
-        "A\u2013Z"
+        "A–Z"
       ],
       [
         "NAME_ZA",
-        "Z\u2013A"
+        "Z–A"
       ],
       [
         "NEWEST",
@@ -3495,7 +3495,7 @@
     "preference": "sequential_numbers",
     "kind": "boolean",
     "group": "Live TV & guide",
-    "label": "Number Channels 1, 2, 3\u2026 in Each Group",
+    "label": "Number Channels 1, 2, 3… in Each Group",
     "help": "Replaces the playlist's numbers with each channel's place in the group: 20 favorites become 1 to 20",
     "optional": true,
     "source": "app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt:101",
@@ -4201,9 +4201,9 @@
     "optional": true,
     "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:545",
     "type": "number",
-    "min": 2.0,
-    "max": 6.0,
-    "step": 1.0,
+    "min": 2,
+    "max": 6,
+    "step": 1,
     "scale": 1,
     "unit": "",
     "integer": true,
@@ -5877,9 +5877,9 @@
     "optional": true,
     "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:581",
     "type": "number",
-    "min": 50.0,
-    "max": 200.0,
-    "step": 10.0,
+    "min": 50,
+    "max": 200,
+    "step": 10,
     "scale": 1,
     "unit": "",
     "integer": true
@@ -6000,9 +6000,9 @@
     "optional": true,
     "source": "app/src/main/java/com/nuvio/tv/data/local/PlayerSettingsDataStore.kt:582",
     "type": "number",
-    "min": -20.0,
-    "max": 50.0,
-    "step": 1.0,
+    "min": -20,
+    "max": 50,
+    "step": 1,
     "scale": 1,
     "unit": "",
     "integer": true
@@ -6079,7 +6079,7 @@
     "preference": "collections_json",
     "kind": "string",
     "group": "Kaptain & collections",
-    "label": "Kaptain\u2019s Collection",
+    "label": "Kaptain’s Collection",
     "help": "Import a Nuvio collection JSON from Kaptain to manage its home rows.",
     "type": "collection",
     "maxLength": 1000000,
@@ -7062,5 +7062,18 @@
     "feature": "layout_settings",
     "preference": "service_hub_deduplicate",
     "kind": "boolean"
+  },
+  {
+    "key": "pref:live_tv:petalix_show_locals",
+    "feature": "live_tv",
+    "preference": "petalix_show_locals",
+    "kind": "boolean",
+    "group": "Live TV & guide",
+    "label": "Show local stations in guide",
+    "help": "Local stations start hidden. Turn on to show the local channels allowed by your saved panel playlist. Group and channel visibility is still controlled in Playlists.",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "management-v4",
+    "appDefault": false
   }
 ]

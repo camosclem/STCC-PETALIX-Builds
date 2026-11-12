@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 """Trusted runner entry points. Gradle source is built in a separate, keyless job."""
-import base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile, urllib.parse, urllib.request, urllib.error
+import base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile, urllib.parse, urllib.request, urllib.error, zipfile
 ORIGIN='https://petalix-control.caroliinaconsultant.chatgpt.site'
 REPOSITORY=os.environ.get('GITHUB_REPOSITORY','')
 CERTIFICATE='b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1'
+NATIVE_PANEL_RECIPES = {
+    'petalix-native-panel-13-1-v1': (
+        '1.1.0-beta.13.1', 'c0c9e8a2bf8bf0de8645438f9365d37c97da9f6e'
+    ),
+    'petalix-native-panel-13-2-v1': (
+        '1.1.0-beta.13.2', '6e18ff250d93c0c1bac64bda75f49b035027ab99'
+    ),
+}
+PETALIX_UNIVERSAL_LIMIT_BYTES = 159_000_000
 MOTION_CUE_HASHES={
  'apple':'7ec46ef15537e2cf99504e6be1da26a9042a8eb08399c7f0d60ee44d91e5294f',
  'disney':'88a28a203d198b97ec46055d41ee8b4421f3aa3a869b414604f7975c40b28cf5',
@@ -87,7 +96,11 @@ def android_tools():
 
 def sign_and_release():
     item=job();out=pathlib.Path('release');out.mkdir(exist_ok=True)
-    native=item.get('recipeRevision')=='petalix-native-panel-13-1-v1'
+    recipe = item.get('recipeRevision')
+    native = recipe in NATIVE_PANEL_RECIPES
+    latest_native = recipe == 'petalix-native-panel-13-2-v1'
+    if native and item.get('source', {}).get('sha') != NATIVE_PANEL_RECIPES[recipe][1]:
+        raise RuntimeError('Native customer build identity changed')
     ui2=os.environ.get('PETALIX_UI2_TEST')=='true'
     petalix_only=os.environ.get('PETALIX_ONLY_TEST')=='true'
     if petalix_only and not ui2 and not native:
@@ -125,13 +138,21 @@ def sign_and_release():
             verified=run([tools/'apksigner','verify','--verbose','--print-certs',apk],capture_output=True,text=True).stdout.lower()
             verify_certificate(verified)
             badging=run([tools/'aapt','dump','badging',apk],capture_output=True,text=True).stdout
+            if latest_native:
+                with zipfile.ZipFile(apk) as archive:
+                    architectures = {
+                        name.split('/')[1] for name in archive.namelist()
+                        if name.startswith('lib/') and name.endswith('.so')
+                    }
+                if architectures != {'arm64-v8a', 'armeabi-v7a'}:
+                    raise RuntimeError(f'Android TV APK has unexpected architectures: {sorted(architectures)}')
+                if apk.stat().st_size >= PETALIX_UNIVERSAL_LIMIT_BYTES:
+                    raise RuntimeError(f'Signed APK exceeds the 159 MB limit ({apk.stat().st_size:,} bytes)')
             if not all(v in badging for v in ["name='"+package+"'","versionCode='"+str(number)+"'","versionName='"+version+"'"]):raise RuntimeError('App identity or version mismatch')
             if 'management-v3' not in run(['unzip','-p',apk,'classes.dex'],capture_output=True).stdout.decode('latin1'):
                 # R8 can place the managed client in another dex file; inspect all dex strings.
-                import zipfile
                 with zipfile.ZipFile(apk) as z:
                     if not any(b'management-v3' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Managed client capability missing')
-            import zipfile
             with zipfile.ZipFile(apk) as z:
                 if not any(b'device-updates-v1' in z.read(n) for n in z.namelist() if re.fullmatch(r'classes\d*\.dex',n)):raise RuntimeError('Individual-device update capability missing')
                 for capability in ([b'panel-session-origin-v1',b'service-hubs-v1'] if is_ui2 or native else [b'panel-session-origin-v1',b'seek-previews-test-v1',b'service-hubs-v1'] if trial else [b'panel-session-origin-v1'] if home else [b'pengu-play-panel-v1',b'service-hubs-v1',b'panel-session-origin-v1']):
@@ -224,7 +245,15 @@ def sign_and_release():
                     if not z.read('assets/petalix/apple-current.svg'):
                         raise RuntimeError('Current Apple TV artwork missing')
                     for name,entry in intro['assets'].items():assert hashlib.sha256(z.read('assets/petalix/britbox-intro/'+name)).hexdigest()==entry['sha256']
-                meta.update(testOnly=True,recipeRevision='petalix-native-panel-13-1-v1',supportsNativePanelPlaylist=True,supportsFavoritesBackup=True,supportsAllSettings=True,supportsPanelPenguPlay=False,supportsPenguPlay=False,supportsServiceHubs=True,supportsServicesFirst=True,supportsDeviceUpdates=True,notes='Signed Petalix native 13.1 customer-update candidate. Uses the existing Petalix package, signing certificate and saved activation. Includes panel settings delivery with apply receipts, per-profile favorites backup/restore, stable favorite identities, the curated panel lineup, sports groups, a one-time ZIP suggestion with local stations in Settings, a skippable first-run guide, and nine streaming services with intros. Prepared for owner testing. Customer send requires the panel test approval and a separate Send updates action.')
+                meta.update(testOnly=True,recipeRevision=recipe,supportsNativePanelPlaylist=True,supportsFavoritesBackup=True,supportsAllSettings=True,supportsPanelPenguPlay=False,supportsPenguPlay=False,supportsServiceHubs=True,supportsServicesFirst=True,supportsDeviceUpdates=True,notes='Signed Petalix native 13.1 customer-update candidate. Uses the existing Petalix package, signing certificate and saved activation. Includes panel settings delivery with apply receipts, per-profile favorites backup/restore, stable favorite identities, the curated panel lineup, sports groups, a one-time ZIP suggestion with local stations in Settings, a skippable first-run guide, and nine streaming services with intros. Prepared for owner testing. Customer send requires the panel test approval and a separate Send updates action.')
+            if latest_native:
+                meta.update(
+                    supportsPanelPenguPlay=True,
+                    supportsPenguPlay=True,
+                    notes='Petalix universal ARM Android TV customer-update candidate on Nuvio + IPTV 1.1.0-beta.13.2. '
+                          'Preserves panel activation, managed VOD playback, the Petalix Home, ZIP locals and Sports. '
+                          'Customer send remains a separate action after owner testing.'
+                )
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')

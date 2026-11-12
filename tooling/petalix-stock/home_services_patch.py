@@ -22,12 +22,10 @@ def apply(root):
     source = root / "app/src/main/java/com/nuvio/tv"
     home = source / "ui/screens/home/HomeScreen.kt"
     modern = source / "ui/screens/home/ModernHomeContent.kt"
-    presentation = source / "ui/screens/home/ModernHomePresentation.kt"
     nav = source / "ui/navigation/NuvioNavHost.kt"
     target = source / "petalix"
     target.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(HERE / "PetalixHomeServices.kt", target / "PetalixHomeServices.kt")
-    shutil.copyfile(HERE / "PetalixWalkthrough.kt", target / "PetalixWalkthrough.kt")
 
     # Keep folder navigation on Home; each folder opens its original service experience.
     once(home, "fun HomeScreen(\n", """fun HomeScreen(
@@ -38,31 +36,6 @@ def apply(root):
                 onPetalixLiveTv = { navController.navigate(Screen.LiveTv.route) },
                 onPetalixSettings = { navController.navigate(Screen.Settings.route) },
 """)
-    about = source / "ui/screens/settings/AboutScreen.kt"
-    once(about, "    val aboutScrollState = rememberScrollState()", """    var showPetalixWalkthrough by remember { mutableStateOf(false) }
-    val aboutScrollState = rememberScrollState()""")
-    once(about, """                            SettingsActionRow(
-                                title = stringResource(R.string.about_privacy_policy),""", """                            SettingsActionRow(
-                                title = "How to use Petalix",
-                                subtitle = "Remote navigation, Home, Live TV and My Locals",
-                                onClick = { showPetalixWalkthrough = true }
-                            )
-
-                            SettingsActionRow(
-                                title = stringResource(R.string.about_privacy_policy),""")
-    once(about, """                SettingsVerticalScrollIndicators(state = aboutScrollState)
-            }
-        }
-    }
-}""", """                SettingsVerticalScrollIndicators(state = aboutScrollState)
-            }
-        }
-    }
-    if (showPetalixWalkthrough) com.nuvio.tv.petalix.PetalixWalkthrough(
-        onDismiss = { showPetalixWalkthrough = false }
-    )
-}""")
-
     collection_anchor = "    val hasCollectionContent = uiState.homeRows.any { it is HomeRow.CollectionRow }\n"
     once(home, collection_anchor, collection_anchor + """    val hasPetalixServices = uiState.homeRows.any {
         it is HomeRow.CollectionRow &&
@@ -77,18 +50,6 @@ def apply(root):
 
     LaunchedEffect(Unit) {
         // Safety timeout""")
-    once(home, "    var homeStableGateReleased by rememberSaveable { mutableStateOf(false) }", """    var homeStableGateReleased by rememberSaveable { mutableStateOf(false) }
-    val petalixContext = androidx.compose.ui.platform.LocalContext.current
-    val walkthroughPrefs = remember(petalixContext) {
-        petalixContext.getSharedPreferences("petalix_session_v2", android.content.Context.MODE_PRIVATE)
-    }
-    var showPetalixWalkthrough by remember { mutableStateOf(false) }
-    LaunchedEffect(homeStableGateReleased) {
-        if (homeStableGateReleased && !walkthroughPrefs.getBoolean("walkthroughSeenV1", false)) {
-            showPetalixWalkthrough = true
-        }
-    }""")
-
     # Source errors must not obscure a collection already stored on the TV.
     once(home,
          "uiState.error == noAddonsError && uiState.catalogRows.isEmpty() ->",
@@ -100,14 +61,6 @@ def apply(root):
          count=2)
     once(home, "    val showStartupLoader = when {", """    val petalixFallback = homeStableGateReleased && (!hasAnyContent || !modernPresentationReady)
     val showStartupLoader = if (petalixFallback) false else when {""")
-    once(home, "    Box(\n        modifier = Modifier.fillMaxSize()\n    ) {\n        when {", """    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        if (showPetalixWalkthrough) com.nuvio.tv.petalix.PetalixWalkthrough(onDismiss = {
-            walkthroughPrefs.edit().putBoolean("walkthroughSeenV1", true).apply()
-            showPetalixWalkthrough = false
-        })
-        when {""")
     once(home, "        when {\n            !uiState.layoutPreferencesReady -> {", """        when {
             petalixFallback -> com.nuvio.tv.petalix.PetalixHomeServicesFallback(
                 onLiveTv = onPetalixLiveTv,
@@ -139,6 +92,8 @@ def apply(root):
                     )
                 },""")
     once(home, "    val uiState by viewModel.uiState.collectAsStateWithLifecycle()", """    val sourceState by viewModel.uiState.collectAsStateWithLifecycle()
+    val homeCatalogViewModel: com.nuvio.tv.petalix.PetalixHomeCatalogViewModel = hiltViewModel()
+    val homeChartRows by homeCatalogViewModel.rows.collectAsStateWithLifecycle()
     val vodViewModel: com.nuvio.tv.livetv.ondemand.OnDemandViewModel = hiltViewModel()
     val vodState by vodViewModel.home.collectAsStateWithLifecycle()
     val penguRows = sourceState.catalogRows.filter { row ->
@@ -155,7 +110,8 @@ def apply(root):
             "Now Playing" to listOf("now playing", "in theaters", "in theatres")
         )
     }
-    val playlistRows = vodState.rows.filter { it.catalogId.contains(":petalix-managed:") }
+    val managedPlaylistRows = vodState.rows.filter { it.catalogId.contains(":petalix-managed:") }
+    val playlistRows = managedPlaylistRows.ifEmpty { vodState.rows }
     fun matchesShelf(name: String, labels: List<String>): Boolean {
         val words = name.lowercase().map { if (it.isLetterOrDigit()) it else ' ' }
             .joinToString("").split(' ').filter { it.isNotBlank() }.joinToString(" ")
@@ -173,34 +129,38 @@ def apply(root):
         requestedPenguCatalogs.forEach(viewModel::requestLazyCatalogLoad)
     }
     val needsPlaylist = referenceShelves.values.any { labels -> penguRows.none { matchesShelf(it.catalogName, labels) } }
-    LaunchedEffect(needsPlaylist) {
+    val vodVersion by vodViewModel.catalogVersion.collectAsStateWithLifecycle()
+    LaunchedEffect(needsPlaylist, vodVersion) {
         if (needsPlaylist) vodViewModel.loadHome()
     }
-    val homeRows = remember(sourceState.homeRows, penguRows, playlistRows) {
+    val homeRows = remember(sourceState.homeRows, penguRows, playlistRows, homeChartRows) {
         val seenTitles = mutableSetOf<Pair<String, String>>()
         val seenIds = mutableSetOf<Pair<String, String>>()
-        val rows = referenceShelves.mapNotNull { (title, labels) ->
-            val candidates = penguRows.filter { matchesShelf(it.catalogName, labels) } +
-                playlistRows.filter { matchesShelf(it.catalogName, labels) }
-            for (row in candidates) {
-                val items = row.items.filter { item ->
-                    val kind = item.type.toApiString()
-                    val name = item.name.lowercase().filter(Char::isLetterOrDigit)
-                    val titleKey = kind to name
-                    val idKey = kind to (item.imdbId?.takeIf { it.isNotBlank() } ?: item.id)
-                    if (titleKey in seenTitles || idKey in seenIds) false
-                    else {
-                        seenTitles.add(titleKey)
-                        seenIds.add(idKey)
-                        true
-                    }
+        val usedCatalogs = mutableSetOf<CatalogRow>()
+        fun selectRow(row: CatalogRow, title: String): CatalogRow? {
+            if (row in usedCatalogs) return null
+            val items = row.items.asSequence().filter { item ->
+                val kind = item.type.toApiString()
+                val name = item.name.lowercase().filter(Char::isLetterOrDigit)
+                val titleKey = kind to name
+                val idKey = kind to (item.imdbId?.takeIf { it.isNotBlank() } ?: item.id)
+                if (titleKey in seenTitles || idKey in seenIds) false
+                else {
+                    seenTitles.add(titleKey)
+                    seenIds.add(idKey)
+                    true
                 }
-                if (items.isNotEmpty()) return@mapNotNull row.copy(
-                    catalogName = title, items = items, hasMore = false, supportsSkip = false
-                )
-            }
-            null
+            }.take(16).toList()
+            if (items.isEmpty()) return null
+            usedCatalogs.add(row)
+            return row.copy(catalogName = title, items = items, hasMore = false, supportsSkip = false)
         }
+        val matched = referenceShelves.mapValues { (title, labels) ->
+            val candidates = penguRows.filter { matchesShelf(it.catalogName, labels) } +
+                homeChartRows.filter { it.catalogName == title } + playlistRows.filter { matchesShelf(it.catalogName, labels) }
+            candidates.firstNotNullOfOrNull { selectRow(it, title) }
+        }
+        val rows = matched.values.filterNotNull()
         sourceState.homeRows.filterIsInstance<HomeRow.CollectionRow>() + rows.map { HomeRow.Catalog(it) }
     }
     val uiState = sourceState.copy(
@@ -218,13 +178,46 @@ def apply(root):
             }
         }
     }""")
-    once(home, "import androidx.compose.runtime.Composable", "import androidx.compose.runtime.Composable\nimport kotlinx.coroutines.launch")
+    once(home, "import androidx.compose.runtime.Composable", "import androidx.compose.runtime.Composable\nimport kotlinx.coroutines.launch\nimport com.nuvio.tv.domain.model.CatalogRow")
     once(home, "    val onNavigateToDetailStable = remember(onNavigateToDetail) { onNavigateToDetail }",
          "    val onNavigateToDetailStable = openPetalixDetail")
-    once(presentation, "    val lookups = buildCarouselRowLookups(rows)", """    val serviceRows = rows.filter { it.key == com.nuvio.tv.petalix.PETALIX_SERVICES_ROW }
-    val orderedRows = serviceRows + rows.filter { it.catalogId != null }
-    val lookups = buildCarouselRowLookups(orderedRows)""")
-    once(presentation, "        rows = rows.asStable(),", "        rows = orderedRows.asStable(),")
+    vod = source / "livetv/ondemand/OnDemandViewModel.kt"
+    once(vod, "    val status = repository.status", """    val status = repository.status
+    val catalogVersion = repository.version""")
+    modern_observation = "    val modernPresentation by viewModel.modernHomePresentation.collectAsStateWithLifecycle()"
+    once(home, modern_observation + "\n    val initialCwResolved", """    val presentationContext = androidx.compose.ui.platform.LocalContext.current
+    val presentationCache = remember { ModernCarouselRowBuildCache() }
+    val presentationInput = ModernHomePresentationInput(
+        homeRows = uiState.homeRows,
+        catalogRows = uiState.catalogRows,
+        continueWatchingItems = emptyList(),
+        upcomingItems = emptyList(),
+        useLandscapePosters = uiState.modernLandscapePostersEnabled,
+        showCatalogTypeSuffix = false,
+        showFullReleaseDate = uiState.showFullReleaseDate,
+        showImdbRatings = uiState.homeImdbRatingsVisibility.showRatings,
+        detailImdbRatingsVisibility = uiState.detailImdbRatingsVisibility,
+        localeTag = com.nuvio.tv.LocaleCache.localeTag
+    )
+    val modernPresentation by androidx.compose.runtime.produceState(
+        ModernHomePresentationState(), presentationInput, presentationContext
+    ) {
+        value = buildModernHomePresentation(presentationInput, presentationCache, presentationContext)
+    }
+    val initialCwResolved""")
+    once(home, """                            HomeLayout.MODERN -> ModernHomeRoute(
+                                viewModel = viewModel,
+                                uiState = uiState,""", """                            HomeLayout.MODERN -> ModernHomeRoute(
+                                viewModel = viewModel,
+                                uiState = uiState,
+                                modernPresentation = modernPresentation,""")
+    once(home, """private fun ModernHomeRoute(
+    viewModel: HomeViewModel,
+    uiState: HomeUiState,""", """private fun ModernHomeRoute(
+    viewModel: HomeViewModel,
+    uiState: HomeUiState,
+    modernPresentation: ModernHomePresentationState,""")
+    once(home, modern_observation + "\n", "")
 
     # The eight recovered logos are available before the network or video renderer is ready.
     # Keep native artwork for other folders and put native GIF/video layers above the logo.
@@ -287,9 +280,12 @@ def apply(root):
 
             val resolvedHeroState = remember(petalixServiceFocused, petalixBackgroundItems, petalixBackgroundIndex, ''')
     once(content, "                    val activeCarouselItem = activeCarouselItemState.value",
-         '''                    val activeCarouselItem = if (petalixServiceFocused && petalixBackgroundItems.isNotEmpty()) {
-                        petalixBackgroundItems[petalixBackgroundIndex.intValue % petalixBackgroundItems.size]
-                    } else activeCarouselItemState.value''')
+         '''                    val focusedItem = activeCarouselItemState.value
+                    val activeCarouselItem = if (petalixServiceFocused) {
+                        petalixBackgroundItems.getOrNull(
+                            petalixBackgroundIndex.intValue % petalixBackgroundItems.size.coerceAtLeast(1)
+                        ) ?: focusedItem
+                    } else focusedItem''')
 
     # The recovered service media renderer stays transparent until its first real frame.
     once(modern_rows, "                    if (shouldPlayTrailerInCard) {", """                    if (payload != null) {
