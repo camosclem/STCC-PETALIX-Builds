@@ -1,0 +1,71 @@
+name: Publish Petalix staging test APK
+
+on:
+  push:
+    branches: [staging/petalix-clean-11-1]
+    paths:
+      - .github/workflows/petalix-test-release.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  test-download-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: petalix-11.1-debug-only-20261107
+      BUILT_RUN: "42386302483"
+      REPO: camosclem/STCC-PETALIX-Builds
+    steps:
+      - name: Download successful Petalix 11.1 debug artifact
+        run: |
+          gh run download "$BUILT_RUN" --repo "$REPO" \
+            --name Petalix-clean-11.1-DEBUG-NOT-CUSTOMER-UPDATE \
+            --dir "$RUNNER_TEMP/apks"
+      - name: Inspect and name standalone staging installers
+        run: |
+          set -euo pipefail
+          find "$RUNNER_TEMP/apks" -type f -name '*.apk' -printf '%f %s bytes\n'
+          mkdir -p "$RUNNER_TEMP/release"
+          COUNT=0
+          while IFS= read -r -d '' file; do
+            name="$(basename "$file")"
+            case "$name" in
+              *arm64-v8a*|*arm64*) cp "$file" "$RUNNER_TEMP/release/Petalix-11.1-STAGING-ARM64.apk" ;;
+              *armeabi-v7a*|*armeabi*) cp "$file" "$RUNNER_TEMP/release/Petalix-11.1-STAGING-ARMv7.apk" ;;
+              *universal*) cp "$file" "$RUNNER_TEMP/release/Petalix-11.1-STAGING-Universal.apk" ;;
+              *) cp "$file" "$RUNNER_TEMP/release/Petalix-11.1-STAGING-$COUNT.apk" ;;
+            esac
+            COUNT=$((COUNT+1))
+          done < <(find "$RUNNER_TEMP/apks" -type f -name '*.apk' -print0)
+          if [ "$COUNT" -lt 1 ]; then echo "APK artifact was empty"; exit 1; fi
+          ls -lh "$RUNNER_TEMP/release"
+      - name: Publish prerelease TEST APKs separately from customer updates
+        run: |
+          set -euo pipefail
+          notes="PETALIX 11.1 STAGING ONLY, NOT A CUSTOMER UPDATE.
+
+          Built successfully from isolated GitHub Actions run 42386302483, source revision 52ed5d3ed1559f75e99453866085613db7c9243b.
+
+          Based on Nuvio + IPTV beta.11.1 with Petalix branding, native Live TV guide, native Sports features, and staged Petalix PIN/playlist integration.
+
+          Android package com.petalix.iptv.staging; debug signing. It installs next to your existing Petalix 8.3 customer app. It CANNOT and MUST NOT replace existing customer installs.
+
+          Test on your own Android TV first. PIN activation and real live playback are not yet device-verified; do not distribute to customers or put into Petalix Control OTA.
+
+          GPLv3 notice and source: https://github.com/camosclem/STCC-PETALIX-Builds/tree/staging/petalix-clean-11-1 and https://github.com/homelessbrian/NuvioPlusIPTV."
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "Staging release already exists; refusing overwrite."
+            exit 1
+          fi
+          gh release create "$TAG" "$RUNNER_TEMP"/release/*.apk \
+            --repo "$REPO" \
+            --target 52ed5d3ed1559f75e99453866085613db7c9243b \
+            --title "Petalix 11.1 — STAGING TEST ONLY" \
+            --notes "$notes" \
+            --prerelease \
+            --latest=false
+          gh release view "$TAG" --repo "$REPO" --json url,assets --jq '{url,assets: [.assets[]|{name,url:.url}]}'
