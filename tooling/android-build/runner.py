@@ -247,11 +247,18 @@ def sign_and_release():
                     for name,entry in intro['assets'].items():assert hashlib.sha256(z.read('assets/petalix/britbox-intro/'+name)).hexdigest()==entry['sha256']
                 meta.update(testOnly=True,recipeRevision=recipe,supportsNativePanelPlaylist=True,supportsFavoritesBackup=True,supportsAllSettings=True,supportsPanelPenguPlay=False,supportsPenguPlay=False,supportsServiceHubs=True,supportsServicesFirst=True,supportsDeviceUpdates=True,notes='Signed Petalix native 13.1 customer-update candidate. Uses the existing Petalix package, signing certificate and saved activation. Includes panel settings delivery with apply receipts, per-profile favorites backup/restore, stable favorite identities, the curated panel lineup, sports groups, a one-time ZIP suggestion with local stations in Settings, a skippable first-run guide, and nine streaming services with intros. Prepared for owner testing. Customer send requires the panel test approval and a separate Send updates action.')
             if latest_native:
+                with zipfile.ZipFile(apk) as verified_apk:
+                    verified_dex=b''.join(verified_apk.read(n) for n in verified_apk.namelist() if re.fullmatch(r'classes\d*\.dex',n))
+                    for marker in [b'PetalixHomeHeader',b'preferredPetalixPlayback',b'nativeInstantPreviewV1:']:
+                        if marker not in verified_dex:
+                            raise RuntimeError('Navigation and focus repair missing: '+marker.decode())
                 meta.update(
                     supportsPanelPenguPlay=True,
                     supportsPenguPlay=True,
                     notes='Petalix universal ARM Android TV customer-update candidate on Nuvio + IPTV 1.1.0-beta.13.2. '
                           'Preserves panel activation, managed VOD playback, the Petalix Home, ZIP locals and Sports. '
+                          'Adds fixed Home navigation, reliable sidebar focus, Pengu-first automatic playback with VOD fallback, '
+                          'one ZIP-selected locals group, immediate focus backdrops and automatic movie/show trailer previews. '
                           'Customer send remains a separate action after owner testing.'
                 )
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')

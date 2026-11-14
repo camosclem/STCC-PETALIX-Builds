@@ -250,6 +250,10 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
         if revision == PIN:
             from owner_resume_patch import apply as apply_resume
             apply_resume(root)
+            from navigation_owner_patch import apply as apply_navigation
+            apply_navigation(root)
+            from instant_preview_owner_patch import apply as apply_instant_preview
+            apply_instant_preview(root)
     assert not list(dest.glob('ManagedPolicy*'))
     print(json.dumps({'upstream':upstream_tag,'sha':revision,'package':package,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
 if __name__=='__main__':
