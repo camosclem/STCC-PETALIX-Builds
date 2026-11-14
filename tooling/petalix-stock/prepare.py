@@ -256,6 +256,8 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
             apply_instant_preview(root)
             from daily_viewing_patch import apply as apply_daily_viewing
             apply_daily_viewing(root)
+            from guide_feed_pool_patch import apply as apply_guide_feed_pool
+            apply_guide_feed_pool(root)
     assert not list(dest.glob('ManagedPolicy*'))
     print(json.dumps({'upstream':upstream_tag,'sha':revision,'package':package,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
 if __name__=='__main__':
