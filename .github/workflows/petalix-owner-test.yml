@@ -1,0 +1,134 @@
+name: Petalix Owner Test APK
+on:
+  push:
+    branches: [test/petalix-owner-home-zip-20261110]
+    paths:
+      - .github/workflows/petalix-owner-test.yml
+      - tooling/petalix-stock/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: petalix-isolated-owner-test
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TEST_VERSION: '1794336007'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned Android build tools
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+          python3 -m pip install --disable-pip-version-check Pillow
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; fi
+      - name: Prepare latest Petalix features on native 13.1
+        run: |
+          git clone --quiet --depth 1 --branch 1.1.0-beta.13.1 https://github.com/homelessbrian/NuvioPlusIPTV.git upstream
+          python3 tooling/petalix-stock/prepare.py --upstream upstream --version "$TEST_VERSION" --owner-test
+      - name: Run native Petalix tests and compile isolated APK
+        working-directory: upstream
+        env:
+          GOPROXY: https://proxy.golang.org|direct
+          GODEBUG: http2client=0
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testFullDebugUnitTest --tests 'com.nuvio.tv.petalix.*' \
+            --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=1024m'
+          ./gradlew :app:assembleFullDebug --no-daemon --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx7680m -XX:MaxMetaspaceSize=1024m'
+      - name: Verify signature, package and APK contents
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          apk="$(find upstream/app/build/outputs/apk/full/debug -name '*universal*.apk' -type f -print -quit)"
+          test -n "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > /tmp/petalix-test-badging
+          grep -F "name='com.petalix.iptv.hometest' versionCode='$TEST_VERSION'" /tmp/petalix-test-badging
+          grep -F "application-label:'Petalix Home Test'" /tmp/petalix-test-badging
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk" > /tmp/petalix-test-certificate
+          grep -Fi 'certificate SHA-256 digest: e2c9a67239c6297fb28a28b72a088ad32cff8aeb94e0157b02d22ee7aeb5cbd8' /tmp/petalix-test-certificate
+          cp "$apk" release/Petalix-Owner-Test.apk
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import zipfile
+
+          source = pathlib.Path('upstream')
+          with zipfile.ZipFile('release/Petalix-Owner-Test.apk') as apk:
+              assert apk.testzip() is None
+              names = apk.namelist()
+              size_by_group = {}
+              for entry in apk.infolist():
+                  group = '/'.join(entry.filename.split('/')[:2]) if entry.filename.startswith('lib/') else entry.filename.split('/')[0]
+                  size_by_group[group] = size_by_group.get(group, 0) + entry.compress_size
+              print(f"Universal APK: {pathlib.Path(apk.filename).stat().st_size / 1024**2:.1f} MiB")
+              for group, size in sorted(size_by_group.items(), key=lambda pair: pair[1], reverse=True)[:12]:
+                  print(f"  {group}: {size / 1024**2:.1f} MiB")
+              assert any(n.startswith('lib/arm64-v8a/') for n in names)
+              assert any(n.startswith('lib/armeabi-v7a/') for n in names)
+              stations = json.loads(apk.read('assets/petalix/local-stations.json'))['stations']
+              assert len({station['state'] for station in stations}) >= 50
+              catalog = json.loads(apk.read('assets/petalix/streaming-services.json'))
+              assert [folder['title'] for folder in catalog[0]['folders']] == [
+                  'Netflix', 'Prime Video', 'Disney+', 'Hulu', 'HBO Max', 'Apple TV',
+                  'Peacock', 'Paramount+', 'BritBox'
+              ]
+              dex = b''.join(apk.read(n) for n in names if n.startswith('classes') and n.endswith('.dex'))
+              for marker in (b'PetalixLocalStations', b'localsPromptResolvedV2', b'Scan to text Petalix',
+                             b'Top Rated', b'Trending', b'Upcoming', b'Popular', b'Now Playing',
+                             b'PetalixPanelSettings', b'home-lineup-v4', b'Continue to Petalix'):
+                  assert marker in dex, f'Missing compiled feature: {marker!r}'
+          with zipfile.ZipFile('release/Petalix-Owner-Test-Source.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+              for file in source.rglob('*'):
+                  relative = file.relative_to(source)
+                  if not file.is_file() or any(part in {'.git', '.gradle', '.kotlin', '.cxx', 'build'} for part in relative.parts):
+                      continue
+                  if file.name in {'local.properties', 'local.dev.properties'} or file.suffix in {'.jks', '.keystore'}:
+                      continue
+                  archive.write(file, pathlib.Path('petalix-source') / relative)
+          PY
+          (cd release && sha256sum Petalix-Owner-Test.apk Petalix-Owner-Test-Source.zip > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Petalix-Owner-Test
+          path: release/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-test:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Petalix-Owner-Test
+          path: release
+      - name: Publish manual test download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum -c SHA256SUMS.txt)
+          gh release create "petalix-owner-test-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" release/* \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title 'Petalix Owner Test APK' \
+            --notes 'Manual Shield and Android TV testing. Installs as Petalix Home Test alongside regular Petalix. Activate with a Petalix PIN and a free test device slot. Includes the five Home rows, dynamic artwork, native Live TV guide styling, nationwide My Locals, and contact and payment QR choices. Universal ARM APK for compatible Android TV devices.'
