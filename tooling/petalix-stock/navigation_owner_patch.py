@@ -126,7 +126,7 @@ import androidx.compose.runtime.Composable''')
         com.nuvio.tv.petalix.preferredPetalixPlayback(
             streams.filter(::isPlayable), allowVodFallback,
             { it.isPanelPengu },
-            { it.bingeGroup == com.nuvio.tv.livetv.ondemand.OnDemandStreams.BINGE_GROUP ||
+            { it.behaviorHints?.bingeGroup == com.nuvio.tv.livetv.ondemand.OnDemandStreams.BINGE_GROUP ||
                 it.addonName == com.nuvio.tv.livetv.ondemand.OnDemandStreams.GROUP_NAME }
         )''')
     replace(source / 'ui/screens/stream/StreamScreenViewModel.kt', 'StreamAutoPlaySelector.selectPanelPengu(allStreams)',
