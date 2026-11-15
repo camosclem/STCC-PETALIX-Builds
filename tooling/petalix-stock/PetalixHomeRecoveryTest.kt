@@ -44,4 +44,18 @@ class PetalixHomeRecoveryTest {
         assertFalse(petalixSoftwareAv1Recovery(true, "MediaCodecVideoRenderer AVC initialization failed"))
         assertFalse(petalixSoftwareAv1Recovery(true, "Audio decoder initialization failed"))
     }
+    @Test fun sportsRematchesRenamedEventsWithoutChangingTheirFavoriteIdentity() {
+        val original = com.nuvio.tv.livetv.model.LiveChannel(
+            key = "petalix-managed|stream:123", sourceId = "petalix-managed", sourceName = "Petalix",
+            name = "NFL Sunday Ticket 01", tvgId = null, tvgName = null, logo = null,
+            groupId = "sports", group = "NFL Sunday Ticket", number = 1,
+            url = "https://provider.example/live/123.ts"
+        )
+        val today = original.copy(name = "NFL: Chiefs vs Falcons @ Nov 15 13:00")
+        assertEquals(original.key, today.key)
+        assertNotEquals(petalixSportsChannelSignature(listOf(original)), petalixSportsChannelSignature(listOf(today)))
+        assertNotEquals(petalixSportsChannelSignature(listOf(today)), petalixSportsChannelSignature(listOf(today.copy(group = "NFL Games"))))
+        assertEquals(petalixSportsChannelSignature(listOf(today)), petalixSportsChannelSignature(listOf(today.copy(logo = "https://art.example/new.png"))))
+    }
+
 }

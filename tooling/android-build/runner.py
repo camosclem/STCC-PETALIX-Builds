@@ -251,7 +251,7 @@ def sign_and_release():
                     verified_dex=b''.join(verified_apk.read(n) for n in verified_apk.namelist() if re.fullmatch(r'classes\d*\.dex',n))
                     if b'PetalixHomeHeader' in verified_dex:
                         raise RuntimeError('The removed Home top menu is still present')
-                    for marker in [b'petalixVodFirstStreams',b'balancedPetalixStream',b'PetalixPlaybackRecovery',b'petalixStartupChoice',b'guide-only-feeds-v1',b'petalixShowGuideFeed',b'petalixHomeLiveCollection',b'finishPetalixVodLoad',b'petalixSoftwareAv1Recovery',b'Make yourself at home.']:
+                    for marker in [b'petalixVodFirstStreams',b'balancedPetalixStream',b'PetalixPlaybackRecovery',b'petalixStartupChoice',b'guide-only-feeds-v1',b'petalixShowGuideFeed',b'petalixHomeLiveCollection',b'finishPetalixVodLoad',b'petalixSoftwareAv1Recovery',b'Make yourself at home.',b'petalixSportsChannelSignature']:
                         if marker not in verified_dex:
                             raise RuntimeError('Navigation and focus repair missing: '+marker.decode())
                 meta.update(
@@ -261,7 +261,7 @@ def sign_and_release():
                           'Preserves panel activation, managed VOD playback, the Petalix Home, ZIP locals and Sports. A simple centered welcome replaces contact/payment QRs with subtle branding and one Continue action. '
                           'Uses the existing native sidebar with no added top menu or separate Movies/TV Shows views. Home streaming-service tiles and Popular/Trending shelves use provider VOD first and Pengu Play as fallback after the provider lookup finishes. '
                           'Pengu fallback prefers ordinary 1080p links over heavy 4K/remux links. Manual source selection and configured quality filters are respected. Native Home focus now tracks Live TV shortcuts and streaming-service hero titles, with separate rows and changing backdrops. VOD import failures stay visible with a Retry action and movies appear before series finish importing. Hardware video decoders remain first, with one startup MPV recovery for Libgav1 AV1 initialization failures. One ZIP-selected locals group and panel-controlled movie/show trailer previews. Home/Guide/last-channel startup, remembered guide focus and clear playback recovery actions. Keeps alternate feeds available behind a compact guide, with major sports networks in the guide and event feeds in the Sports Hub. '
-                          'Customer send remains a separate action after owner testing.'
+                          'Sports Hub rematches renamed provider events without changing stream identities or saved favorites. Customer send remains a separate action after owner testing.'
                 )
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]

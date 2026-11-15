@@ -128,3 +128,12 @@ def apply(root):
             '    allowEngineFailover: Boolean, softwareAv1Recovery: Boolean = false\n): Boolean {')
     replace(recovery, '    if (!autoSwitchInternalPlayerOnErrorEnabled) return false',
             '    if (!autoSwitchInternalPlayerOnErrorEnabled && !softwareAv1Recovery) return false')
+
+    sports = source / 'livetv/sports/SportsRepository.kt'
+    replace(sports, """            channelStore.displayChannels.map { list ->
+                var h = 17L
+                for (c in list) h = h * 31 + c.key.hashCode()
+                list.size to h
+            }.distinctUntilChanged(),""", """            channelStore.displayChannels.map { list ->
+                com.nuvio.tv.petalix.petalixSportsChannelSignature(list)
+            }.distinctUntilChanged(),""")
