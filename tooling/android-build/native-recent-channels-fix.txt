@@ -1,0 +1,1 @@
+Restore the native Live TV / Recently Watched Channels row above Home shelves when the Streaming Services shelf is present. Preserve native Up-to-reveal behavior, channel cards, focus, sidebar and navigation. No customer update is sent automatically.

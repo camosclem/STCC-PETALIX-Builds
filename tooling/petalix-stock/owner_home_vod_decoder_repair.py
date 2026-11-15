@@ -27,6 +27,10 @@ def apply(root):
 ''', '')
     replace(rows, 'if (liveTvHere && (liveTvRowAbove == true || !hasContinueWatching) && row.key != com.nuvio.tv.petalix.PETALIX_SERVICES_ROW)',
             'if (liveTvHere && (liveTvRowAbove == true || !hasContinueWatching))')
+    # Streaming Services must coexist with the native, Up-to-reveal recent TV row.
+    # The old custom row was removed above; release its suppression of the native one.
+    replace(rows, '                    carouselRows.list.none { it.key == com.nuvio.tv.petalix.PETALIX_SERVICES_ROW } &&\n',
+            '')
     models = source / 'ui/screens/home/ModernHomeModels.kt'
     replace(models, '''    if (folder?.collectionId == com.nuvio.tv.petalix.PETALIX_SERVICES_COLLECTION) {''',
             '''    if (folder?.collectionId == com.nuvio.tv.petalix.PETALIX_LIVE_SHORTCUT_COLLECTION) {
