@@ -249,7 +249,9 @@ def sign_and_release():
             if latest_native:
                 with zipfile.ZipFile(apk) as verified_apk:
                     verified_dex=b''.join(verified_apk.read(n) for n in verified_apk.namelist() if re.fullmatch(r'classes\d*\.dex',n))
-                    for marker in [b'PetalixHomeHeader',b'preferredPetalixPlayback',b'PetalixPlaybackRecovery',b'petalixStartupChoice',b'guide-only-feeds-v1',b'petalixShowGuideFeed']:
+                    if b'PetalixHomeHeader' in verified_dex:
+                        raise RuntimeError('The removed Home top menu is still present')
+                    for marker in [b'preferredPetalixPlayback',b'PetalixPlaybackRecovery',b'petalixStartupChoice',b'guide-only-feeds-v1',b'petalixShowGuideFeed']:
                         if marker not in verified_dex:
                             raise RuntimeError('Navigation and focus repair missing: '+marker.decode())
                 meta.update(
@@ -257,7 +259,7 @@ def sign_and_release():
                     supportsPenguPlay=True,
                     notes='Petalix universal ARM Android TV customer-update candidate on Nuvio + IPTV 1.1.0-beta.13.2. '
                           'Preserves panel activation, managed VOD playback, the Petalix Home, ZIP locals and Sports. '
-                          'Adds fixed Home navigation, reliable sidebar focus, Pengu-first automatic playback with VOD fallback, '
+                          'Uses the existing native sidebar with no added top menu or separate Movies/TV Shows views. Home streaming-service tiles and Popular/Trending shelves retain Pengu-first automatic playback with VOD fallback, '
                           'one ZIP-selected locals group, responsive focus backdrops and panel-controlled movie/show trailer previews. Home/Guide/last-channel startup, remembered guide focus and clear playback recovery actions. Keeps alternate feeds available behind a compact guide, with major sports networks in the guide and event feeds in the Sports Hub. '
                           'Customer send remains a separate action after owner testing.'
                 )

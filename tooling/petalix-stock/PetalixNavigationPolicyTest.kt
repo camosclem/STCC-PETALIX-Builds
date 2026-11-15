@@ -4,18 +4,6 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PetalixNavigationPolicyTest {
-    @Test fun movieAndSeriesHeadersNeverMixContentTypes() {
-        assertTrue(matchesPetalixBrowseType("movie", "movie"))
-        assertFalse(matchesPetalixBrowseType("series", "movie"))
-        assertTrue(matchesPetalixBrowseType("tv", "series"))
-        assertTrue(matchesPetalixBrowseType("series", "series"))
-        assertTrue(matchesPetalixBrowseType("movie", null))
-    }
-    @Test fun browseUsesPenguAndKeepsVodAsFallback() {
-        assertEquals(listOf("Pengu"), preferPetalixRows(listOf("Pengu"), listOf("VOD")))
-        assertEquals(listOf("VOD"), preferPetalixRows(emptyList(), listOf("VOD")))
-        assertTrue(preferPetalixRows<String>(emptyList(), emptyList()).isEmpty())
-    }
     @Test fun oneLocalGroupAfterZipPreservesOtherGroups() {
         val groups = listOf(PETALIX_ZIP_LOCALS to "My Locals", "provider:locals" to "Locals", "custom:old" to "Local Stations", "provider:sports" to "Sports Networks")
         assertEquals(listOf("My Locals", "Sports Networks"), groups.filter { showPetalixGuideGroup(it.first, it.second, true) }.map { it.second })

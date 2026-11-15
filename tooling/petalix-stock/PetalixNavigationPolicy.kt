@@ -3,14 +3,6 @@ package com.nuvio.tv.petalix
 internal const val PETALIX_ZIP_LOCALS = "custom:petalix_locals"
 private val localGuideLabel = Regex("(?i)(?:^|[^a-z])(?:locals?|local stations|local tv|ota|affiliates?)(?:$|[^a-z])")
 
-internal fun matchesPetalixBrowseType(actual: String, requested: String?): Boolean = when (requested) {
-    null -> true
-    "series" -> actual.lowercase() in setOf("series", "tv")
-    else -> actual.equals(requested, ignoreCase = true)
-}
-
-internal fun <T> preferPetalixRows(pengu: List<T>, vod: List<T>): List<T> = pengu.ifEmpty { vod }
-
 /** Hide duplicate group entries, never their channels or favorite identities. */
 internal fun showPetalixGuideGroup(id: String, title: String, hasZipSelection: Boolean): Boolean =
     !hasZipSelection || id == PETALIX_ZIP_LOCALS || !localGuideLabel.containsMatchIn(title)
