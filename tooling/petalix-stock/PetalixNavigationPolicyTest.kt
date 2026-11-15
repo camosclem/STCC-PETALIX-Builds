@@ -10,14 +10,4 @@ class PetalixNavigationPolicyTest {
         assertEquals(groups, groups.filter { showPetalixGuideGroup(it.first, it.second, false) })
         assertTrue(showPetalixGuideGroup("provider:entertainment", "Localish Entertainment", true))
     }
-    @Test fun playbackWaitsForPenguBeforeUsingOnlyTheProviderVodFallback() {
-        val sources = listOf("Other addon", "VOD", "Pengu")
-        for (ordered in listOf(sources, sources.reversed(), listOf("VOD", "Pengu", "Other addon"))) {
-            assertEquals("Pengu", preferredPetalixPlayback(ordered, false, { it == "Pengu" }, { it == "VOD" }))
-            assertEquals("Pengu", preferredPetalixPlayback(ordered, true, { it == "Pengu" }, { it == "VOD" }))
-        }
-        assertNull(preferredPetalixPlayback(listOf("VOD"), false, { it == "Pengu" }, { it == "VOD" }))
-        assertEquals("VOD", preferredPetalixPlayback(listOf("Other addon", "VOD"), true, { it == "Pengu" }, { it == "VOD" }))
-        assertNull(preferredPetalixPlayback(listOf("Other addon"), true, { it == "Pengu" }, { it == "VOD" }))
-    }
 }

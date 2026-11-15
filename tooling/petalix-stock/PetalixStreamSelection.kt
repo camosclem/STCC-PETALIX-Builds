@@ -1,6 +1,33 @@
 package com.nuvio.tv.petalix
 
 import com.nuvio.tv.domain.model.Stream
+import com.nuvio.tv.domain.model.AddonStreams
+import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.livetv.ondemand.OnDemandStreams
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
+
+/** A fast addon cannot win before the provider's lookup answers; a ready VOD link starts early. */
+internal fun petalixVodFirstStreams(
+    source: Flow<NetworkResult<List<AddonStreams>>>,
+    provider: Flow<Pair<List<Stream>, String>?>
+): Flow<NetworkResult<List<AddonStreams>>> = combine(
+    source.onStart { emit(NetworkResult.Loading) }, provider
+) { result, providerResult ->
+    if (providerResult == null) return@combine NetworkResult.Loading
+    val (links, position) = providerResult
+    if (links.isEmpty()) return@combine result
+    val mine = AddonStreams(OnDemandStreams.GROUP_NAME, null, links)
+    val other = (result as? NetworkResult.Success<List<AddonStreams>>)?.data.orEmpty()
+        .filterNot { it.addonName == OnDemandStreams.GROUP_NAME }
+    val ordered = when (position) {
+        "FIRST" -> listOf(mine) + other
+        "AFTER_FIRST" -> other.take(1) + mine + other.drop(1)
+        else -> other + mine
+    }
+    NetworkResult.Success(ordered)
+}
 
 /** Rank only the chosen provider's links. Manual selection keeps every original stream. */
 internal fun balancedPetalixStream(streams: List<Stream>): Stream? = streams.withIndex()

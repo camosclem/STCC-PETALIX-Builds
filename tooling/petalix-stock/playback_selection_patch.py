@@ -1,4 +1,4 @@
-"""Keep Pengu provider priority while honoring playback controls and avoiding heavy first links."""
+"""Use provider VOD first and balanced Pengu fallback, with native playback controls respected."""
 from pathlib import Path
 from shutil import copy2
 from home_visual_owner_patch import replace
@@ -11,6 +11,8 @@ def apply(root):
     copy2(HERE / 'PetalixStreamSelection.kt', source / 'petalix/PetalixStreamSelection.kt')
     copy2(HERE / 'PetalixStreamSelectionTest.kt',
           root / 'app/src/test/java/com/nuvio/tv/petalix/PetalixStreamSelectionTest.kt')
+    copy2(HERE / 'PetalixVodFirstFlowTest.kt',
+          root / 'app/src/test/java/com/nuvio/tv/petalix/PetalixVodFirstFlowTest.kt')
     selector = source / 'core/player/StreamAutoPlaySelector.kt'
     replace(selector, '''    internal fun selectPanelPengu(streams: List<Stream>, allowVodFallback: Boolean = false): Stream? =
         com.nuvio.tv.petalix.preferredPetalixPlayback(
@@ -18,9 +20,9 @@ def apply(root):
             { it.isPanelPengu },
             { it.behaviorHints?.bingeGroup == com.nuvio.tv.livetv.ondemand.OnDemandStreams.BINGE_GROUP ||
                 it.addonName == com.nuvio.tv.livetv.ondemand.OnDemandStreams.GROUP_NAME }
-        )''', '''    internal fun selectPanelPengu(
-        streams: List<Stream>, allowVodFallback: Boolean = false,
-        settings: com.nuvio.tv.data.local.PlayerSettings? = null
+        )''', '''    internal fun selectPanelPlayback(
+        streams: List<Stream>, allowFallback: Boolean = false,
+        settings: com.nuvio.tv.data.local.PlayerSettings? = null, preferVod: Boolean = true
     ): Stream? {
         val mode = settings?.streamAutoPlayMode ?: StreamAutoPlayMode.FIRST_STREAM
         if (mode == StreamAutoPlayMode.MANUAL) return null
@@ -35,17 +37,24 @@ def apply(root):
                 preferredBingeGroup = com.nuvio.tv.livetv.ondemand.OnDemandStreams.BINGE_GROUP
             ) else if (balanced) com.nuvio.tv.petalix.balancedPetalixStream(candidates)
             else candidates.firstOrNull()
-        return choose(playable.filter { it.isPanelPengu }, balanced = true)
-            ?: if (allowVodFallback) choose(playable.filter {
+        val vod = playable.filter {
                 it.behaviorHints?.bingeGroup == com.nuvio.tv.livetv.ondemand.OnDemandStreams.BINGE_GROUP ||
                     it.addonName == com.nuvio.tv.livetv.ondemand.OnDemandStreams.GROUP_NAME
-            }, balanced = false) else null
+            }
+        val pengu = playable.filter { it.isPanelPengu }
+        return if (preferVod) choose(vod, balanced = false)
+            ?: if (allowFallback) choose(pengu, balanced = true) else null
+        else choose(pengu, balanced = true)
+            ?: if (allowFallback) choose(vod, balanced = false) else null
     }''')
     replace(selector, '''            StreamAutoPlayMode.FIRST_STREAM ->
                 candidateStreams.firstOrNull {
                     it.addonName.contains("pengu", ignoreCase = true) && isPlayable(it)
                 } ?: candidateStreams.firstOrNull { isPlayable(it) }''', '''            StreamAutoPlayMode.FIRST_STREAM ->
-                com.nuvio.tv.petalix.balancedPetalixStream(candidateStreams.filter {
+                candidateStreams.firstOrNull {
+                    isPlayable(it) && (it.behaviorHints?.bingeGroup == com.nuvio.tv.livetv.ondemand.OnDemandStreams.BINGE_GROUP ||
+                        it.addonName == com.nuvio.tv.livetv.ondemand.OnDemandStreams.GROUP_NAME)
+                } ?: com.nuvio.tv.petalix.balancedPetalixStream(candidateStreams.filter {
                     it.isPanelPengu && isPlayable(it)
                 }) ?: candidateStreams.firstOrNull {
                     it.addonName.contains("pengu", ignoreCase = true) && isPlayable(it)
@@ -56,4 +65,27 @@ def apply(root):
     replace(vm, '                !preferPengu && playerSettings.streamAutoPlayMode == StreamAutoPlayMode.REGEX_MATCH &&',
             '                playerSettings.streamAutoPlayMode == StreamAutoPlayMode.REGEX_MATCH &&')
     replace(vm, 'StreamAutoPlaySelector.selectPanelPengu(allStreams, allowVodFallback = isAllLoaded)',
-            'StreamAutoPlaySelector.selectPanelPengu(allStreams, allowVodFallback = isAllLoaded, settings = playerSettings)')
+            'StreamAutoPlaySelector.selectPanelPlayback(allStreams, allowFallback = true, settings = playerSettings, preferVod = com.nuvio.tv.livetv.ondemand.OnDemandStreams.tabPosition == "FIRST")')
+    # All successful emissions now include the completed provider lookup (see the flow below).
+    # Keep the existing native manual-selection and episode behavior, without a Pengu race.
+    vm.write_text(vm.read_text().replace('preferPengu', 'preferManagedVod'))
+
+    streams = source / 'livetv/ondemand/OnDemandStreams.kt'
+    text = streams.read_text()
+    start = text.index('        return combine(source, onDemand) { result, provider ->')
+    end = text.index('\n    private suspend fun lookup(', start)
+    streams.write_text(text[:start] + '''        return com.nuvio.tv.petalix.petalixVodFirstStreams(source, onDemand)
+    }
+''' + text[end:])
+    replace(streams, '            val found = runCatching { lookup(entry, type, videoId, season, episode, title, year) }.getOrDefault(emptyList())', '''            val found = try {
+                kotlinx.coroutines.withTimeoutOrNull(12_000L) {
+                    lookup(entry, type, videoId, season, episode, title, year)
+                }.orEmpty()
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { emptyList() }''')
+    replace(streams, '            val found = try {', '            tabPosition = position\n            val found = try {')
+
+    panel = source / 'petalix/PetalixPanelSettings.kt'
+    replace(panel, '":home-lineup-v4"', '":vod-first-v1"')
+    replace(panel, '            onDemandStreamsPosition = if (values.getBoolean("vod.first")) "FIRST" else "LAST", vodMergeDuplicates = values.getBoolean("vod.merge")',
+            '            onDemandAutoPlay = values.getBoolean("vod.first"),\n            onDemandStreamsPosition = if (values.getBoolean("vod.first")) "FIRST" else "LAST", vodMergeDuplicates = values.getBoolean("vod.merge")')

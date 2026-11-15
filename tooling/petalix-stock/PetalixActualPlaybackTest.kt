@@ -16,20 +16,21 @@ class PetalixActualPlaybackTest {
         addonLogo = null, isPanelPengu = pengu
     )
 
-    @Test fun actualStreamObjectsPreferPenguAndWaitForVodFallback() {
+    @Test fun actualStreamObjectsPreferVodAndWaitBeforePenguFallback() {
         val vod = stream(vod = true)
         val pengu = stream(pengu = true)
-        assertSame(pengu, StreamAutoPlaySelector.selectPanelPengu(listOf(vod, pengu)))
-        assertNull(StreamAutoPlaySelector.selectPanelPengu(listOf(vod)))
-        assertSame(vod, StreamAutoPlaySelector.selectPanelPengu(listOf(vod), allowVodFallback = true))
+        assertSame(vod, StreamAutoPlaySelector.selectPanelPlayback(listOf(pengu, vod)))
+        assertSame(vod, StreamAutoPlaySelector.selectPanelPlayback(listOf(vod, pengu)))
+        assertNull(StreamAutoPlaySelector.selectPanelPlayback(listOf(pengu)))
+        assertSame(pengu, StreamAutoPlaySelector.selectPanelPlayback(listOf(pengu), allowFallback = true))
     }
 
     @Test fun unusablePenguAndUnrelatedProvidersDoNotBlockUsableVod() {
         val vod = stream(vod = true)
         val unusable = stream(pengu = true, url = null)
-        assertSame(vod, StreamAutoPlaySelector.selectPanelPengu(listOf(unusable, vod), true))
-        assertNull(StreamAutoPlaySelector.selectPanelPengu(listOf(stream()), true))
+        assertSame(vod, StreamAutoPlaySelector.selectPanelPlayback(listOf(unusable, vod), true))
+        assertNull(StreamAutoPlaySelector.selectPanelPlayback(listOf(stream()), true))
         val renamedVod = vod.copy(addonName = "Renamed VOD")
-        assertSame(renamedVod, StreamAutoPlaySelector.selectPanelPengu(listOf(renamedVod), true))
+        assertSame(renamedVod, StreamAutoPlaySelector.selectPanelPlayback(listOf(renamedVod), true))
     }
 }
