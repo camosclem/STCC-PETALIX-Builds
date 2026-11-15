@@ -251,7 +251,7 @@ def sign_and_release():
                     verified_dex=b''.join(verified_apk.read(n) for n in verified_apk.namelist() if re.fullmatch(r'classes\d*\.dex',n))
                     if b'PetalixHomeHeader' in verified_dex:
                         raise RuntimeError('The removed Home top menu is still present')
-                    for marker in [b'petalixVodFirstStreams',b'balancedPetalixStream',b'PetalixPlaybackRecovery',b'petalixStartupChoice',b'guide-only-feeds-v1',b'petalixShowGuideFeed']:
+                    for marker in [b'petalixVodFirstStreams',b'balancedPetalixStream',b'PetalixPlaybackRecovery',b'petalixStartupChoice',b'guide-only-feeds-v1',b'petalixShowGuideFeed',b'petalixHomeLiveCollection',b'finishPetalixVodLoad',b'petalixSoftwareAv1Recovery']:
                         if marker not in verified_dex:
                             raise RuntimeError('Navigation and focus repair missing: '+marker.decode())
                 meta.update(
@@ -260,7 +260,7 @@ def sign_and_release():
                     notes='Petalix universal ARM Android TV customer-update candidate on Nuvio + IPTV 1.1.0-beta.13.2. '
                           'Preserves panel activation, managed VOD playback, the Petalix Home, ZIP locals and Sports. '
                           'Uses the existing native sidebar with no added top menu or separate Movies/TV Shows views. Home streaming-service tiles and Popular/Trending shelves use provider VOD first and Pengu Play as fallback after the provider lookup finishes. '
-                          'Pengu fallback prefers ordinary 1080p links over heavy 4K/remux links. Manual source selection and configured quality filters are respected. One ZIP-selected locals group, responsive focus backdrops and panel-controlled movie/show trailer previews. Home/Guide/last-channel startup, remembered guide focus and clear playback recovery actions. Keeps alternate feeds available behind a compact guide, with major sports networks in the guide and event feeds in the Sports Hub. '
+                          'Pengu fallback prefers ordinary 1080p links over heavy 4K/remux links. Manual source selection and configured quality filters are respected. Native Home focus now tracks Live TV shortcuts and streaming-service hero titles, with separate rows and changing backdrops. VOD import failures stay visible with a Retry action and movies appear before series finish importing. Hardware video decoders remain first, with one startup MPV recovery for Libgav1 AV1 initialization failures. One ZIP-selected locals group and panel-controlled movie/show trailer previews. Home/Guide/last-channel startup, remembered guide focus and clear playback recovery actions. Keeps alternate feeds available behind a compact guide, with major sports networks in the guide and event feeds in the Sports Hub. '
                           'Customer send remains a separate action after owner testing.'
                 )
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
