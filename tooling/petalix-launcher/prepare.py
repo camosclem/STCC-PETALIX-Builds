@@ -86,6 +86,8 @@ android.defaultConfig.ndk.abiFilters += listOf("armeabi-v7a", "arm64-v8a")
     for name in ('PetalixManagedCoordinator.kt', 'PetalixActivationActivity.kt',
                  'PetalixLocalsActivity.kt', 'PetalixLocalStations.kt', 'PetalixRuntimeConfig.kt'):
         shutil.copyfile(STOCK / name, dest / name)
+    shutil.copyfile(HERE / 'PetalixLocalsActivity.kt', dest / 'PetalixLocalsActivity.kt')
+    shutil.copyfile(STOCK / 'PetalixNavigationPolicy.kt', dest / 'PetalixNavigationPolicy.kt')
     shutil.copyfile(HERE.parent / 'android-build/local-stations.json', assets / 'petalix/local-stations.json')
     shutil.copyfile(STOCK / 'streaming-services.json', assets / 'petalix/streaming-services.json')
 
@@ -121,7 +123,7 @@ android.defaultConfig.ndk.abiFilters += listOf("armeabi-v7a", "arm64-v8a")
 
     suspend fun savePetalixLocalKeys(keys: List<String>) {
         val id = com.nuvio.tv.livetv.model.ChannelGroup.CUSTOM_PREFIX + "petalix_locals"
-        val group = CustomGroup(id, "My Locals", keys.distinct())
+        val group = CustomGroup(id, "Locals", keys.distinct())
         updateCustomGroups { groups -> if (groups.any { it.id == id }) groups.map { if (it.id == id) group else it } else groups + group }
     }
 
@@ -177,6 +179,26 @@ android.defaultConfig.ndk.abiFilters += listOf("armeabi-v7a", "arm64-v8a")
 
     sys.path.insert(0, str(STOCK))
     module('launcher_panel_bridge', STOCK / 'native_customer_patch.py').apply(root, native_launcher=True)
+    tests = root / 'app/src/test/java/com/nuvio/tv/petalix'
+    shutil.copyfile(STOCK / 'PetalixNavigationPolicyTest.kt', tests / 'PetalixNavigationPolicyTest.kt')
+    settings = source / 'ui/screens/settings/LiveTvSettingsContent.kt'
+    once(settings, '            if (show(LiveTvPage.MAIN)) item(key = "channels") {', '''            if (show(LiveTvPage.MAIN)) item(key = "petalix_locals") {
+                SettingsGroupCard {
+                    SettingsActionRow("Local channels", "Change ZIP code or choose your local stations", onClick = {
+                        context.startActivity(android.content.Intent(context, com.nuvio.tv.petalix.PetalixLocalsActivity::class.java))
+                    })
+                }
+            }
+            if (show(LiveTvPage.MAIN)) item(key = "channels") {''')
+    guide = source / 'livetv/ui/LiveTvViewModel.kt'
+    once(guide, '    val custom = user.customGroups\n', '''    val hasZipSelection = user.customGroups.any {
+        it.id == com.nuvio.tv.petalix.PETALIX_ZIP_LOCALS && it.channelKeys.isNotEmpty()
+    }
+    val custom = user.customGroups
+        .filter { com.nuvio.tv.petalix.showPetalixGuideGroup(it.id, it.name, hasZipSelection) }
+''')
+    once(guide, '    shown.forEach { c ->\n        val cur = playlistGroups[c.groupId]', '''    shown.filter { com.nuvio.tv.petalix.showPetalixGuideGroup(it.groupId, it.group, hasZipSelection) }.forEach { c ->
+        val cur = playlistGroups[c.groupId]''')
     # Use the new fork's VOD auto-play option, with the provider ahead of add-ons.
     panel = dest / 'PetalixPanelSettings.kt'
     once(panel, 'onDemandStreamsPosition = if (values.getBoolean("vod.first")) "FIRST" else "LAST",',

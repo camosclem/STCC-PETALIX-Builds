@@ -22,6 +22,15 @@ def check(root):
                               'com.nuvio.tv.petalix.PetalixRuntimeConfig.apiKey', before)
             expected = re.sub(r'private val (\w+) = com.nuvio.tv.petalix.PetalixRuntimeConfig.apiKey',
                               r'private val \1 get() = com.nuvio.tv.petalix.PetalixRuntimeConfig.apiKey', expected)
+            if path.name == 'LiveTvViewModel.kt':
+                expected = expected.replace('    val custom = user.customGroups\n', '''    val hasZipSelection = user.customGroups.any {
+        it.id == com.nuvio.tv.petalix.PETALIX_ZIP_LOCALS && it.channelKeys.isNotEmpty()
+    }
+    val custom = user.customGroups
+        .filter { com.nuvio.tv.petalix.showPetalixGuideGroup(it.id, it.name, hasZipSelection) }
+''')
+                expected = expected.replace('    shown.forEach { c ->\n        val cur = playlistGroups[c.groupId]', '''    shown.filter { com.nuvio.tv.petalix.showPetalixGuideGroup(it.groupId, it.group, hasZipSelection) }.forEach { c ->
+        val cur = playlistGroups[c.groupId]''')
             assert path.read_text() == expected, f'Unexpected native UI change: {relative}'
             count += 1
     assert count > 150
@@ -42,7 +51,12 @@ def check(root):
     assert not (root / source / 'petalix/PetalixHomeServices.kt').exists()
     assert 'PetalixWelcomeScreen' not in (root / source / 'ui/screens/account/AuthQrSignInScreen.kt').read_text()
     assert 'remote-control-v1' in (root / source / 'petalix/PetalixManagedCoordinator.kt').read_text()
-    print(f'Native integrity passed: {count} UI/launcher/profile files, original Home intents, boot receivers and services; isolated test package.')
+    locals_screen = (root / source / 'petalix/PetalixLocalsActivity.kt').read_text()
+    assert 'Use these channels' in locals_screen and 'AsyncImage(model = channel.logo' in locals_screen
+    assert 'manager.saveLocals(code, selected.toList())' in locals_screen
+    assert 'Local channels' in (root / source / 'ui/screens/settings/LiveTvSettingsContent.kt').read_text()
+    assert 'favorites-backup-v1' in (root / source / 'petalix/PetalixManagedCoordinator.kt').read_text()
+    print(f'Native integrity passed: {count} UI/launcher/profile files, with only ZIP locals group filtering; original Home intents, boot receivers and services; station previews, settings access and panel favorites retained.')
 
 
 if __name__ == '__main__':
