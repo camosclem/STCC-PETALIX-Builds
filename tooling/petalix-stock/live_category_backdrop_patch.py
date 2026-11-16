@@ -41,39 +41,5 @@ def apply(root):
     settings = source / 'ui/screens/settings/LiveTvSettingsContent.kt'
     replace(settings, 'SettingsActionRow("Local stations", "Change ZIP code or local stations"',
             'SettingsActionRow("Local channels", "Change ZIP code or choose your local stations"')
-    replace(categories, 'import androidx.compose.ui.draw.clip', 'import androidx.compose.ui.draw.shadow\nimport androidx.compose.ui.draw.clip')
-    replace(categories, 'val shape = RoundedCornerShape(9.dp)', '''val shape = RoundedCornerShape(14.dp)
-                val accent = when (artwork) {
-                    "sports" -> Color(0xFF55B8FF)
-                    "news" -> Color(0xFFFF8C83)
-                    "entertainment" -> Color(0xFFC49BFF)
-                    else -> Color(0xFF67DCCB)
-                }''')
-    replace(categories, '.clip(shape).background(Color(0xFF102742))', '''.shadow(if (focused) 18.dp else 0.dp, shape, clip = false,
-                            ambientColor = accent, spotColor = accent)
-                        .clip(shape).background(Color(0x99102742))''')
-    replace(categories, '.border(if (focused) 2.dp else 1.dp, if (focused) Color(0xFF50A7FF) else Color(0xFF263348), shape)',
-            '.border(if (focused) 3.dp else 1.dp, if (focused) accent else Color(0x667C91AB), shape)')
-    replace(categories, '0f to Color(0xEC050C1D), .66f to Color(0x44050C1D), 1f to Color.Transparent',
-            '0f to Color(0xD9050C1D), .66f to Color(0x55050C1D), 1f to Color(0x22050C1D)')
-    models = source / 'ui/screens/home/ModernHomeModels.kt'
-    replace(models, 'MODERN_HERO_MEDIA_WIDTH_FRACTION = 0.72f', 'MODERN_HERO_MEDIA_WIDTH_FRACTION = 0.90f')
-    cards = source / 'ui/screens/home/ModernHomeRows.kt'
-    replace(cards, 'val cardShape = remember(cardCornerRadius) { RoundedCornerShape(cardCornerRadius) }',
-            'val cardShape = remember(cardCornerRadius) { RoundedCornerShape(cardCornerRadius.coerceAtLeast(14.dp)) }')
-    replace(cards, 'val backgroundCardColor = NuvioTheme.colors.BackgroundCard',
-            'val backgroundCardColor = NuvioTheme.colors.BackgroundCard.copy(alpha = 0.72f)')
-    replace(cards, 'val focusRingBorder = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs)',
-            'val focusRingBorder = NuvioTheme.focusRing.border(3.dp)')
-    replace(cards, '        else -> Glow.None\n    }\n    val effectiveFocusGlow', '''        else -> rememberArtworkBackedFocusGlow(
-            imageUrl = imageUrl,
-            fallbackSeed = item.title,
-            enabled = true
-        )
-    }
-    val effectiveFocusGlow''')
-    replace(cards, 'horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)',
-            'horizontalArrangement = Arrangement.spacedBy(12.dp)')
-
     from service_artwork_patch import apply as apply_service_artwork
     apply_service_artwork(root)

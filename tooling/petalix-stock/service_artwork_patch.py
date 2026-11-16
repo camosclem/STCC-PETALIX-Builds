@@ -20,16 +20,10 @@ def apply(root):
     replace(cards, 'val focusGifUrl = when {', 'val focusGifUrl = when {\n        petalixArtwork != null -> null')
     replace(cards, 'petalixArtwork != null -> ContentScale.FillBounds', 'petalixArtwork != null -> ContentScale.Crop')
     replace(cards, '''                    if (payload != null) {
-                        com.nuvio.tv.petalix.PetalixServiceMediaOverlay(''', '''                    if (payload != null && petalixArtwork == null) {
+                        com.nuvio.tv.petalix.PetalixServiceMediaOverlay(''', '''                    if (payload != null) {
                         com.nuvio.tv.petalix.PetalixServiceMediaOverlay(''')
-    replace(cards, '                    if (serviceTagline != null) {', '''                    if (petalixArtwork != null && petalixLogoUri != null &&
-                        payload?.folderId != "folder-petalix-britbox") {
-                        Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.25f)))
-                        AsyncImage(model = petalixLogoUri, contentDescription = null,
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier.matchParentSize().padding(horizontal = 38.dp, vertical = 32.dp))
-                    }
-                    if (serviceTagline != null) {''')
+    replace(cards, '                    if (payload != null) {', '\
+                    if (petalixArtwork != null && petalixLogoUri != null && payload?.folderId != "folder-petalix-britbox") {\n                        AsyncImage(model = petalixLogoUri, contentDescription = null, contentScale = ContentScale.Fit,\n                            modifier = Modifier.matchParentSize().padding(horizontal = 38.dp, vertical = 32.dp))\n                    }\n                    if (payload != null) {')
     replace(cards, '''                    isFocused = it.isFocused
                     onFocusStateChanged(it.isFocused)''', '''                    isFocused = it.isFocused
                     val categoryTitle = payload?.takeIf {
@@ -41,3 +35,6 @@ def apply(root):
                     onFocusStateChanged(it.isFocused)''')
     shutil.copyfile(HERE/'PetalixLocalCandidate.kt',source/'petalix/PetalixLocalCandidate.kt')
     shutil.copyfile(HERE/'PetalixLocalCandidateTest.kt',root/'app/src/test/java/com/nuvio/tv/petalix/PetalixLocalCandidateTest.kt')
+
+    from tv_presentation_patch import apply as apply_tv_presentation
+    apply_tv_presentation(root)

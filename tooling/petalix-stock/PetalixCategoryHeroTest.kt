@@ -25,4 +25,14 @@ class PetalixCategoryHeroTest {
         assertSame(service, petalixCategoryHero(service, null))
         assertSame(service, petalixCategoryHero(service, "unknown"))
     }
+    @Test fun recentlyWatchedUsesTheFocusedProgramsArtwork() {
+        val focus = com.nuvio.tv.petalix.PetalixLiveCategoryFocus
+        try {
+            focus.recent.value = com.nuvio.tv.petalix.PetalixLiveCategoryFocus.Recent("cbs", "Evening News", "CBS", "news-art")
+            assertEquals("news-art", petalixCategoryHero(service, null).heroBackdrop)
+            focus.recent.value = com.nuvio.tv.petalix.PetalixLiveCategoryFocus.Recent("nbc", "Today", "NBC", "today-art")
+            assertEquals("Today", petalixCategoryHero(service, null).preview?.title)
+            assertEquals("today-art", petalixCategoryHero(service, null).heroBackdrop)
+        } finally { focus.recent.value = null }
+    }
 }
