@@ -1,29 +1,33 @@
 package com.nuvio.tv.petalix
 
 import android.content.Intent
-import android.content.res.ColorStateList
-import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.StateListDrawable
-import android.view.ViewGroup
-import android.widget.CheckedTextView
-import android.graphics.Color
 import android.os.Bundle
-import android.text.InputFilter
-import android.text.InputType
-import android.view.Gravity
-import android.view.View
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.ListView
-import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
-import androidx.core.widget.doAfterTextChanged
-import androidx.lifecycle.lifecycleScope
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Button
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Text
+import coil3.compose.AsyncImage
 import com.nuvio.tv.MainActivity
-import com.nuvio.tv.livetv.model.LiveChannel
+import com.nuvio.tv.ui.theme.NuvioTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -36,212 +40,162 @@ class PetalixLocalsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val setup = intent.getBooleanExtra("setup", false)
-        fun leave() {
-            if (setup) {
-                manager.dismissLocalsPrompt()
-                startActivity(Intent(this, MainActivity::class.java).putExtra("skipLocalsOnce", true))
+        setContent {
+            NuvioTheme {
+                LocalsSetup(manager, setup) {
+                    if (setup) {
+                        manager.dismissLocalsPrompt()
+                        startActivity(Intent(this, MainActivity::class.java).putExtra("skipLocalsOnce", true))
+                    }
+                    finish()
+                }
             }
-            finish()
         }
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() = leave()
-        })
-        fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(36), dp(14), dp(36), dp(14))
-            setBackgroundColor(Color.rgb(15, 16, 22))
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun LocalsSetup(manager: PetalixManagedCoordinator, setup: Boolean, onDone: () -> Unit) {
+    var zip by rememberSaveable { mutableStateOf(manager.localsZip) }
+    var result by remember { mutableStateOf<PetalixLocalStations.Result?>(null) }
+    var matchedZip by remember { mutableStateOf<String?>(null) }
+    var selected by remember { mutableStateOf(emptySet<String>()) }
+    var showAll by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val zipFocus = remember { FocusRequester() }
+    val colors = NuvioTheme.colors
+    BackHandler { if (!saving) onDone() }
+    LaunchedEffect(Unit) { zipFocus.requestFocus() }
+
+    fun findStations() {
+        if (busy || !zip.matches(Regex("[0-9]{5}"))) return
+        val requestedZip = zip
+        busy = true
+        message = "Finding available local stations…"
+        scope.launch {
+            try {
+                val found = manager.lookupLocals(requestedZip)
+                val prior = if (requestedZip == manager.localsZip) manager.localKeys() else emptyList()
+                val availableKeys = found.available.map { it.key }.toSet()
+                selected = prior.filter { it in availableKeys }.toSet().ifEmpty {
+                    found.nearby.map { it.key }.toSet()
+                }
+                matchedZip = requestedZip
+                result = found
+                showAll = found.nearby.isEmpty()
+                message = when {
+                    found.available.isEmpty() -> "Your playlist has no local stations available yet. Let it finish loading, then try again."
+                    found.nearby.isEmpty() -> "No nearby matches were found. Choose your stations from the available list below."
+                    else -> null
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                message = e.message ?: "Couldn’t find stations. Please try again."
+            } finally {
+                busy = false
+            }
         }
-        fun line(value: String, size: Float) = TextView(this).apply {
-            text = value
-            textSize = size
-            setTextColor(Color.WHITE)
-            setPadding(0, dp(4), 0, dp(4))
-        }
-        fun button(label: String) = Button(this).apply {
-            text = label
-            isAllCaps = false
-            setTextColor(Color.WHITE)
-            backgroundTintList = ColorStateList(
-                arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf(android.R.attr.state_focused), intArrayOf()),
-                intArrayOf(Color.rgb(42, 43, 52), Color.rgb(100, 61, 166), Color.rgb(57, 58, 73))
+    }
+
+    Column(
+        Modifier.fillMaxSize().background(colors.Background).padding(horizontal = 44.dp, vertical = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text("Choose your local channels", color = colors.TextPrimary, fontSize = 26.sp)
+        Text("Enter your ZIP code. We’ll suggest stations available through your service.",
+            color = colors.TextSecondary, fontSize = 15.sp)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            OutlinedTextField(
+                value = zip,
+                onValueChange = { value ->
+                    val next = value.filter { it in '0'..'9' }.take(5)
+                    if (next != zip) {
+                        zip = next
+                        result = null
+                        matchedZip = null
+                        selected = emptySet()
+                        message = null
+                    }
+                },
+                enabled = !busy,
+                label = { androidx.compose.material3.Text("ZIP code") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = colors.TextPrimary, unfocusedTextColor = colors.TextPrimary,
+                    focusedLabelColor = colors.TextPrimary, unfocusedLabelColor = colors.TextSecondary,
+                    cursorColor = colors.TextPrimary, focusedBorderColor = colors.FocusRing
+                ),
+                modifier = Modifier.width(200.dp).focusRequester(zipFocus)
             )
-        }
-        fun row() = LinearLayout(this).also { content.addView(it) }
-
-        content.addView(line("My Locals", 26f))
-        val input = row()
-        val zip = EditText(this).apply {
-            id = View.generateViewId()
-            hint = "5-digit ZIP code"
-            setHintTextColor(Color.LTGRAY)
-            setTextColor(Color.WHITE)
-            textSize = 20f
-            gravity = Gravity.CENTER
-            inputType = InputType.TYPE_CLASS_NUMBER
-            setSingleLine(true)
-            filters = arrayOf(InputFilter.LengthFilter(5))
-            setText(savedInstanceState?.getString("zip") ?: manager.localsZip)
-        }
-        input.addView(zip, LinearLayout.LayoutParams(dp(190), dp(50)))
-        val lookup = button("Find stations")
-        input.addView(lookup)
-        val toggle = button("Browse all locals").apply { visibility = View.GONE }
-        input.addView(toggle)
-        val message = line("Enter your U.S. ZIP code to find nearby stations in your playlist.", 16f)
-        content.addView(message)
-        val search = EditText(this).apply {
-            hint = "Search by station name or call sign"
-            setHintTextColor(Color.LTGRAY)
-            setTextColor(Color.WHITE)
-            textSize = 16f
-            setSingleLine(true)
-            visibility = View.GONE
-        }
-        content.addView(search)
-        val list = ListView(this).apply {
-            choiceMode = ListView.CHOICE_MODE_MULTIPLE
-            selector = StateListDrawable().apply {
-                addState(intArrayOf(android.R.attr.state_focused), ColorDrawable(Color.rgb(88, 49, 155)))
-                addState(intArrayOf(android.R.attr.state_pressed), ColorDrawable(Color.rgb(88, 49, 155)))
-                addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))
+            Button(onClick = ::findStations, enabled = !busy && zip.length == 5) {
+                Text(if (busy && !saving) "Finding stations…" else "Find my channels")
             }
-            visibility = View.INVISIBLE
         }
-        content.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
-        val actions = row()
-        val save = button("Save My Locals").apply { isEnabled = false }
-        actions.addView(save)
-        val cancel = button(if (setup) "Choose later" else "Back")
-        actions.addView(cancel)
-        setContentView(content)
-
-        var result: PetalixLocalStations.Result? = null
-        var matchedZip: String? = null
-        var showAll = false
-        var busy = false
-        var visibleStations = emptyList<LiveChannel>()
-        val selected = linkedSetOf<String>()
-
-        fun renderStations() {
-            val data = result ?: return
-            val query = search.text.toString().trim()
-            val stations = if (showAll) data.available else data.nearby
-            visibleStations = stations.filter { channel ->
-                listOfNotNull(channel.name, channel.tvgName, channel.tvgId, channel.group)
-                    .any { it.contains(query, ignoreCase = true) }
-            }
-            val labels = visibleStations.map { it.name }
-            list.clearChoices()
-            list.adapter = object : ArrayAdapter<String>(
-                this, android.R.layout.simple_list_item_multiple_choice, labels
-            ) {
-                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                    return (super.getView(position, convertView, parent) as CheckedTextView).apply {
-                        setTextColor(Color.WHITE)
-                        checkMarkTintList = ColorStateList.valueOf(Color.WHITE)
-                        minHeight = dp(44)
+        result?.let { found ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text(found.location, color = colors.TextPrimary, fontSize = 20.sp)
+                    Text("${selected.size} selected · You can adjust the selection below",
+                        color = colors.TextSecondary, fontSize = 13.sp)
+                }
+                if (found.available.isNotEmpty()) {
+                    Button(onClick = { showAll = !showAll }, enabled = !busy) {
+                        Text(if (showAll) "Nearby stations" else "Browse all locals")
                     }
                 }
             }
-            visibleStations.forEachIndexed { index, channel -> list.setItemChecked(index, channel.key in selected) }
-            toggle.text = if (showAll) "Show nearby locals" else "Browse all locals"
-            message.text = if (data.available.isEmpty()) {
-                "${data.location} · No locals found in your playlist. If it is still loading, try again shortly."
-            } else {
-                "${data.location} · ${visibleStations.size} ${if (showAll) "playlist" else "nearby"} stations · ${selected.size} selected"
-            }
-            save.isEnabled = !busy && selected.isNotEmpty()
         }
-
-        fun working(value: Boolean) {
-            busy = value
-            zip.isEnabled = !value
-            lookup.isEnabled = !value
-            toggle.isEnabled = !value
-            search.isEnabled = !value
-            list.isEnabled = !value
-            save.isEnabled = !value && matchedZip != null && selected.isNotEmpty()
-        }
-
-        zip.doAfterTextChanged {
-            result = null
-            matchedZip = null
-            selected.clear()
-            list.visibility = View.INVISIBLE
-            search.visibility = View.GONE
-            toggle.visibility = View.GONE
-            save.isEnabled = false
-        }
-        search.doAfterTextChanged { renderStations() }
-        toggle.setOnClickListener {
-            showAll = !showAll
-            renderStations()
-        }
-        list.setOnItemClickListener { _, _, index, _ ->
-            val key = visibleStations[index].key
-            if (list.isItemChecked(index)) selected.add(key) else selected.remove(key)
-            val data = result ?: return@setOnItemClickListener
-            message.text = "${data.location} · ${visibleStations.size} ${if (showAll) "playlist" else "nearby"} stations · ${selected.size} selected"
-            save.isEnabled = selected.isNotEmpty()
-        }
-        lookup.setOnClickListener {
-            val code = zip.text.toString()
-            if (!code.matches(Regex("[0-9]{5}"))) {
-                message.text = "Enter a five-digit ZIP code."
-                zip.requestFocus()
-                return@setOnClickListener
-            }
-            working(true)
-            message.text = "Finding local stations in your playlist…"
-            lifecycleScope.launch {
-                try {
-                    val found = manager.lookupLocals(code)
-                    val previous = if (code == manager.localsZip) manager.localKeys() else emptyList()
-                    matchedZip = code
-                    selected.clear()
-                    selected.addAll(previous.intersect(found.available.map { it.key }.toSet()))
-                    showAll = found.nearby.isEmpty()
-                    result = found
-                    search.setText("")
-                    list.visibility = View.VISIBLE
-                    search.visibility = if (found.available.isNotEmpty()) View.VISIBLE else View.GONE
-                    toggle.visibility = search.visibility
-                    renderStations()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    message.text = e.message ?: "Lookup failed. Please try again."
-                } finally {
-                    working(false)
-                }
-                if (visibleStations.isNotEmpty()) list.requestFocus() else lookup.requestFocus()
-            }
-        }
-        save.setOnClickListener {
-            val code = matchedZip ?: return@setOnClickListener
-            working(true)
-            lifecycleScope.launch {
-                try {
-                    manager.saveLocals(code, selected.toList())
-                    leave()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    message.text = e.message ?: "Could not save My Locals. Please try again."
-                    working(false)
+        message?.let { Text(it, color = colors.TextSecondary, fontSize = 14.sp) }
+        val stations = result?.let { if (showAll) it.available else it.nearby }.orEmpty()
+        LazyColumn(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            items(stations, key = { it.key }) { channel ->
+                val checked = channel.key in selected
+                Button(
+                    onClick = { selected = if (checked) selected - channel.key else selected + channel.key },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        AsyncImage(model = channel.logo, contentDescription = null,
+                            modifier = Modifier.size(width = 64.dp, height = 36.dp))
+                        Text(channel.name, modifier = Modifier.weight(1f), maxLines = 1)
+                        Text(if (checked) "✓ Selected" else "Select")
+                    }
                 }
             }
         }
-        cancel.setOnClickListener { leave() }
-        zip.requestFocus()
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        val content = findViewById<android.view.ViewGroup>(android.R.id.content)
-        val form = content.getChildAt(0) as? LinearLayout
-        val input = form?.getChildAt(1) as? LinearLayout
-        outState.putString("zip", (input?.getChildAt(0) as? EditText)?.text?.toString())
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    val code = matchedZip ?: return@Button
+                    busy = true
+                    saving = true
+                    message = null
+                    scope.launch {
+                        try {
+                            manager.saveLocals(code, selected.toList())
+                            onDone()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            message = e.message ?: "Couldn’t save your stations. Please try again."
+                            busy = false
+                            saving = false
+                        }
+                    }
+                },
+                enabled = !busy && matchedZip == zip && selected.isNotEmpty(),
+            ) { Text(if (saving) "Saving…" else "Use these channels") }
+            Button(onClick = onDone, enabled = !saving) { Text(if (setup) "Choose later" else "Back") }
+            Text("Change this later in Settings → Live TV → Local channels.", color = colors.TextSecondary, fontSize = 12.sp)
+        }
     }
 }
