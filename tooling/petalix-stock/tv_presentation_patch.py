@@ -65,6 +65,7 @@ def apply(root):
             'if (stamp == prefs.getString("stamp", "")) {')
     coordinator=source/'petalix/PetalixManagedCoordinator.kt'
     replace(coordinator,'        applyPanelSettings(doc)\n', '''        applyPanelSettings(doc)
+        ensureBritBoxService(profiles.activeProfileId.value)
         val browsingDefaultsKey = "landscapeTrailerBrowsingV1:${profiles.activeProfileId.value}"
         if (!prefs.getBoolean(browsingDefaultsKey, false)) {
             layout.setModernLandscapePostersEnabled(true)
@@ -80,3 +81,20 @@ def apply(root):
             check(prefs.edit().putBoolean(browsingDefaultsKey, true).commit())
         }
 ''')
+    replace(coordinator, '    private suspend fun ensureLocalHome(profileId: Int) {', '''    private suspend fun ensureBritBoxService(serviceProfileId: Int) {
+        // Repair older saved rows after panel settings have been applied. Preserve edits.
+        val savedCollections = collections.getCurrentCollections(serviceProfileId)
+        val serviceRow = savedCollections.firstOrNull { it.id == "collection-streaming-services-only" }
+        if (serviceRow == null || serviceRow.folders.none { it.id == "folder-petalix-britbox" }) {
+            val bundledServices = context.assets.open("petalix/streaming-services.json")
+                .bufferedReader().use { collections.importFromJson(it.readText()) }.single()
+            val repairedServices = serviceRow?.copy(folders = serviceRow.folders +
+                bundledServices.folders.single { it.id == "folder-petalix-britbox" }) ?: bundledServices
+            collections.setCollections(savedCollections.map {
+                if (it.id == repairedServices.id) repairedServices else it
+            }.let { if (serviceRow == null) it + repairedServices else it }, serviceProfileId)
+        }
+    }
+
+    private suspend fun ensureLocalHome(profileId: Int) {
+        ensureBritBoxService(profileId)''')

@@ -15,7 +15,7 @@ def apply(root):
         (art/entry['filename']).write_bytes(data)
     categories=source/'petalix/PetalixHomeCategories.kt'
     replace(categories, 'artworkByService[folderId]?.let(::homeArtworkUri)',
-        'if (folderId in setOf('+','.join('"'+key+'"' for key in entries)+')) "file:///android_asset/petalix/service-art-v1/$folderId.jpg" else artworkByService[folderId]?.let(::homeArtworkUri)')
+        'artworkByService[folderId]?.let(::homeArtworkUri) ?: if (folderId in setOf('+','.join('"'+key+'"' for key in entries)+')) "file:///android_asset/petalix/service-art-v1/$folderId.jpg" else null')
     cards=source/'ui/screens/home/ModernHomeRows.kt'
     replace(cards, 'val focusGifUrl = when {', 'val focusGifUrl = when {\n        petalixArtwork != null -> null')
     replace(cards, 'petalixArtwork != null -> ContentScale.FillBounds', 'petalixArtwork != null -> ContentScale.Crop')
@@ -23,7 +23,7 @@ def apply(root):
                         com.nuvio.tv.petalix.PetalixServiceMediaOverlay(''', '''                    if (payload != null) {
                         com.nuvio.tv.petalix.PetalixServiceMediaOverlay(''')
     replace(cards, '                    if (payload != null) {', '\
-                    if (petalixArtwork != null && petalixLogoUri != null && payload?.folderId != "folder-petalix-britbox") {\n                        AsyncImage(model = petalixLogoUri, contentDescription = null, contentScale = ContentScale.Fit,\n                            modifier = Modifier.matchParentSize().padding(horizontal = 38.dp, vertical = 32.dp))\n                    }\n                    if (payload != null) {')
+                    if (petalixArtwork != null && petalixLogoUri != null && payload?.folderId in setOf("folder-OA4T8NYO", "folder-IQTF27K8", "folder-9YQK1ZF1", "folder-ILJM8PD0")) {\n                        AsyncImage(model = petalixLogoUri, contentDescription = null, contentScale = ContentScale.Fit,\n                            modifier = Modifier.matchParentSize().padding(horizontal = 38.dp, vertical = 32.dp))\n                    }\n                    if (payload != null) {')
     replace(cards, '''                    isFocused = it.isFocused
                     onFocusStateChanged(it.isFocused)''', '''                    isFocused = it.isFocused
                     val categoryTitle = payload?.takeIf {
@@ -33,6 +33,9 @@ def apply(root):
                     else if (categoryTitle != null && com.nuvio.tv.petalix.PetalixLiveCategoryFocus.category.value == categoryTitle)
                         com.nuvio.tv.petalix.PetalixLiveCategoryFocus.category.value = null
                     onFocusStateChanged(it.isFocused)''')
+    # The original branded cards already contain their logo and caption.
+    replace(cards, 'if (serviceTagline != null) {',
+        'if (serviceTagline != null && payload?.folderId !in setOf("folder-WFGY1XPD", "folder-AT8KYHZO", "folder-8ZBZOMW9", "folder-LN9SPMQN", "folder-petalix-britbox")) {')
     shutil.copyfile(HERE/'PetalixLocalCandidate.kt',source/'petalix/PetalixLocalCandidate.kt')
     shutil.copyfile(HERE/'PetalixLocalCandidateTest.kt',root/'app/src/test/java/com/nuvio/tv/petalix/PetalixLocalCandidateTest.kt')
 
