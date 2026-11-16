@@ -1,0 +1,85 @@
+name: Petalix Launcher 1.2.3 isolated test
+on:
+  push:
+    branches: [test/petalix-launcher-1.2.3]
+    paths: [.github/workflows/petalix-launcher-test.yml, tooling/petalix-launcher/**, tooling/petalix-stock/**]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: petalix-launcher-isolated-test
+  cancel-in-progress: false
+jobs:
+  test-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Br0ck25/NuvioTVLauncher
+          ref: 93fb5affff07a2a84721c2cd0e0e71f578df0dc0
+          path: launcher
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Android SDK and branding tools
+        run: |
+          python3 -m pip install --disable-pip-version-check Pillow
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+      - name: Prepare exact native launcher with Petalix service connection
+        id: prepare
+        run: |
+          VERSION=$(date +%s)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          python3 tooling/petalix-launcher/prepare.py --upstream launcher --version "$VERSION"
+          python3 tooling/petalix-launcher/check_native.py launcher
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > launcher/local.properties
+          cp launcher/keystore/livetv-fork.jks "$RUNNER_TEMP/petalix-launcher-test.jks"
+          {
+            echo "NUVIO_RELEASE_STORE_FILE=$RUNNER_TEMP/petalix-launcher-test.jks"
+            echo "NUVIO_RELEASE_KEY_ALIAS=livetv"
+            echo "NUVIO_RELEASE_KEY_PASSWORD=livetvfork"
+            echo "NUVIO_RELEASE_STORE_PASSWORD=livetvfork"
+          } >> "$GITHUB_ENV"
+      - name: Compile, test bridge and assemble isolated signed APK
+        working-directory: launcher
+        run: |
+          chmod +x gradlew
+          ./gradlew --console=plain :app:testFullDebugUnitTest --tests 'com.nuvio.tv.petalix.*' :app:assembleFullDebug --stacktrace --parallel
+      - name: Verify test identity and package
+        env:
+          VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          mkdir -p out
+          APK=$(find launcher/app/build/outputs/apk/full/debug -maxdepth 1 -name '*.apk' | head -1)
+          test -n "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | head -1 | tee out/package.txt
+          grep -F "name='com.petalix.iptv.stocktest2'" out/package.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" > out/signature.txt
+          cp "$APK" "out/Petalix-Launcher-1.2.3-Test-$VERSION.apk"
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+          python3 launcher/vpn-android/ci/package-openvpn2-sources.py --output out/openvpn2-corresponding-source.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: petalix-launcher-1.2.3-test
+          path: out/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish isolated test download only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          gh release create "petalix-launcher-test-$VERSION" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Launcher 1.2.3 Test $VERSION" --notes "Isolated Petalix test based on Br0ck25 NuvioTVLauncher 1.2.3. Separate test package: com.petalix.iptv.stocktest2. Does not replace the customer app, change the panel, or queue customer updates. Activate with an existing Petalix PIN. Default Home launcher setup remains optional and must be enabled on the test device. This test uses the upstream test certificate, not the customer signing key. Source preparation and upstream notices are in this commit."

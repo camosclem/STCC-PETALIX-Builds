@@ -6,7 +6,7 @@ HERE=Path(__file__).resolve().parent
 def once(p,old,new):
  s=p.read_text();assert s.count(old)==1,(p,str(old)[:80],s.count(old));p.write_text(s.replace(old,new))
 
-def apply(root, *, enable_updates=True):
+def apply(root, *, enable_updates=True, native_launcher=False):
  source=root/'app/src/main/java/com/nuvio/tv';dest=source/'petalix'
  with (root/'app/proguard-rules.pro').open('a') as stream:stream.write('\n-keep class com.nuvio.tv.petalix.** { *; }\n')
  for name in ['PetalixPersonalSettings.kt','PetalixRetiredAddons.kt','ManagedNativeSettings.kt','PetalixPanelSettings.kt','PanelChannelIdentity.kt','PetalixServiceCatalog.kt']:
@@ -27,7 +27,10 @@ def apply(root, *, enable_updates=True):
  shutil.copyfile(HERE/'PetalixRetiredAddonsTest.kt',tests/'PetalixRetiredAddonsTest.kt')
  shutil.copyfile(HERE/'PanelChannelIdentityTest.kt',tests/'PanelChannelIdentityTest.kt')
  repo=source/'livetv/data/LiveTvRepository.kt'
- once(repo,'val baseKey = "${pl.id}|${e.tvgId ?: ""}|${e.name}"', 'val baseKey = com.nuvio.tv.petalix.PanelChannelIdentity.key(pl.id, e.url, "${pl.id}|${e.tvgId ?: ""}|${e.name}")')
+ if native_launcher:
+  once(repo, 'else "${pl.id}|${e.tvgId ?: ""}|${e.name}"', 'else com.nuvio.tv.petalix.PanelChannelIdentity.key(pl.id, e.url, "${pl.id}|${e.tvgId ?: ""}|${e.name}")')
+ else:
+  once(repo,'val baseKey = "${pl.id}|${e.tvgId ?: ""}|${e.name}"', 'val baseKey = com.nuvio.tv.petalix.PanelChannelIdentity.key(pl.id, e.url, "${pl.id}|${e.tvgId ?: ""}|${e.name}")')
  rename=source/'livetv/data/RenamedChannels.kt'
  once(rename,'        val byLink = HashMap<String, MutableList<LiveChannel>>()','        val byProvider = HashMap<String, MutableList<LiveChannel>>()\n        val byLink = HashMap<String, MutableList<LiveChannel>>()')
  once(rename,'            byLink.getOrPut(c.sourceId','''            if (c.sourceId == "petalix-managed") com.nuvio.tv.petalix.PanelChannelIdentity.streamId(c.url)?.let { id ->
@@ -132,25 +135,26 @@ def apply(root, *, enable_updates=True):
         .put("hideOtherLocals", panelSettings.hideOtherLocals)
         .put("settingsPending", prefs.getInt("settingsPending", 0))
         .put("settingsError", prefs.getBoolean("settingsError", false))''')
- # Local visibility is independent of panel group/channel curation, which the feed already enforces.
- once(source/'livetv/ui/LiveTvViewModel.kt', '    val displayChannels: StateFlow<List<LiveChannel>> = channelStore.displayChannels', '    val displayChannels: StateFlow<List<LiveChannel>> = combine(\n        channelStore.displayChannels, com.nuvio.tv.petalix.PetalixPanelPolicy.showLocals\n    ) { channels, showLocals ->\n        if (showLocals) channels else channels.filterNot {\n            Regex("(?i)(?:^|[^a-z])(?:locals?|local stations|local tv|ota)(?:$|[^a-z])").containsMatchIn(it.group)\n        }\n    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())')
- nav=source/'ui/navigation/NuvioNavHost.kt'
- once(nav,'    NavHost(\n','''    val petalixBackStack by navController.currentBackStackEntryAsState()
-    val petalixPolicy by com.nuvio.tv.petalix.PetalixPanelPolicy.state.collectAsState()
-    androidx.compose.runtime.LaunchedEffect(petalixBackStack?.destination?.route, petalixPolicy) {
-        if (com.nuvio.tv.petalix.PetalixPanelPolicy.blocked(petalixBackStack?.destination?.route.orEmpty())) {
-            if (!navController.popBackStack()) navController.navigate(Screen.Home.route)
-        }
-    }
-    NavHost(
-''')
- services=dest/'ui2/PetalixServices.kt'
- once(services,'@ApplicationContext context:Context):ViewModel()', '@ApplicationContext context:Context,private val panelFactory:com.nuvio.tv.data.local.ProfileDataStoreFactory,private val panelProfiles:com.nuvio.tv.core.profile.ProfileManager):ViewModel()')
- once(services,'            val rows=results.mapNotNull','''            val dedup=panelFactory.get(panelProfiles.activeProfileId.value,"layout_settings").data.first()[androidx.datastore.preferences.core.booleanPreferencesKey("service_hub_deduplicate")] ?: true
-            val rows=results.mapNotNull''')
- once(services,'                old.copy(rows=merged,loading=false','''                val seen=hashSetOf<String>()
-                val visible=if(!dedup)merged else merged.map { row -> row.copy(items=row.items.filter { item -> seen.add("${item.apiType}:${item.id}") }) }
-                old.copy(rows=visible,loading=false''')
+ if not native_launcher:
+  # Local visibility is independent of panel group/channel curation, which the feed already enforces.
+  once(source/'livetv/ui/LiveTvViewModel.kt', '    val displayChannels: StateFlow<List<LiveChannel>> = channelStore.displayChannels', '    val displayChannels: StateFlow<List<LiveChannel>> = combine(\n        channelStore.displayChannels, com.nuvio.tv.petalix.PetalixPanelPolicy.showLocals\n    ) { channels, showLocals ->\n        if (showLocals) channels else channels.filterNot {\n            Regex("(?i)(?:^|[^a-z])(?:locals?|local stations|local tv|ota)(?:$|[^a-z])").containsMatchIn(it.group)\n        }\n    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())')
+  nav=source/'ui/navigation/NuvioNavHost.kt'
+  once(nav,'    NavHost(\n','''    val petalixBackStack by navController.currentBackStackEntryAsState()
+     val petalixPolicy by com.nuvio.tv.petalix.PetalixPanelPolicy.state.collectAsState()
+     androidx.compose.runtime.LaunchedEffect(petalixBackStack?.destination?.route, petalixPolicy) {
+         if (com.nuvio.tv.petalix.PetalixPanelPolicy.blocked(petalixBackStack?.destination?.route.orEmpty())) {
+             if (!navController.popBackStack()) navController.navigate(Screen.Home.route)
+         }
+     }
+     NavHost(
+ ''')
+  services=dest/'ui2/PetalixServices.kt'
+  once(services,'@ApplicationContext context:Context):ViewModel()', '@ApplicationContext context:Context,private val panelFactory:com.nuvio.tv.data.local.ProfileDataStoreFactory,private val panelProfiles:com.nuvio.tv.core.profile.ProfileManager):ViewModel()')
+  once(services,'            val rows=results.mapNotNull','''            val dedup=panelFactory.get(panelProfiles.activeProfileId.value,"layout_settings").data.first()[androidx.datastore.preferences.core.booleanPreferencesKey("service_hub_deduplicate")] ?: true
+             val rows=results.mapNotNull''')
+  once(services,'                old.copy(rows=merged,loading=false','''                val seen=hashSetOf<String>()
+                 val visible=if(!dedup)merged else merged.map { row -> row.copy(items=row.items.filter { item -> seen.add("${item.apiType}:${item.id}") }) }
+                 old.copy(rows=visible,loading=false''')
  if not enable_updates: return
  full=root/'app/src/full/java/com/nuvio/tv/updater'
  shutil.copyfile(HERE/'PanelUpdateRepository.kt',full/'UpdateRepository.kt')
