@@ -93,7 +93,8 @@ class ManagedNativeSettings @Inject constructor(
     private val pinMap=JSONObject(context.assets.open("pin-settings-map.json").bufferedReader().use { it.readText() })
     val controlCount get()=26+controls.size
     val profileId get()=profiles.activeProfileId.value
-    fun validate(values:JSONObject) {
+    fun validate(input:JSONObject) {
+        val values = petalixActiveManagedValues(input)
         if (values.optBoolean("addon:penguplay")) {
             val url = values.optString("addon:penguplay_manifest").toHttpUrlOrNull()
             require(url != null && url.isHttps && url.username.isEmpty() && url.password.isEmpty() &&
@@ -103,14 +104,6 @@ class ManagedNativeSettings @Inject constructor(
             val spec=controls.firstOrNull { it.key==key }?:error("Unsupported native setting")
             spec.native(values.get(key))
         } }
-        if(values.has("addon:kaptain")) {
-            val url=values.getString("addon:kaptain").toHttpUrlOrNull()
-            require(url!=null&&url.isHttps&&url.username.isEmpty()&&url.password.isEmpty()&&url.fragment==null&&url.encodedPath.endsWith("/manifest.json",true)) { "Invalid Kaptain manifest URL" }
-        }
-        if(values.has("addon:cncverse")) {
-            val url=values.getString("addon:cncverse").toHttpUrlOrNull()
-            require(url!=null&&url.isHttps&&url.username.isEmpty()&&url.password.isEmpty()&&url.fragment==null&&url.encodedPath.endsWith("/manifest.json",true)) { "Invalid CNCVerse addon URL" }
-        }
         if(values.has("pref:collections:collections_json")) {
             val json=values.getString("pref:collections:collections_json")
             require(collections.validateCollectionsJson(json).valid) { "Invalid Kaptain collection export" }
@@ -124,19 +117,20 @@ class ManagedNativeSettings @Inject constructor(
     private fun save(key:String,value:JSONObject) { check(backup.edit().putString(key,value.toString()).commit()) }
     suspend fun apply(values:JSONObject) {
         validate(values)
-        val prepared=JSONObject(values.toString())
+        val prepared=petalixActiveManagedValues(values)
         val collectionKey="pref:collections:collections_json"
         if(prepared.has(collectionKey)) prepared.put(collectionKey,PetalixServiceCatalog.reconcile(
             prepared.getString(collectionKey),context.assets.open("petalix/streaming-services.json").bufferedReader().use { it.readText() }
         ))
         // Finish one-time native migrations before assigning managed values.
         player.playerSettings.first();badges.settings.first()
-        addons.applyManagedCncverse(if(values.has("addon:cncverse"))values.getString("addon:cncverse") else null)
+        addons.applyManagedCncverse(null)
         addons.applyManagedPengu(values.optString("addon:penguplay_manifest").takeIf { values.optBoolean("addon:penguplay") })
-        addons.applyManagedKaptain(if(values.has("addon:kaptain"))values.getString("addon:kaptain") else null)
+        addons.applyManagedKaptain(null)
         applyControls(controls.filter { it.feature!="managed_addons" },prepared,"")
     }
-    suspend fun applyRaw(raw:JSONObject) {
+    suspend fun applyRaw(input:JSONObject) {
+        val raw=petalixBoundRawValues(input,pinMap)
         val specs=mutableListOf<NativeControl>();val values=JSONObject()
         for(key in pinMap.keys()) {
             val spec=pinMap.getJSONObject(key);val targets=spec.getJSONArray("targets")

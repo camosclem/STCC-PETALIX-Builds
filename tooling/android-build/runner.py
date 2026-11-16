@@ -251,7 +251,7 @@ def sign_and_release():
                     verified_dex=b''.join(verified_apk.read(n) for n in verified_apk.namelist() if re.fullmatch(r'classes\d*\.dex',n))
                     if b'PetalixHomeHeader' in verified_dex:
                         raise RuntimeError('The removed Home top menu is still present')
-                    for marker in [b'petalixVodFirstStreams',b'balancedPetalixStream',b'PetalixPlaybackRecovery',b'petalixStartupChoice',b'guide-only-feeds-v1',b'petalixShowGuideFeed',b'petalixHomeLiveCollection',b'finishPetalixVodLoad',b'petalixSoftwareAv1Recovery',b'Make yourself at home.',b'petalixSportsChannelSignature']:
+                    for marker in [b'petalixVodFirstStreams',b'balancedPetalixStream',b'PetalixPlaybackRecovery',b'petalixStartupChoice',b'guide-only-feeds-v1',b'petalixShowGuideFeed',b'petalixHomeLiveCollection',b'finishPetalixVodLoad',b'petalixSoftwareAv1Recovery',b'Make yourself at home.',b'petalixSportsChannelSignature',b'petalixActiveManagedValues',b'petalixBoundRawValues']:
                         if marker not in verified_dex:
                             raise RuntimeError('Navigation and focus repair missing: '+marker.decode())
                 meta.update(

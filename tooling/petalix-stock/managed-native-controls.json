@@ -6087,19 +6087,6 @@
     "source": "app/src/main/java/com/nuvio/tv/data/local/CollectionsDataStore.kt"
   },
   {
-    "key": "addon:cncverse",
-    "feature": "managed_addons",
-    "preference": "cncverse",
-    "kind": "string",
-    "type": "addon",
-    "maxLength": 4000,
-    "optional": true,
-    "group": "Optional addons",
-    "label": "CNCVerse Bridge",
-    "help": "Add a configured CNCVerse Stremio addon alongside the shared provider.",
-    "source": "app/src/main/java/com/nuvio/tv/data/local/AddonPreferences.kt"
-  },
-  {
     "key": "pref:live_tv:clock_mode",
     "feature": "live_tv",
     "preference": "clock_mode",

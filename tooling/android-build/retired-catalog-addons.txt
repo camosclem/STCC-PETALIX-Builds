@@ -1,0 +1,1 @@
+Remove CNCVerse and Kaptain assignments and capability from Petalix. Preserve native TMDB Home collections, provider VOD, owner-only Pengu policy and all account/session identities. Ignore only known legacy decorative fields when applying native settings. No customer rollout is automatic.

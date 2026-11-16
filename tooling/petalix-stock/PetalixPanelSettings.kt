@@ -80,7 +80,7 @@ class PetalixPanelSettings @Inject constructor(
         com.nuvio.tv.livetv.startup.StartPage.save(context, when (values.getString("start.page")) {
             "LIVE_TV" -> "live_tv"; "SPORTS" -> "sports"; "ON_DEMAND" -> "on_demand"; else -> null
         })
-        appliedCount = values.length() + raw.length()
+        appliedCount = petalixActiveManagedValues(values).length() + petalixBoundRawValues(raw, pinMap).length()
         check(prefs.edit().putString("stamp", stamp).putInt("count", appliedCount).commit())
         return revision
     }
