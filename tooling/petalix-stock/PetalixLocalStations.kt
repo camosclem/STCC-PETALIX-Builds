@@ -42,6 +42,7 @@ internal class PetalixLocalStations(private val context: Context, private val ht
             .groupBy { it.city.lowercase() to it.state.lowercase() }
             .mapValues { (_, market) -> market.first().miles }
         val ranked = channels().mapNotNull { channel ->
+            if (!petalixLocalStationCandidate(channel.name, channel.group)) return@mapNotNull null
             val label = listOfNotNull(channel.name, channel.tvgName, channel.tvgId).joinToString(" ")
             val station = callToken.findAll(label).map { canonical(it.value) }
                 .firstNotNullOfOrNull { byCall[it] }

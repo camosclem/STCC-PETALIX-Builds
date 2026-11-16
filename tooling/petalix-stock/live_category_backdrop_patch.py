@@ -74,3 +74,6 @@ def apply(root):
     val effectiveFocusGlow''')
     replace(cards, 'horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)',
             'horizontalArrangement = Arrangement.spacedBy(12.dp)')
+
+    from service_artwork_patch import apply as apply_service_artwork
+    apply_service_artwork(root)
