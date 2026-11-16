@@ -58,3 +58,25 @@ def apply(root):
     content=source/'ui/screens/home/ModernHomeContent.kt'
     s=content.read_text().replace('com.nuvio.tv.petalix.PetalixLiveCategoryFocus.category.value == null &&', 'com.nuvio.tv.petalix.PetalixLiveCategoryFocus.category.value == null && com.nuvio.tv.petalix.PetalixLiveCategoryFocus.recent.value == null &&')
     content.write_text(s)
+    # Apply the TV browsing defaults once per profile after its initial panel assignment.
+    # Subsequent unchanged check-ins must not reset the viewer's choices.
+    panel=source/'petalix/PetalixPanelSettings.kt'
+    replace(panel,'if (stamp == prefs.getString("stamp", "") && !values.optBoolean("mode.lockSettings")) {',
+            'if (stamp == prefs.getString("stamp", "")) {')
+    coordinator=source/'petalix/PetalixManagedCoordinator.kt'
+    replace(coordinator,'        applyPanelSettings(doc)\n', '''        applyPanelSettings(doc)
+        val browsingDefaultsKey = "landscapeTrailerBrowsingV1:${profiles.activeProfileId.value}"
+        if (!prefs.getBoolean(browsingDefaultsKey, false)) {
+            layout.setModernLandscapePostersEnabled(true)
+            layout.setPosterCardWidthDp(190)
+            layout.setFocusedPosterBackdropExpandEnabled(true)
+            layout.setFocusedPosterBackdropExpandDelaySeconds(1)
+            layout.setFocusedPosterBackdropTrailerEnabled(true)
+            layout.setFocusedPosterBackdropTrailerMuted(true)
+            layout.setFocusedPosterBackdropTrailerPlaybackTarget(
+                com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget.EXPANDED_CARD
+            )
+            tmdb.setUseTrailers(true)
+            check(prefs.edit().putBoolean(browsingDefaultsKey, true).commit())
+        }
+''')
