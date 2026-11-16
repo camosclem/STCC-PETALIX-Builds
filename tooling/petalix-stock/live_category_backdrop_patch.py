@@ -58,3 +58,19 @@ def apply(root):
             '0f to Color(0xD9050C1D), .66f to Color(0x55050C1D), 1f to Color(0x22050C1D)')
     models = source / 'ui/screens/home/ModernHomeModels.kt'
     replace(models, 'MODERN_HERO_MEDIA_WIDTH_FRACTION = 0.72f', 'MODERN_HERO_MEDIA_WIDTH_FRACTION = 0.90f')
+    cards = source / 'ui/screens/home/ModernHomeRows.kt'
+    replace(cards, 'val cardShape = remember(cardCornerRadius) { RoundedCornerShape(cardCornerRadius) }',
+            'val cardShape = remember(cardCornerRadius) { RoundedCornerShape(cardCornerRadius.coerceAtLeast(14.dp)) }')
+    replace(cards, 'val backgroundCardColor = NuvioTheme.colors.BackgroundCard',
+            'val backgroundCardColor = NuvioTheme.colors.BackgroundCard.copy(alpha = 0.72f)')
+    replace(cards, 'val focusRingBorder = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs)',
+            'val focusRingBorder = NuvioTheme.focusRing.border(3.dp)')
+    replace(cards, '        else -> Glow.None\n    }\n    val effectiveFocusGlow', '''        else -> rememberArtworkBackedFocusGlow(
+            imageUrl = imageUrl,
+            fallbackSeed = item.title,
+            enabled = true
+        )
+    }
+    val effectiveFocusGlow''')
+    replace(cards, 'horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)',
+            'horizontalArrangement = Arrangement.spacedBy(12.dp)')
