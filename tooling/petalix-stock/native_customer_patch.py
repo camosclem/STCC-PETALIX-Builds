@@ -9,7 +9,7 @@ def once(p,old,new):
 def apply(root, *, enable_updates=True):
  source=root/'app/src/main/java/com/nuvio/tv';dest=source/'petalix'
  with (root/'app/proguard-rules.pro').open('a') as stream:stream.write('\n-keep class com.nuvio.tv.petalix.** { *; }\n')
- for name in ['PetalixRetiredAddons.kt','ManagedNativeSettings.kt','PetalixPanelSettings.kt','PanelChannelIdentity.kt','PetalixServiceCatalog.kt']:
+ for name in ['PetalixPersonalSettings.kt','PetalixRetiredAddons.kt','ManagedNativeSettings.kt','PetalixPanelSettings.kt','PanelChannelIdentity.kt','PetalixServiceCatalog.kt']:
   shutil.copyfile(HERE/name,dest/name)
  for name in ['managed-native-controls.json','pin-settings-map.json']:
   shutil.copyfile(HERE/name,root/'app/src/main/assets'/name)
@@ -23,6 +23,7 @@ def apply(root, *, enable_updates=True):
   once(source/file,anchor,addition+anchor if file.startswith('livetv') else addition)
  tests=root/'app/src/test/java/com/nuvio/tv/petalix';tests.mkdir(parents=True,exist_ok=True)
  shutil.copyfile(HERE.parent/'android-build/PetalixPanelControlsTest.kt',tests/'PetalixPanelControlsTest.kt')
+ shutil.copyfile(HERE/'PetalixPersonalSettingsTest.kt',tests/'PetalixPersonalSettingsTest.kt')
  shutil.copyfile(HERE/'PetalixRetiredAddonsTest.kt',tests/'PetalixRetiredAddonsTest.kt')
  shutil.copyfile(HERE/'PanelChannelIdentityTest.kt',tests/'PanelChannelIdentityTest.kt')
  repo=source/'livetv/data/LiveTvRepository.kt'
@@ -125,7 +126,7 @@ def apply(root, *, enable_updates=True):
 ''' if enable_updates else '''    }
 ''')+'''
     private fun persistSession(doc: JSONObject) {''')
- once(coordinator,'JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1"))','JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1", "management-v2", "management-v3", "management-v4", "home-services-first-v1", "service-hubs-v1", "pengu-play-panel-v1", "pengu-play-v1", "native-panel-settings-v1", "favorites-backup-v1"'+(', "device-updates-v1"' if enable_updates else '')+'))')
+ once(coordinator,'JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1"))','JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1", "management-v2", "management-v3", "management-v4", "home-services-first-v1", "service-hubs-v1", "pengu-play-panel-v1", "pengu-play-v1", "personal-settings-v1", "native-panel-settings-v1", "favorites-backup-v1"'+(', "device-updates-v1"' if enable_updates else '')+'))')
  once(coordinator,'        .put("playlistRevision", prefs.getString("playlistRevision", ""))','''        .put("playlistRevision", prefs.getString("playlistRevision", ""))
         .put("settingsApplied", if (prefs.getBoolean("settingsError", false)) 0 else panelSettings.appliedCount)
         .put("hideOtherLocals", panelSettings.hideOtherLocals)

@@ -115,6 +115,17 @@ class ManagedNativeSettings @Inject constructor(
     }
     private fun originals(key:String)=JSONObject(backup.getString(key,"{}")?:"{}")
     private fun save(key:String,value:JSONObject) { check(backup.edit().putString(key,value.toString()).commit()) }
+    /** Service catalog metadata can refresh without resetting personal player/guide preferences. */
+    suspend fun refreshServiceCollections(values: JSONObject) {
+        val key = "pref:collections:collections_json"
+        if (!values.has(key)) return
+        val prepared = JSONObject().put(key, PetalixServiceCatalog.reconcile(
+            values.getString(key), context.assets.open("petalix/streaming-services.json").bufferedReader().use { it.readText() }
+        ))
+        validate(prepared)
+        applyControls(controls.filter { it.feature == "collections" }, prepared, "")
+    }
+
     suspend fun apply(values:JSONObject) {
         validate(values)
         val prepared=petalixActiveManagedValues(values)

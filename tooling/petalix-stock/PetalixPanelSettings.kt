@@ -48,9 +48,13 @@ class PetalixPanelSettings @Inject constructor(
         val raw = doc.optJSONObject("settings")?.optJSONObject("values") ?: JSONObject()
         PetalixPanelPolicy.showLocals.value = values.optBoolean("pref:live_tv:petalix_show_locals", false)
         hideOtherLocals = values.optBoolean("pref:live_tv:petalix_hide_other_locals", true)
-        val stamp = revision + ":" + doc.optJSONObject("settings")?.optString("revision").orEmpty() + ":" + profiles.activeProfileId.value + ":home-lineup-v4"
-        PetalixPanelPolicy.state.value = Triple(values.optBoolean("mode.hideSettings"), values.optBoolean("mode.lockSettings"), values.optBoolean("mode.lockSources"))
-        if (stamp == prefs.getString("stamp", "") && !values.optBoolean("mode.lockSettings")) {
+        val stamp = petalixPersonalSettingsStamp(managed, doc.optJSONObject("settings")?.optString("revision").orEmpty(), profiles.activeProfileId.value) + ":home-lineup-v4"
+        PetalixPanelPolicy.state.value = Triple(false, false, false)
+        if (stamp == prefs.getString("stamp", "")) {
+            if (revision != prefs.getString("catalogRevision", "")) {
+                native.refreshServiceCollections(values)
+                check(prefs.edit().putString("catalogRevision", revision).commit())
+            }
             appliedCount = prefs.getInt("count", 0)
             return revision
         }
@@ -81,7 +85,7 @@ class PetalixPanelSettings @Inject constructor(
             "LIVE_TV" -> "live_tv"; "SPORTS" -> "sports"; "ON_DEMAND" -> "on_demand"; else -> null
         })
         appliedCount = petalixActiveManagedValues(values).length() + petalixBoundRawValues(raw, pinMap).length()
-        check(prefs.edit().putString("stamp", stamp).putInt("count", appliedCount).commit())
+        check(prefs.edit().putString("stamp", stamp).putString("catalogRevision", revision).putInt("count", appliedCount).commit())
         return revision
     }
 
