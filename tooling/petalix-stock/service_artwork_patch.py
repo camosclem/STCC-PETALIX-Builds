@@ -1,22 +1,27 @@
 """Bundle photographic service cards and bind the displayed native shortcut row."""
 from pathlib import Path
-import io,json,shutil,urllib.request
+import hashlib,io,json,shutil
 from PIL import Image
 from home_visual_owner_patch import replace
 HERE=Path(__file__).resolve().parent
 
-def apply(root):
-    source=root/'app/src/main/java/com/nuvio/tv'
+def install_service_artwork(root, *, bundle=HERE):
+    """Install a verified offline baseline; the running app can refresh its remote artwork."""
     art=root/'app/src/main/assets/petalix/service-art-v1'
     art.mkdir(parents=True,exist_ok=True)
-    entries=json.loads((HERE/'service-artwork.json').read_text())
+    entries=json.loads((bundle/'service-artwork.json').read_text())
     for entry in entries.values():
-        with urllib.request.urlopen(urllib.request.Request(entry['url'],headers={'User-Agent':'Mozilla/5.0'}),timeout=45) as response:
-            data=response.read(10_000_001)
+        data=(bundle/'service-art'/entry['filename']).read_bytes()
         if len(data)>10_000_000:raise ValueError('Service artwork is too large')
-        # Approved artwork feeds may update in place. Validate the image, not an old fingerprint.
+        if hashlib.sha256(data).hexdigest()!=entry['sha256']:
+            raise ValueError('Bundled service artwork checksum mismatch: '+entry['filename'])
         Image.open(io.BytesIO(data)).verify()
         (art/entry['filename']).write_bytes(data)
+    return entries
+
+def apply(root):
+    source=root/'app/src/main/java/com/nuvio/tv'
+    entries=install_service_artwork(root)
     categories=source/'petalix/PetalixHomeCategories.kt'
     replace(categories, 'artworkByService[folderId]?.let(::homeArtworkUri)',
         'artworkByService[folderId]?.let(::homeArtworkUri) ?: if (folderId in setOf('+','.join('"'+key+'"' for key in entries)+')) "file:///android_asset/petalix/service-art-v1/$folderId.jpg" else null')

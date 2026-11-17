@@ -37,6 +37,8 @@ jobs:
           python3 -m pip install --disable-pip-version-check Pillow
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+      - name: Verify offline service artwork
+        run: python3 -m unittest discover -s tooling/petalix-stock -p 'test_service_artwork.py' -q
       - name: Prepare existing Petalix 13.2 with backdrop and ZIP fixes
         id: prepare
         run: |
