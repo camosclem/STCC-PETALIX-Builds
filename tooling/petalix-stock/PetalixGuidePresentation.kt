@@ -12,7 +12,7 @@ internal fun petalixCleanChannelName(name: String): String = name.replace(qualit
     .replace(Regex("\\s+"), " ").trim(' ', '-', '|', ':')
 
 internal fun petalixStreamingGuideChannel(channel: LiveChannel): Boolean =
-    streamBrand.containsMatchIn(channel.name + " " + channel.group) &&
+    streamBrand.containsMatchIn((channel.name + " " + channel.group).replace("+", " plus ")) &&
         !fixtureName.containsMatchIn(channel.name) &&
         !Regex("(?i)\\b(?:games?|events?|teams?|league pass|sunday ticket|replays?)\\b").containsMatchIn(channel.group)
 

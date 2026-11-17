@@ -68,6 +68,17 @@ def apply(root):
                 conflicts.append(relative)
     if conflicts:
         raise ValueError('Unresolved official-update merges: '+', '.join(conflicts))
+    repository = root/'app/src/main/java/com/nuvio/tv/livetv/data/LiveTvRepository.kt'
+    text = repository.read_text()
+    old = 'headers, catchup, drm, tvgShift, autoNumber, stalkerRef)'
+    assert text.count(old) == 1
+    repository.write_text(text.replace(old, 'headers, catchup, drm, tvgShift, autoNumber = autoNumber, stalkerRef = stalkerRef)'))
+    settings = root/'app/src/main/java/com/nuvio/tv/ui/screens/settings/LiveTvSettingsContent.kt'
+    text = settings.read_text()
+    assert text.count('else -> openOnLabel(s.openOn)') == 1
+    settings.write_text(text.replace('else -> openOnLabel(s.openOn)', 'else -> openOnLabel(context, s.openOn)'))
+    gradle = root/'app/build.gradle.kts'
+    gradle.write_text(gradle.read_text().replace('1.1.0-petalix.owner-test.', '1.2.0-petalix.owner-test.'))
     report = root/'app/src/main/assets/petalix/upstream-release.json'
     report.write_text(json.dumps({'tag':TAG,'sha':PIN,'customizationBase':BASE}, indent=2)+'\n')
     return {'upstream':TAG,'sha':PIN,'portedFiles':len(changed)}

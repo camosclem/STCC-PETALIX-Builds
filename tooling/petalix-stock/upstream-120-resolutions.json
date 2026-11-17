@@ -70,7 +70,7 @@
   "app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandRepository.kt": [
     {
       "old": "<<<<<<< PETALIX\n                .map { list -> list.filter { it.enabled && it.isXtream && it.importVod }.associate {\n                    it.id to listOf(it.xtreamServer, it.xtreamUsername, it.xtreamPassword)\n                } }\n=======\n                .map { list -> list.filter { it.enabled && it.hasVod && it.importVod }.map { it.id to if (it.isStalker) it.stalkerConfig else null }.toSet() }\n>>>>>>> 1.2.0-beta.1.4\n",
-      "new": "                .map { list -> list.filter { it.enabled && it.hasVod && it.importVod }.associate {\n                    it.id to listOf(it.xtreamServer, it.xtreamUsername, it.xtreamPassword, it.stalkerConfig)\n                } }\n",
+      "new": "                .map { list -> list.filter { it.enabled && it.hasVod && it.importVod }.associate {\n                    it.id to listOf(it.xtreamServer.orEmpty(), it.xtreamUsername.orEmpty(), it.xtreamPassword.orEmpty(), it.stalkerConfig?.toString().orEmpty())\n                } }\n",
       "count": 1
     },
     {

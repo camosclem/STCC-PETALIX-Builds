@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 internal object PetalixChannelLogos {
     private var index: Map<String, String>? = null
     private val originals = ConcurrentHashMap<String, String>()
+    private val callsign = Regex("(?i)\\b([KW][A-Z]{3})(?:-TV|-DT|-LD|-CD)?\\b")
     private fun key(value: String) = value.lowercase(java.util.Locale.ROOT).replace(Regex("[^a-z0-9]"), "")
     @Synchronized private fun index(context: Context): Map<String,String> {
         index?.let { return it }
@@ -23,7 +24,11 @@ internal object PetalixChannelLogos {
     }
     fun improve(context: Context, channel: LiveChannel): LiveChannel {
         val logos = index(context)
-        val improved = channel.tvgId?.let { logos[key(it)] } ?: logos[key(petalixCleanChannelName(channel.name))] ?: return channel
+        val station = callsign.find(channel.name)?.groupValues?.get(1)
+        // An identified station must never turn into an unrelated national-network mark.
+        val improved = if (station != null) logos[key(station)] ?: return channel else
+            channel.tvgId?.let { logos[key(it)] } ?: logos[key(petalixCleanChannelName(channel.name)
+                .replace(Regex("(?i)\\s+(?:east|west)$"), ""))] ?: return channel
         channel.logo?.takeIf { it != improved && it.isNotBlank() }?.let { originals.putIfAbsent(improved,it) }
         return channel.copy(logo = improved)
     }

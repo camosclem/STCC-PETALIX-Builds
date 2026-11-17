@@ -1,0 +1,4 @@
+Station-logo candidates: tv-logo/tv-logos at d32e347bb7c4c640dceec23957802ad9182f58a6; personal test use. Attribution: https://github.com/tv-logo/tv-logos . Terms: https://github.com/tv-logo/tv-logos/blob/main/README.md .
+Channel metadata and additional logo references: iptv-org/database at b60ab80f14851ea8c206fbc582d086dfaf1e672f.
+Logos belong to their respective broadcasters.
+Additional station marks: Jasmeet181/mediaportal-us-logos, f2b3dfdeef9658caa637585a4a79ff837f780e86; https://github.com/Jasmeet181/mediaportal-us-logos .

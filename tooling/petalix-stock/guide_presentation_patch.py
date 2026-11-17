@@ -9,6 +9,8 @@ def apply(root):
     for name in ('PetalixGuidePresentation.kt','PetalixStreamMeasurements.kt','PetalixChannelLogos.kt'):
         copy2(HERE/name,source/'petalix'/name)
     copy2(HERE/'channel-logo-sources.json',root/'app/src/main/assets/petalix/channel-logo-sources.json')
+    copy2(HERE/'channel-logo-attribution.txt',root/'app/src/main/assets/petalix/channel-logo-attribution.txt')
+    copy2(HERE/'PetalixGuidePresentationTest.kt',root/'app/src/test/java/com/nuvio/tv/petalix/PetalixGuidePresentationTest.kt')
     prefs=source/'livetv/data/LiveTvPreferences.kt'
     replace(prefs, '    private val sourceMutations = Mutex()', '''    init { com.nuvio.tv.petalix.PetalixStreamMeasurements.initialize(context) }
     private val sourceMutations = Mutex()''')
@@ -86,5 +88,8 @@ def apply(root):
 
     for relative in ('livetv/sports/SportsDesign.kt','livetv/sports/SportsScreen.kt'):
         path=source/relative
-        text=path.read_text().replace('m.quality?.let { q ->','(null as String?)?.let { q ->').replace('match?.quality?.let {','(null as String?)?.let {')
+        text=path.read_text().replace('m.quality?.let { q ->','(null as String?)?.let { q ->').replace('match?.quality?.let {','(null as String?)?.let {').replace('val qs = copies.mapNotNull { it.quality }.distinct().filter { it != m.quality }', 'val qs = emptyList<String>()')
         path.write_text(text)
+
+    replace(components,'if (!url.isNullOrBlank() && !DeadLogos.isDead(url)) {', 'if (!displayUrl.isNullOrBlank() && !DeadLogos.isDead(displayUrl)) {')
+    replace(components,'.memoryCacheKey("$url:logo:$imageVersion")', '.memoryCacheKey("$displayUrl:logo:$imageVersion")')

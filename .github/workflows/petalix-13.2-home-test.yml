@@ -1,4 +1,4 @@
-name: Petalix 13.2 backdrop and ZIP test
+name: Petalix 1.2 complete Home and guide test
 on:
   push:
     branches: [test/petalix-13.2-home]
@@ -39,7 +39,7 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
       - name: Verify offline service artwork
         run: python3 -m unittest discover -s tooling/petalix-stock -p 'test_service_artwork.py' -q
-      - name: Prepare existing Petalix 13.2 with backdrop and ZIP fixes
+      - name: Prepare Petalix on pinned Nuvio 1.2.0-beta.1.4
         id: prepare
         run: |
           VERSION=$(date +%s)
@@ -68,7 +68,7 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | head -1 | tee out/package.txt
           grep -F "name='com.petalix.iptv.hometest'" out/package.txt
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" > out/signature.txt
-          cp "$APK" "out/Petalix-13.2-Home-Test-$VERSION.apk"
+          cp "$APK" "out/Petalix-1.2-Home-Test-$VERSION.apk"
           (cd out && sha256sum *.apk > SHA256SUMS.txt)
           python3 launcher/vpn-android/ci/package-openvpn2-sources.py --output out/openvpn2-corresponding-source.tar.gz
       - uses: actions/upload-artifact@v4
@@ -82,4 +82,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
-          gh release create "petalix-13.2-home-test-$VERSION" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix 13.2 Home Test $VERSION" --notes "Existing Petalix 13.2 based on Homeless Brian 1.1.0-beta.13.2. Focused Live TV category updates its backdrop and clears stale service artwork, title and trailers. Modern ZIP setup with station previews and one Locals group; favorites backup and restore stay on the panel. Isolated package com.petalix.iptv.hometest: does not replace the customer app or change the live panel. Activate with your existing PIN. Not a TV launcher. Customer release requires device testing and the existing customer signing workflow; no customer rollout is queued."
+          gh release create "petalix-13.2-home-test-$VERSION" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix 1.2 Home Test $VERSION" --notes "Petalix test based on Homeless Brian 1.2.0-beta.1.4. Full-card service motion, cleaner Home text, improved channel-logo matching, A-Z guide sorting, streaming grouping, measured-bitrate guide copies with retained backups, Netflix-style playback settings and Quiet Commercials PCM compression. Focused Live TV category updates its backdrop and clears stale service artwork, title and trailers. Modern ZIP setup with station previews and one Locals group; favorites backup and restore stay on the panel. Isolated package com.petalix.iptv.hometest: does not replace the customer app or change the live panel. Activate with your existing PIN. Not a TV launcher. Customer release requires device testing and the existing customer signing workflow; no customer rollout is queued."

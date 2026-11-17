@@ -1,0 +1,504 @@
+{
+  "scope": "40 available entertainment names plus identified NC/SC/MN/IN station candidates; not the complete private playlist",
+  "checked": 71,
+  "valid": 71,
+  "results": [
+    {
+      "name": "A&E",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/A%26E_Network_logo.svg/960px-A%26E_Network_logo.svg.png",
+      "ok": true,
+      "size": "(960, 499)",
+      "sha256": "8d69e8adf63d8c0ca0588f146b355f81e73b8ab9a67c11ce488e617c4ad09271"
+    },
+    {
+      "name": "ABC",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ABC-2021-LOGO.svg/960px-ABC-2021-LOGO.svg.png",
+      "ok": true,
+      "size": "(960, 960)",
+      "sha256": "f51256e4f9b4dbc1c0ffa0ec5da9f6dfbf18488e013bdc3cffa979baacda4112"
+    },
+    {
+      "name": "Adult Swim",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Adult_Swim_2003_logo.svg/960px-Adult_Swim_2003_logo.svg.png",
+      "ok": true,
+      "size": "(960, 178)",
+      "sha256": "f136a1b1db83fd7d58dd05f90f2e387c626d4d10e37a0dd178a454123a9b51a2"
+    },
+    {
+      "name": "AMC",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/AMC_logo_2019.svg/960px-AMC_logo_2019.svg.png",
+      "ok": true,
+      "size": "(960, 540)",
+      "sha256": "cdbd5044ea0d50d716f2b2466e7885cbc9f4589ae83d65e2e423a2b1736e1d24"
+    },
+    {
+      "name": "Antenna TV",
+      "url": "https://i.imgur.com/ocs2DeU.png",
+      "ok": true,
+      "size": "(420, 512)",
+      "sha256": "36e2153d17a84cf8ac0b2e1b7e9a62394d6c0725b961775226d84a87edf55bfb"
+    },
+    {
+      "name": "Aspire",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Aspire_tv.png/960px-Aspire_tv.png",
+      "ok": true,
+      "size": "(960, 382)",
+      "sha256": "ab623b7d92f47ee266082f28c0f4a4558e22b134964cc59cfe9c24584f985c6c"
+    },
+    {
+      "name": "AWE",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/awe-us.png",
+      "ok": true,
+      "size": "(512, 198)",
+      "sha256": "1e0071a2f3cb486887ea8754654a2cd814af20c0006ef12c9a8f587bd60a5f17"
+    },
+    {
+      "name": "AXS TV",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/AXS_TV_logo.svg/960px-AXS_TV_logo.svg.png",
+      "ok": true,
+      "size": "(960, 289)",
+      "sha256": "c76926d400a7d0b7f89dd552ffaa430e3b0f14def2d3631223255c7e957180ef"
+    },
+    {
+      "name": "BET",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/BET-2021Logo.svg/960px-BET-2021Logo.svg.png",
+      "ok": true,
+      "size": "(960, 960)",
+      "sha256": "738205e41c1231c42563462ddc4ea710ef85e9792afe66054ab1e2710e4dcca3"
+    },
+    {
+      "name": "BET HER",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/bet-her-us.png",
+      "ok": true,
+      "size": "(512, 204)",
+      "sha256": "08652af8cb47899cadaf80f303b41ae8e1d455c607a714876e475081363175a7"
+    },
+    {
+      "name": "BOUNCE TV",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/bounce-us.png",
+      "ok": true,
+      "size": "(512, 111)",
+      "sha256": "c54e8ed38980aa53cbbd9b7c4e2a1d63324381700b19adef2b6ed2dda71e59eb"
+    },
+    {
+      "name": "Bravo",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/bravo-us.png",
+      "ok": true,
+      "size": "(512, 387)",
+      "sha256": "a6cbe7cdde548c41be40778a5d95608367097a28d34ca60342046364e61b9f34"
+    },
+    {
+      "name": "Catchy Comedy",
+      "url": "https://i.postimg.cc/X77vrqN9/Catchy-Comedy-logo-svg.png",
+      "ok": true,
+      "size": "(800, 800)",
+      "sha256": "aba94b55aab1a959bfacd0e13e3a7e6d574e2e30244aac06c2898f984b867ad1"
+    },
+    {
+      "name": "CBS",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/CBS_logo_%282020%29.svg/960px-CBS_logo_%282020%29.svg.png",
+      "ok": true,
+      "size": "(960, 277)",
+      "sha256": "9f97ed6fa3433851a2d747b1c4a2b890a5e54afe9c887c42501c30c98d3f9a87"
+    },
+    {
+      "name": "Charge!",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/Charge%21_network_logo.png/960px-Charge%21_network_logo.png",
+      "ok": true,
+      "size": "(960, 540)",
+      "sha256": "8bf957434a337ce888f452fb210ce4ee1a0ef7f4fe7690dba9b3e4b05a2e8661"
+    },
+    {
+      "name": "CMT",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/cmt-us.png",
+      "ok": true,
+      "size": "(512, 398)",
+      "sha256": "3ec0f1cd52550a0edd674b48122a3841011a424b313b7f9fff08819791c9b998"
+    },
+    {
+      "name": "Comedy Central",
+      "url": "https://images.pluto.tv/channels/64f8a408bd341e000818fcda/colorLogoSVG.svg",
+      "ok": true,
+      "size": "vector",
+      "sha256": "82bd51b14c11e4e29e9594634e535910aa7331588d0aac207ae86838ba743cfd"
+    },
+    {
+      "name": "Comet",
+      "url": "https://static.wikia.nocookie.net/logopedia/images/e/ea/Comet_2015_Blue.svg/revision/latest?cb=20231031185411",
+      "ok": true,
+      "size": "vector",
+      "sha256": "db29900d5929d2e896df273cd613dc1e2a7b76f6ba7a290d1d5930662963bc24"
+    },
+    {
+      "name": "Cozi TV",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Cozi_TV_logo.svg/3840px-Cozi_TV_logo.svg.png",
+      "ok": true,
+      "size": "(3840, 1382)",
+      "sha256": "246b6f976604d0acc516934750faff3541aa98de359119332f25ea37874adc80"
+    },
+    {
+      "name": "Dabl",
+      "url": "https://upload.wikimedia.org/wikipedia/en/thumb/c/cb/Dabl_logo.svg/960px-Dabl_logo.svg.png",
+      "ok": true,
+      "size": "(960, 620)",
+      "sha256": "76a3530fec5c731b0d8e50c19f533d394007d18d3cabea9c566bdc193367052b"
+    },
+    {
+      "name": "E!",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/E%21_Logo_Flat_2012.svg/960px-E%21_Logo_Flat_2012.svg.png",
+      "ok": true,
+      "size": "(960, 3077)",
+      "sha256": "fcc0eb23773a86a88795e8099df340c1b272bd7d2fe6ccaedb9b7e484c580247"
+    },
+    {
+      "name": "FETV",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/fetv-us.png",
+      "ok": true,
+      "size": "(512, 191)",
+      "sha256": "399a4ad7b1caa91bb9328aa2c15f6cc1ba7cfb80eb0debd59482532be360d488"
+    },
+    {
+      "name": "Fox",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/FOX_wordmark-red.svg/960px-FOX_wordmark-red.svg.png",
+      "ok": true,
+      "size": "(960, 414)",
+      "sha256": "29e6ad06f8e63aa402841cb25bd125f588a4b306859c6be19f92e509eb130aef"
+    },
+    {
+      "name": "Freeform",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Freeform_2022_pink.svg/1920px-Freeform_2022_pink.svg.png",
+      "ok": true,
+      "size": "(1920, 340)",
+      "sha256": "b8c7c511e25f44b3dbcb7fdfb82931e4b862bb90d6fd4e4c2748edb599d55c89"
+    },
+    {
+      "name": "FYI",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/FYI%2C_logo.svg/960px-FYI%2C_logo.svg.png",
+      "ok": true,
+      "size": "(960, 650)",
+      "sha256": "89c1ed9f6c7023578d3f976e7cf69b110375b001fef15c56200831605b9cac8b"
+    },
+    {
+      "name": "GET TV",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/get-tv-us.png",
+      "ok": true,
+      "size": "(512, 348)",
+      "sha256": "2507fc98ecd91b82be470dc6494ac5ca95989693cef1a3777cb593b0a1d9da81"
+    },
+    {
+      "name": "Great American Family",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Great_American_Family_logo.svg/1920px-Great_American_Family_logo.svg.png",
+      "ok": true,
+      "size": "(1920, 704)",
+      "sha256": "bf35310aa2775958793928423a24286a1cd4e24d9194d581efc101d62dad2db9"
+    },
+    {
+      "name": "GSN",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/game-show-network-hz-us.png",
+      "ok": true,
+      "size": "(512, 163)",
+      "sha256": "da3f24de6d28f4aa7ef6c022f706ac5fa6aadac48aa617e101d8382f2cf7a971"
+    },
+    {
+      "name": "Hallmark Channel",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Hallmark_Channel.svg/960px-Hallmark_Channel.svg.png",
+      "ok": true,
+      "size": "(960, 407)",
+      "sha256": "e5b8babfe572f2e48607fe527c6ed52a5313a887e187de735af4d08c0b7b6d60"
+    },
+    {
+      "name": "Hallmark Family",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Hallmark_Family_2024.svg/960px-Hallmark_Family_2024.svg.png",
+      "ok": true,
+      "size": "(960, 456)",
+      "sha256": "bc81996b591dc92e5dab549f8f79320190f5a4c4d325300fecc0be5a89d62c92"
+    },
+    {
+      "name": "IFC",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/ifc-us.png",
+      "ok": true,
+      "size": "(512, 297)",
+      "sha256": "009f270ebb763069f4d17d3deef7841c65f66dcca04594159fe23668284ad308"
+    },
+    {
+      "name": "ION Television",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/ion-television-us.png",
+      "ok": true,
+      "size": "(512, 381)",
+      "sha256": "130a3d370f15e8d4dfdfd7c2b8e5f0aaf4fd2d2aacdb230eadbf48b0c105daef"
+    },
+    {
+      "name": "Justice Central",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/justice-central-tv-us.png",
+      "ok": true,
+      "size": "(512, 316)",
+      "sha256": "f61c5adab8768b62374185b345d10577c52dacdf6932078cb44195b0d995cfc9"
+    },
+    {
+      "name": "Lifetime",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/lifetime-us.png",
+      "ok": true,
+      "size": "(512, 156)",
+      "sha256": "73d61d0f373bf18a54cebd7e50ab5a0c07f986ed65f9fba07ed3ac15a2a72b4b"
+    },
+    {
+      "name": "LMN",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/lifetime-movie-network-us.png",
+      "ok": true,
+      "size": "(512, 221)",
+      "sha256": "e8548ac3029c6fc46d9126b843bf3da5656a4764010c88900d89ce4ed9d8a1b4"
+    },
+    {
+      "name": "Logo",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Logo_TV_2015.svg/500px-Logo_TV_2015.svg.png",
+      "ok": true,
+      "size": "(500, 516)",
+      "sha256": "e220e2825dc7b1c8a03aa5c4474c192548040c820af4c98ddd49b9c799422780"
+    },
+    {
+      "name": "METV",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/me-tv-us.png",
+      "ok": true,
+      "size": "(512, 163)",
+      "sha256": "aa1a99517939bcdee6059c61b48bf380b8aeadddacb52df41510b0a39f3115af"
+    },
+    {
+      "name": "NBC",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/NBC_logo_2022_%28vertical%29.svg/960px-NBC_logo_2022_%28vertical%29.svg.png",
+      "ok": true,
+      "size": "(960, 906)",
+      "sha256": "9bb2c37d86a9a51b75a71d1ab846d8ef69e5c7b6a3ee81ef84382cedeca3e84d"
+    },
+    {
+      "name": "OWN",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/OWN_2011_logo.svg/960px-OWN_2011_logo.svg.png",
+      "ok": true,
+      "size": "(960, 411)",
+      "sha256": "b700da90d5bf0e029f888568de3fd0edfeb5844c49ceaecde18728dbbe5938e5"
+    },
+    {
+      "name": "Oxygen",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/oxygen-true-crime-us.png",
+      "ok": true,
+      "size": "(512, 228)",
+      "sha256": "ea0ebddba636dcd5b83859bf06f5b2ad05fa8ff153a5c93f0590818a0555b80e"
+    },
+    {
+      "name": "WRAL",
+      "url": "https://raw.githubusercontent.com/Jasmeet181/mediaportal-us-logos/f2b3dfdeef9658caa637585a4a79ff837f780e86/TV/WRAL-TV.png",
+      "ok": true,
+      "size": "(1021, 1646)",
+      "sha256": "9af9454742e2a6532e6cf725aac77ff276c080b3101894ba5966c55d381c2f65"
+    },
+    {
+      "name": "WNCN",
+      "url": "https://raw.githubusercontent.com/Jasmeet181/mediaportal-us-logos/f2b3dfdeef9658caa637585a4a79ff837f780e86/TV/WNCN.svg",
+      "ok": true,
+      "size": "vector",
+      "sha256": "c07cc93759361550f10aa0c99eff23f93a48ddad7e194ecfa33a8615f8abd97a"
+    },
+    {
+      "name": "KARE",
+      "url": "https://raw.githubusercontent.com/Jasmeet181/mediaportal-us-logos/f2b3dfdeef9658caa637585a4a79ff837f780e86/TV/KARE.svg",
+      "ok": true,
+      "size": "vector",
+      "sha256": "7c211c2f4cb99b01091c6b63079beaea93ec3494c455f0abb16ed403b1b5eb98"
+    },
+    {
+      "name": "WCCO",
+      "url": "https://raw.githubusercontent.com/Jasmeet181/mediaportal-us-logos/f2b3dfdeef9658caa637585a4a79ff837f780e86/TV/WCCO-TV.svg",
+      "ok": true,
+      "size": "vector",
+      "sha256": "af7c71ea303c7685ff2e333930785f24eec69ca1a5a1b815070bb025079695d1"
+    },
+    {
+      "name": "WTVD",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/abc-11-wtvd-us.png",
+      "ok": true,
+      "size": "(512, 397)",
+      "sha256": "86ac2e43f45316f19bfaea93d0fb29b97ad1be46ad7e1238b90dad5cae9c5854"
+    },
+    {
+      "name": "WCTI",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/abc-12-wcti-us.png",
+      "ok": true,
+      "size": "(512, 134)",
+      "sha256": "c92a69c354884f14bef7c736ee29ccd09080ee5ad26e08a259ba8da739adfe80"
+    },
+    {
+      "name": "WWAY",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/abc-3-wway-us.png",
+      "ok": true,
+      "size": "(512, 508)",
+      "sha256": "45bdba97c8a7c9076d6eed0022170ed1acee864b29f3622ff709a2cbf3543531"
+    },
+    {
+      "name": "KSTP",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/abc-5-kstp-us.png",
+      "ok": true,
+      "size": "(512, 451)",
+      "sha256": "76277b7d72653d90e9dba6e68ee06a1b93e7f93768e4e70ebc8859467d1cc001"
+    },
+    {
+      "name": "WRTV",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/abc-6-wrtv-us.png",
+      "ok": true,
+      "size": "(512, 348)",
+      "sha256": "36aba0e1a49239317802054c44854976342b7fcfa887c6fc8da13def2af1d860"
+    },
+    {
+      "name": "WSOC",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/abc-9-wsoc-us.png",
+      "ok": true,
+      "size": "(512, 511)",
+      "sha256": "0d384c38dbe60b8af019537d2bf711dc7d29ed9fe0e829eb8e4c77630f6a732f"
+    },
+    {
+      "name": "WBTV",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/cbs-3-wbtv-us.png",
+      "ok": true,
+      "size": "(512, 563)",
+      "sha256": "4e28c934d7f5418683084b3cf66200d0421fed5c1f680a115d272c4d44cec8f5"
+    },
+    {
+      "name": "WTTV",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/cbs-4-wttv-us.png",
+      "ok": true,
+      "size": "(512, 254)",
+      "sha256": "29bb250b6863f91b01d27fe487dfaa9f7de181537a1d9acbe95edddbb6f974d5"
+    },
+    {
+      "name": "WCCB",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/cw/cw-wccb-us.png",
+      "ok": true,
+      "size": "(512, 501)",
+      "sha256": "edc3145541851c7613b52414e5cbcd36b466917324deb12c55ad3662b3c08b7f"
+    },
+    {
+      "name": "KQDS",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/fox-21-kqds-us.png",
+      "ok": true,
+      "size": "(512, 147)",
+      "sha256": "5156d6218b3c5b6607ace5bb2d7d06e5fd959d597f2102f7c2154219aeec569c"
+    },
+    {
+      "name": "WTAT",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/fox-24-wtat-us.png",
+      "ok": true,
+      "size": "(512, 190)",
+      "sha256": "b3f89b7d3d1123cc1e4afbd8459b0e68f12d015f32b92d0cd24706f2b8ea66f9"
+    },
+    {
+      "name": "WTGS",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/fox-28-wtgs-us.png",
+      "ok": true,
+      "size": "(512, 193)",
+      "sha256": "da41313c18d1bc1b57f73b5f56d59cfbda0363a75174e08a79a8433b737de770"
+    },
+    {
+      "name": "KXLT",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/fox-47-kxlt-us.png",
+      "ok": true,
+      "size": "(512, 151)",
+      "sha256": "6fa397e9a14e06856687b36175c5566a0a1b29cba4add25ea526fba74be1658a"
+    },
+    {
+      "name": "WGHP",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/fox-8-wghp-us.png",
+      "ok": true,
+      "size": "(512, 738)",
+      "sha256": "c17320bd463ee1c523db53690f24a2a5551da586bd97c5d68733571d3a3a031a"
+    },
+    {
+      "name": "KMSP",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/fox-9-kmsp-us.png",
+      "ok": true,
+      "size": "(512, 736)",
+      "sha256": "c931ca3089937200d3b0550bf1e6ccb9cc7cd67b7e28b890c55a95b575e24414"
+    },
+    {
+      "name": "WPWR",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/fox-plus-wpwr-us.png",
+      "ok": true,
+      "size": "(512, 233)",
+      "sha256": "4b49ba2b3a68dcc9c9ec1d5729a0eaf12c0c1307b5446606b614a0c09346a099"
+    },
+    {
+      "name": "WJZY",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/fox-wjzy-us.png",
+      "ok": true,
+      "size": "(512, 332)",
+      "sha256": "a0664d7394a04252ebd916ca5c36aa49a07e4fe89de1b0c789d2bfede3ca691e"
+    },
+    {
+      "name": "WMYA",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/mytv/my-40-wmya-us.png",
+      "ok": true,
+      "size": "(512, 105)",
+      "sha256": "922da12e6eef8793a5e80a961401860f8f83ae3af48b32c6c71ffc263baf6f1b"
+    },
+    {
+      "name": "KARE",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/nbc-11-kare-us.png",
+      "ok": true,
+      "size": "(512, 133)",
+      "sha256": "5f3a6764124b04ee739334aa0b85d429633db2951bab1ba58338148735a19741"
+    },
+    {
+      "name": "WTHR",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/nbc-13-wthr-us.png",
+      "ok": true,
+      "size": "(512, 661)",
+      "sha256": "5333c1e217a53f0516dacb1665dc2995ca50a172d0c736465bfea988ad7b541a"
+    },
+    {
+      "name": "WPTA",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/nbc-21-wpta-us.png",
+      "ok": true,
+      "size": "(512, 406)",
+      "sha256": "73dac4cb964c1640fb5f0d75453f0f6f8e40fa5071c741a81f04eee3fde0eb6d"
+    },
+    {
+      "name": "WISE",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/nbc-33-wise-us.png",
+      "ok": true,
+      "size": "(512, 223)",
+      "sha256": "33658f806a5befd1a87028a0e8b252165d99776c159fc9be1673a094346ae1a5"
+    },
+    {
+      "name": "WECT",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/nbc-6-wect-us.png",
+      "ok": true,
+      "size": "(512, 568)",
+      "sha256": "0f7d9190832c9ef363cce8145f31c40fe3a4e7f03b15d51302064df312406285"
+    },
+    {
+      "name": "WITN",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/nbc-7-witn-us.png",
+      "ok": true,
+      "size": "(512, 88)",
+      "sha256": "9703bc25d7260fecde81f88d075473e33c9762807bb9fb32970980bbc9f4ee5f"
+    },
+    {
+      "name": "WCNC",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/nbc-wcnc-us.png",
+      "ok": true,
+      "size": "(512, 160)",
+      "sha256": "ab3b972b387277e1290cb47d43c9e93948bc47e63aacc71dea7a3368e46db395"
+    },
+    {
+      "name": "WDSE",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/pbs/pbs-wdse-us.png",
+      "ok": true,
+      "size": "(512, 110)",
+      "sha256": "30ab03fa8097013fba5e80264f375ac9456fd2751d45c26cb62751c6cc6c659a"
+    },
+    {
+      "name": "WTHI",
+      "url": "https://raw.githubusercontent.com/tv-logo/tv-logos/d32e347bb7c4c640dceec23957802ad9182f58a6/countries/united-states/us-local/wthi-10-news-us.png",
+      "ok": true,
+      "size": "(418, 405)",
+      "sha256": "f2f304fc46e4665696ae2ab8c592822123497948a1d8517623d0d57950a1d6d8"
+    }
+  ]
+}
