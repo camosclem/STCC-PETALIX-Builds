@@ -7,10 +7,10 @@ import com.nuvio.tv.domain.model.PosterShape
 internal const val PETALIX_LIVE_SHORTCUT_COLLECTION = "petalix-home-live-categories"
 internal data class PetalixHomeShortcut(val slug: String, val title: String, val description: String)
 internal val petalixHomeShortcuts = listOf(
-    PetalixHomeShortcut("sports", "Sports", "Your sports networks and live coverage."),
-    PetalixHomeShortcut("news", "News", "Live news and current affairs."),
+    PetalixHomeShortcut("locals", "My Locals", "The local stations selected for your ZIP code."),
     PetalixHomeShortcut("entertainment", "Entertainment", "Browse your entertainment channels."),
-    PetalixHomeShortcut("locals", "My Locals", "The local stations selected for your ZIP code.")
+    PetalixHomeShortcut("sports", "Sports", "Your sports networks and live coverage."),
+    PetalixHomeShortcut("news", "News", "Live news and current affairs.")
 )
 internal fun petalixHomeShortcut(folderId: String): PetalixHomeShortcut? =
     petalixHomeShortcuts.firstOrNull { folderId == "petalix-home-live-${it.slug}" }
@@ -19,7 +19,7 @@ internal fun petalixHomeShortcut(folderId: String): PetalixHomeShortcut? =
 internal fun petalixHomeLiveCollection() = Collection(
     id = PETALIX_LIVE_SHORTCUT_COLLECTION, title = "Live TV", pinToTop = true,
     folders = petalixHomeShortcuts.map { shortcut ->
-        val artwork = "file:///android_asset/petalix/home-art/${shortcut.slug}.webp"
+        val artwork = PetalixLiveArtwork.forCategory(shortcut.slug)
         CollectionFolder(id = "petalix-home-live-${shortcut.slug}", title = shortcut.title,
             coverImageUrl = artwork, heroBackdropUrl = artwork,
             tileShape = PosterShape.LANDSCAPE, focusGifEnabled = false)

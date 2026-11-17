@@ -11,7 +11,7 @@ class PetalixHomeRecoveryTest {
     @Test fun liveShortcutsUseDistinctNativeFocusAndBackdropMetadata() {
         val collection = petalixHomeLiveCollection()
         val cards = collection.folders.map { buildCollectionFolderItem(collection, it) }
-        assertEquals(listOf("Sports", "News", "Entertainment", "My Locals"), cards.map { it.heroPreview.title })
+        assertEquals(listOf("My Locals", "Entertainment", "Sports", "News"), cards.map { it.heroPreview.title })
         assertEquals(4, cards.map { it.key }.toSet().size)
         assertEquals(4, cards.map { it.heroPreview.backdrop }.toSet().size)
         assertTrue(cards.all { !it.heroPreview.description.isNullOrBlank() })

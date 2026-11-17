@@ -46,7 +46,8 @@ internal const val PETALIX_SERVICES_ROW = "collection_collection-streaming-servi
 /** A calm Home: service tiles and Continue Watching, with catalogs inside each service. */
 internal fun <T> petalixServicesFirst(rows: List<T>, key: (T) -> String): List<T> {
     val service = rows.filter { key(it) == PETALIX_SERVICES_ROW }
-    return service + rows.filter { key(it) != PETALIX_SERVICES_ROW }
+    val liveKey = "collection_$PETALIX_LIVE_SHORTCUT_COLLECTION"
+    return rows.filter { key(it) == liveKey } + service + rows.filter { key(it) != PETALIX_SERVICES_ROW && key(it) != liveKey }
 }
 
 @EntryPoint

@@ -35,3 +35,17 @@ Remote artwork memory entries expire every six hours, with background ETag/Last-
 The test sets playlist and guide refresh intervals to four hours once per profile. Subsequent owner/viewer choices remain available. Native background scheduling, active-player safeguards and favorites are retained. MDBList retains its existing authenticated metadata integration and cache; no subscription or API key is created or modified.
 
 Additional acceptance: reopen Home offline, verify saved shelves remain, then reconnect and verify daily movie and TV shelves refresh without clearing app data. Verify manual channel logo choices remain respected. Verify provider playback and existing favorites after refresh. Do not install or distribute the superseded cinema-only build.
+
+## Repairs from Chris's TV test
+
+The prior combined build compiled but was not accepted on TV. The Live TV row was accidentally omitted by the catalog composer; the new composer has a regression test for its actual rendered row list. Four shortcuts precede streaming services in this order: My Locals, Entertainment, Sports, News. Programme art from EPG or an exact-title TMDB lookup drives the shortcut and focus hero; bundled art remains a fallback when metadata is absent.
+
+Remove the STREAMING COLLECTION caption and remote OK hints. Repair existing BritBox folder artwork and sources once; put TV shelves first rather than an empty movie shelf. Poster fallback is connected to the native card loader; adopt refreshed backdrop enrichment instead of retaining a broken image indefinitely.
+
+Native default theme/guide backdrop and Home startup are restored once per profile, including after the first panel assignment. Later owner/viewer settings remain adjustable. On Demand stays in the sidebar during an empty/failed import, assigned imports are enabled, initial stale failure timestamps are cleared once, connection changes under the same source ID trigger reimport, and failed imports retry after five minutes. Populated provider movie and series rows are included on Home. These changes do not prove that the selected device's upstream feed is healthy.
+
+Pengu requires a raw explicit panel opt-in; inherited assignments are disabled. If Pengu was already explicitly enabled before this update, save it off, then on to enable it again. No playback subscription is purchased. Native credits/actor biography/filmography/episode metadata screens are retained and their TMDB enrichment defaults enabled.
+
+Sports matching rejects generic league replay channels unless both sides of the selected matchup are identified. When available, programme matchup appears in the replay option label. No channel, PIN, favorite or production user record is deleted.
+
+Recheck BritBox content, not merely the thumbnail; VOD import count and playback; Home rather than guide on fresh opening; guide palette; show images; four focused shortcut backgrounds; native credits and actor pages; generic replay exclusion. The build remains an isolated test.

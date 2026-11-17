@@ -36,7 +36,7 @@ internal fun PetalixCinemaHero(
     val context = when {
         liveChannel -> "RECENTLY WATCHED · LIVE TV"
         liveGroup -> "LIVE TV"
-        service -> "STREAMING COLLECTION"
+        service -> ""
         resume -> "CONTINUE WATCHING"
         else -> rowTitle()?.uppercase() ?: "FIND YOUR NEXT WATCH"
     }
@@ -51,7 +51,7 @@ internal fun PetalixCinemaHero(
     }
     var logoFailed by remember(preview.logo) { mutableStateOf(false) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (context.isNotBlank()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (liveGroup || liveChannel) Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFFFF4D66)))
             Text(context, color = Color.White.copy(alpha = .68f), fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -70,14 +70,7 @@ internal fun PetalixCinemaHero(
             Text(it, color = Color.White.copy(alpha = .84f), fontSize = 13.sp, lineHeight = 18.sp,
                 maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
-        // A remote hint, deliberately not a second focusable navigation bar.
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = 3.dp)) {
-            Text("OK", color = Color(0xFF101116), fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color.White).padding(horizontal = 7.dp, vertical = 4.dp))
-            Text(PetalixCinemaPolicy.actionLabel(service, liveGroup, liveChannel, resume, preview.isSeries),
-                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-        }
+
     }
 }
 

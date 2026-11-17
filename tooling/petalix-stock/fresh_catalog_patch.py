@@ -82,3 +82,5 @@ def apply(root):
             check(prefs.edit().putBoolean(refreshDefaultsKey, true).commit())
         }
 ''')
+    from device_test_repair_patch import apply as apply_device_test_repairs
+    apply_device_test_repairs(root)
