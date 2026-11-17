@@ -12,10 +12,11 @@ def apply(root):
     home=source/'ui/screens/home/HomeScreen.kt'
     s=home.read_text(); start=s.index('    val homeRows = remember(sourceState.homeRows, homeChartRows) {');end=s.index('    val uiState = sourceState.copy(',start)
     s=s[:start]+'''    val liveArtwork = com.nuvio.tv.petalix.PetalixLiveArtwork.images.value
-    val homeRows = remember(sourceState.homeRows, homeChartRows, vodState.rows, liveArtwork) {
-        com.nuvio.tv.petalix.petalixRepairedHomeRows(sourceState.homeRows, homeChartRows, vodState.rows)
+    val homeRows = remember(sourceState.homeRows, homeChartRows, liveArtwork) {
+        com.nuvio.tv.petalix.petalixRepairedHomeRows(sourceState.homeRows, homeChartRows)
     }
 '''+s[end:];home.write_text(s)
+    replace(home, '    val vodState by vodViewModel.home.collectAsStateWithLifecycle()\n', '')
     hero=source/'ui/screens/home/PetalixCategoryHero.kt'
     replace(hero,'val backdrop = "file:///android_asset/petalix/home-art/$art.webp"',
         'val backdrop = com.nuvio.tv.petalix.PetalixLiveArtwork.forCategory(art)')

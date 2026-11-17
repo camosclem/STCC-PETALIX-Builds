@@ -34,15 +34,14 @@ def apply(root):
     viewmodel = source / 'livetv/ui/LiveTvViewModel.kt'
     replace(viewmodel, '''        val guideChannels = channels.filterNot {
             com.nuvio.tv.petalix.hideSportsEventInGuide(it.group, it.name)
-        }''', '''        val guideChannels = channels.filter { channel ->
-            channel.sourceId == "petalix-managed" ||
-                !com.nuvio.tv.petalix.hideSportsEventInGuide(channel.group, channel.name)
-        }''')
+        }
+        buildUi(guideChannels, user, s, groupIdRaw, query, hasSrc)''', '''        buildUi(channels, user, s, groupIdRaw, query, hasSrc)''')
     replace(viewmodel, '    val notHidden = channels.filter { it.key !in user.hiddenChannels }', '''    val customSaved = user.customGroups.firstOrNull { it.id == groupIdRaw }?.channelKeys.orEmpty().toSet()
     val notHidden = channels.filter { channel ->
         val savedChoice = groupIdRaw == ChannelGroup.FAVORITES && channel.key in user.favorites ||
             groupIdRaw == ChannelGroup.RECENT && channel.key in user.recent || channel.key in customSaved
         channel.key !in user.hiddenChannels &&
+            !com.nuvio.tv.petalix.hideSportsEventInGuide(channel.group, channel.name) &&
             com.nuvio.tv.petalix.petalixShowGuideFeed(channel.petalixGuideHidden, savedChoice)
     }''')
 

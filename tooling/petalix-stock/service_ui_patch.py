@@ -23,6 +23,10 @@ def apply(root: Path) -> None:
     ui.mkdir(parents=True, exist_ok=True)
     for path in (Path(__file__).parent / "ui2").glob("*.kt"):
         shutil.copyfile(path, ui / path.name)
+    tests = root / "app/src/test/java/com/nuvio/tv/petalix"
+    tests.mkdir(parents=True, exist_ok=True)
+    for name in ("PetalixServiceCatalogTest.kt", "PetalixBritBoxSourcesTest.kt"):
+        shutil.copyfile(Path(__file__).parent / name, tests / name)
 
     api = source / "data/remote/api/TmdbApi.kt"
     once(api, "interface TmdbApi {", """interface TmdbApi {
@@ -55,6 +59,20 @@ def apply(root: Path) -> None:
         raise RuntimeError("Petalix service provider filtering requires review")
     resolver.write_text(text.replace(old,
         'if (!filters.withWatchProviders.isNullOrBlank()) filters.watchMonetizationTypes ?: "flatrate|free|ads|rent|buy" else null'))
+    # Preserve an actionable status instead of reducing HTTP failures to an empty catalog.
+    once(resolver, '        } ?: error(string(R.string.tmdb_error_discover_no_data))', '''        }.also { result ->
+            if (!result.isSuccessful) {
+                result.errorBody()?.close()
+                error("Metadata request failed (HTTP ${result.code()})")
+            }
+        }.body() ?: error("Metadata returned an empty response")''')
+    # Keep both response envelopes until their status has been checked above.
+    text = resolver.read_text()
+    start = text.index('        val response = when (mediaType) {', text.index('    private suspend fun resolveDiscover('))
+    end = text.index('        val items = response.results', start)
+    block = text[start:end]
+    assert block.count(').body()') == 2
+    resolver.write_text(text[:start] + block.replace(').body()', ')') + text[end:])
 
     details = source / "ui/screens/detail/MetaDetailsScreen.kt"
     once(details, "fun MetaDetailsScreen(\n",

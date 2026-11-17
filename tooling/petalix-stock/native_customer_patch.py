@@ -145,10 +145,10 @@ def apply(root, *, enable_updates=True):
 ''')
  services=dest/'ui2/PetalixServices.kt'
  once(services,'@ApplicationContext context:Context):ViewModel()', '@ApplicationContext context:Context,private val panelFactory:com.nuvio.tv.data.local.ProfileDataStoreFactory,private val panelProfiles:com.nuvio.tv.core.profile.ProfileManager):ViewModel()')
- once(services,'            val rows=results.mapNotNull','''            val dedup=panelFactory.get(panelProfiles.activeProfileId.value,"layout_settings").data.first()[androidx.datastore.preferences.core.booleanPreferencesKey("service_hub_deduplicate")] ?: true
-            val rows=results.mapNotNull''')
+ once(services,'            val result=loadPetalixServiceCatalog','''            val dedup=panelFactory.get(panelProfiles.activeProfileId.value,"layout_settings").data.first()[androidx.datastore.preferences.core.booleanPreferencesKey("service_hub_deduplicate")] ?: true
+            val result=loadPetalixServiceCatalog''')
  once(services,'                old.copy(rows=merged,loading=false','''                val seen=hashSetOf<String>()
-                val visible=if(!dedup)merged else merged.map { row -> row.copy(items=row.items.filter { item -> seen.add("${item.apiType}:${item.id}") }) }
+                val visible=if(!dedup)merged else merged.map { row -> row.copy(items=row.items.filter { item -> seen.add("${item.apiType}:${item.id}") }) }.filter { it.items.isNotEmpty() }
                 old.copy(rows=visible,loading=false''')
  if not enable_updates: return
  full=root/'app/src/full/java/com/nuvio/tv/updater'

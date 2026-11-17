@@ -23,10 +23,19 @@ class PetalixHomeRepairPolicyTest {
     }
     @Test fun renderedHomeContainsLiveShortcutsEvenWhenPanelHasOnlyServices() {
         val service = com.nuvio.tv.domain.model.Collection(id = PETALIX_SERVICES_COLLECTION, title = "Streaming Services")
-        val rendered = petalixRepairedHomeRows(listOf(com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow(service)), emptyList(), emptyList())
+        val rendered = petalixRepairedHomeRows(listOf(com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow(service)), emptyList())
         val collections = rendered.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow>()
         assertEquals(listOf(PETALIX_LIVE_SHORTCUT_COLLECTION, PETALIX_SERVICES_COLLECTION), collections.map { it.collection.id })
         assertEquals(listOf("My Locals", "Entertainment", "Sports", "News"), collections.first().collection.folders.map { it.title })
+    }
+
+    @Test fun homeUsesExistingChartTilesWithoutAdditionalProviderShelves() {
+        val chart = com.nuvio.tv.domain.model.CatalogRow(addonId = "tmdb", addonName = "TMDB", addonBaseUrl = "",
+            catalogId = "popular", catalogName = "Popular Movies", type = com.nuvio.tv.domain.model.ContentType.MOVIE,
+            items = emptyList())
+        val rendered = petalixRepairedHomeRows(emptyList(), listOf(chart))
+        val catalogs = rendered.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.Catalog>()
+        assertEquals(listOf(chart), catalogs.map { it.row })
     }
 
 }

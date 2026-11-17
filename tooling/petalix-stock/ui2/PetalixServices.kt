@@ -16,8 +16,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -31,6 +29,8 @@ data class PetalixService(val id:String,val name:String,val provider:String,val 
     fun sources():List<TmdbCollectionSource> {
         val base=TmdbCollectionFilters(watchRegion="US",withWatchProviders=provider,watchMonetizationTypes="flatrate|free|ads")
         fun source(title:String,tv:Boolean=false,genre:String?=null,sort:String="popularity.desc")=TmdbCollectionSource(TmdbCollectionSourceType.DISCOVER,title,mediaType=if(tv)TmdbCollectionMediaType.TV else TmdbCollectionMediaType.MOVIE,sortBy=sort,filters=base.copy(withGenres=genre))
+        if(id=="britbox") return listOf(source("Popular Shows",true),source("New Shows",true,sort="first_air_date.desc")) +
+            collections.map { source(it.first,tv=true,genre=it.second) } + source("Popular Movies")
         return listOf(source(if(style=="netflix")"Trending on $name" else "Featured on $name"),source("Popular Series",true),source("New Movies",sort="primary_release_date.desc")) + collections.map { source(it.first,genre=it.second) }
     }
 }
@@ -63,7 +63,9 @@ data class PetalixServiceState(val rows:List<CatalogRow> = emptyList(),val loadi
 class PetalixServiceViewModel @Inject constructor(saved:SavedStateHandle,private val resolver:TmdbCollectionSourceResolver,private val tmdbApi:com.nuvio.tv.data.remote.api.TmdbApi,@ApplicationContext context:Context):ViewModel() {
     val service=PetalixServices.find(saved.get<String>("serviceId").orEmpty())
         ?: PetalixServices.findFolder(saved.get<String>("folderId").orEmpty())
-    private val sources=service?.let { selected -> ServiceCatalogs.sources(context,selected).ifEmpty { selected.sources() } }.orEmpty()
+    private val sources=service?.let { selected ->
+        runCatching { ServiceCatalogs.sources(context,selected) }.getOrDefault(emptyList()).ifEmpty { selected.sources() }
+    }.orEmpty()
     private val _state=MutableStateFlow(PetalixServiceState())
     val state=_state.asStateFlow()
     private val searchEngine=PetalixServiceSearch(tmdbApi)
@@ -100,20 +102,13 @@ class PetalixServiceViewModel @Inject constructor(saved:SavedStateHandle,private
             if(PetalixRuntimeConfig.apiKey.isBlank()) {
                 _state.update { it.copy(loading=false,error="Reconnect to Petalix in Settings to load this service catalog.",more=false) };return@launch
             }
-            val results=kotlinx.coroutines.supervisorScope { sources.map { source->async {
-                try { kotlinx.coroutines.withTimeout(25000) { resolver.resolve(source,page).first { it !is NetworkResult.Loading } } }
-                catch(e:kotlinx.coroutines.TimeoutCancellationException){null}
-                catch(e:CancellationException){throw e}
-                catch(e:Exception){null}
-            } }.awaitAll() }
-            val rows=results.mapNotNull { (it as? NetworkResult.Success)?.data }
-            val errors=results.count { it == null || it is NetworkResult.Error }
+            val result=loadPetalixServiceCatalog(sources,page) { source,requestedPage ->
+                resolver.resolve(source,requestedPage).first { it !is NetworkResult.Loading }
+            }
             _state.update { old ->
-                val merged=if(!next)rows else old.rows.map { previous ->
-                    val addition=rows.firstOrNull { it.catalogName==previous.catalogName }
-                    if(addition==null)previous else addition.copy(items=(previous.items+addition.items).distinctBy { "${it.apiType}:${it.id}" })
-                }
-                old.copy(rows=merged,loading=false,page=page,more=rows.any { it.hasMore },error=when { rows.isEmpty()->"The service catalog could not be loaded. Check your connection and metadata configuration.";errors>0->"Some collections could not be loaded. You can retry.";else->null })
+                val merged=mergePetalixServiceRows(old.rows,result.rows,next)
+                old.copy(rows=merged,loading=false,page=page,
+                    more=result.rows.any { it.hasMore },error=result.message(selected.name,emptyIsError=!next))
             }
         }
     }
