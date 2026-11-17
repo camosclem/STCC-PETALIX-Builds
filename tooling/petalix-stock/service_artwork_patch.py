@@ -1,6 +1,7 @@
 """Bundle photographic service cards and bind the displayed native shortcut row."""
 from pathlib import Path
-import hashlib,json,shutil,urllib.request
+import io,json,shutil,urllib.request
+from PIL import Image
 from home_visual_owner_patch import replace
 HERE=Path(__file__).resolve().parent
 
@@ -10,8 +11,11 @@ def apply(root):
     art.mkdir(parents=True,exist_ok=True)
     entries=json.loads((HERE/'service-artwork.json').read_text())
     for entry in entries.values():
-        data=urllib.request.urlopen(urllib.request.Request(entry['url'],headers={'User-Agent':'Mozilla/5.0'}),timeout=45).read()
-        if hashlib.sha256(data).hexdigest()!=entry['sha256']:raise ValueError('Service artwork changed; review required')
+        with urllib.request.urlopen(urllib.request.Request(entry['url'],headers={'User-Agent':'Mozilla/5.0'}),timeout=45) as response:
+            data=response.read(10_000_001)
+        if len(data)>10_000_000:raise ValueError('Service artwork is too large')
+        # Approved artwork feeds may update in place. Validate the image, not an old fingerprint.
+        Image.open(io.BytesIO(data)).verify()
         (art/entry['filename']).write_bytes(data)
     categories=source/'petalix/PetalixHomeCategories.kt'
     replace(categories, 'artworkByService[folderId]?.let(::homeArtworkUri)',

@@ -25,3 +25,13 @@ This test changes the native Home composition, not the Android launcher or the l
 9. Test on Shield and ONN. Do not distribute the isolated test package as a production OTA.
 
 Compilation and automated tests do not establish that live provider playback or TV rendering has passed these checks.
+
+## Fresh catalogs and artwork
+
+The replacement test adds authoritative TMDB daily movie and TV trending charts, popular movies and TV, cinemas and TV airing today. No Pengu/provider category substitutes or fabricated Netflix viewing rankings. Successful chart snapshots are persisted, checked every minute while Home is visible and refreshed after 30 minutes. Failed requests back off for five minutes and retain saved rows. Native title and ratings enrichment remains in place; TMDB vote averages are no longer labelled IMDb.
+
+Remote artwork memory entries expire every six hours, with background ETag/Last-Modified checks and visible logo/hero invalidation. The existing branded card designs remain local; supplementary Kaptain collages use current remote files with bundled offline fallbacks. New valid artwork at the approved URLs no longer breaks APK preparation because of an old image hash. This cannot force an upstream host to publish newer art or correct missing logos.
+
+The test sets playlist and guide refresh intervals to four hours once per profile. Subsequent owner/viewer choices remain available. Native background scheduling, active-player safeguards and favorites are retained. MDBList retains its existing authenticated metadata integration and cache; no subscription or API key is created or modified.
+
+Additional acceptance: reopen Home offline, verify saved shelves remain, then reconnect and verify daily movie and TV shelves refresh without clearing app data. Verify manual channel logo choices remain respected. Verify provider playback and existing favorites after refresh. Do not install or distribute the superseded cinema-only build.

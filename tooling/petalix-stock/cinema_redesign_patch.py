@@ -84,3 +84,5 @@ def apply(root):
     # This exact multiline occurrence belongs to the browsing migration, not the old seed.
     replace(coordinator, '                com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget.EXPANDED_CARD',
         '                com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget.HERO_MEDIA')
+    from fresh_catalog_patch import apply as apply_fresh_catalog
+    apply_fresh_catalog(root)
