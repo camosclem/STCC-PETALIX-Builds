@@ -16,10 +16,10 @@ class PetalixGuidePresentationTest {
         assertEquals(listOf("b"), view.map { it.key })
         assertEquals(2, pool.size)
     }
-    @Test fun `affiliates keep separate identities and ESPN plus gets the streaming group`() {
+    @Test fun `affiliates keep separate identities and linear streaming gets its own group`() {
         val locals = listOf(channel("a", "CBS (WBTV)", "Locals"), channel("b", "CBS (WCCO)", "Locals"))
         assertEquals(2, petalixGuidePresentation(locals, emptyMap()).size)
-        val streaming = petalixGuidePresentation(listOf(channel("c", "ESPN+ 1")), emptyMap())
+        val streaming = petalixGuidePresentation(listOf(channel("c", "Pluto TV Action", "Entertainment")), emptyMap())
         assertEquals("Streaming Channels", streaming.single().group)
     }
     @Test fun `quality suffixes disappear and golf channel moves to Sports`() {
@@ -28,4 +28,22 @@ class PetalixGuidePresentationTest {
         val view = petalixGuidePresentation(listOf(channel("g", "Golf Channel", "Golf")), emptyMap())
         assertEquals("Sports", view.single().group)
     }
+    @Test fun sportsSlotsStayOutOfAllGuideViewsIncludingSavedFavorites() {
+        for (group in listOf("Sports", "Sports Events", "Entertainment", "Streaming Services")) {
+            for (name in listOf("BTN+ 01", "ESPN+ 1", "Fubo US 01", "Disney+ USA", "Max US")) {
+                val slot = channel("slot", name, group)
+                assertFalse("$group / $name", petalixGuideChannelAllowed(slot, false))
+                assertFalse("saved $group / $name", petalixGuideChannelAllowed(slot, true))
+            }
+        }
+        assertTrue(petalixGuideChannelAllowed(channel("network", "ESPN HD"), false))
+    }
+    @Test fun plusAndNonPlusAreDifferentChannelsAnd247KeepsItsGroup() {
+        val pool = listOf(channel("one", "ESPN 1"), channel("plus", "ESPN+ 1"))
+        assertEquals(2, petalixGuidePresentation(pool, emptyMap()).size)
+        val aroundClock = channel("247", "Max Action", "24/7 Movies")
+        assertEquals("24/7 Movies", petalixGuidePresentation(listOf(aroundClock), emptyMap()).single().group)
+        assertTrue(petalixGuideChannelAllowed(aroundClock, false))
+    }
+
 }

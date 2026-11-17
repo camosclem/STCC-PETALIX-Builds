@@ -20,8 +20,9 @@ def apply(root):
             com.nuvio.tv.petalix.PetalixChannelLogos.improve(context, channel.copy(name = com.nuvio.tv.petalix.petalixCleanChannelName(channel.name)))
         }''')
     guide=source/'livetv/ui/LiveTvViewModel.kt'
-    replace(guide,'!com.nuvio.tv.petalix.hideSportsEventInGuide(channel.group, channel.name) &&', '''(com.nuvio.tv.petalix.petalixStreamingGuideChannel(channel) ||
-            !com.nuvio.tv.petalix.hideSportsEventInGuide(channel.group, channel.name)) &&''')
+    replace(guide, '''!com.nuvio.tv.petalix.hideSportsEventInGuide(channel.group, channel.name) &&
+            com.nuvio.tv.petalix.petalixShowGuideFeed(channel.petalixGuideHidden, savedChoice)''',
+            'com.nuvio.tv.petalix.petalixGuideChannelAllowed(channel, savedChoice)')
     replace(guide,'    val shown = visibility.shown', '    val shown = com.nuvio.tv.petalix.petalixGuidePresentation(visibility.shown, com.nuvio.tv.petalix.PetalixStreamMeasurements.bitrates.value)')
     replace(guide,'    val visible = visibility.visible', '    val visible = com.nuvio.tv.petalix.petalixGuidePresentation(visibility.visible, com.nuvio.tv.petalix.PetalixStreamMeasurements.bitrates.value)')
     replace(guide,'    val byKey = visible.associateBy { it.key }', '    val byKey = visibility.visible.associateBy { it.key }')
