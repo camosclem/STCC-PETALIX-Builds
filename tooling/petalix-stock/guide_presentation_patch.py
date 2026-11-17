@@ -71,6 +71,9 @@ def apply(root):
         val viewingKey = "netflixViewingV1:${profiles.activeProfileId.value}"
         if (!prefs.getBoolean(viewingKey, false)) {
             live.updateSettings { it.copy(channelSort = com.nuvio.tv.livetv.model.ChannelSort.NAME, showQualityBadges = false) }
+            playerSettings.setStreamAutoPlayMode(com.nuvio.tv.data.local.StreamAutoPlayMode.FIRST_STREAM)
+            playerSettings.setStreamAutoPlayPreferBingeGroupForNextEpisode(true)
+            playerSettings.setStreamAutoPlayFallbackOnFailure(true)
             playerSettings.setSkipIntroEnabled(true)
             playerSettings.setPostPlayRecommendationsEnabled(true)
             playerSettings.setStreamAutoPlayNextEpisodeEnabled(true)
@@ -80,7 +83,7 @@ def apply(root):
         }''')
     components=source/'livetv/ui/LiveTvComponents.kt'
     replace(components,'    val imageVersion = com.nuvio.tv.core.image.rememberImageRevalidationKey(url)', '''    var logoFailed by androidx.compose.runtime.remember(url) { androidx.compose.runtime.mutableStateOf(false) }
-    val displayUrl = if (logoFailed) com.nuvio.tv.petalix.PetalixChannelLogos.fallback(url) ?: url else url
+    val displayUrl = if (logoFailed || (url != null && DeadLogos.isDead(url))) com.nuvio.tv.petalix.PetalixChannelLogos.fallback(url) ?: url else url
     val imageVersion = com.nuvio.tv.core.image.rememberImageRevalidationKey(displayUrl)''')
     replace(components,'androidx.compose.runtime.remember(url, imageVersion)', 'androidx.compose.runtime.remember(displayUrl, imageVersion)')
     replace(components,'coil3.request.ImageRequest.Builder(logoContext).data(url)', 'coil3.request.ImageRequest.Builder(logoContext).data(displayUrl)')

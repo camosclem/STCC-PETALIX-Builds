@@ -9,7 +9,8 @@ internal object PetalixChannelLogos {
     private var index: Map<String, String>? = null
     private val originals = ConcurrentHashMap<String, String>()
     private val callsign = Regex("(?i)\\b([KW][A-Z]{3})(?:-TV|-DT|-LD|-CD)?\\b")
-    private fun key(value: String) = value.lowercase(java.util.Locale.ROOT).replace(Regex("[^a-z0-9]"), "")
+    private val punctuation = Regex("[^a-z0-9]")
+    private fun key(value: String) = value.lowercase(java.util.Locale.ROOT).replace(punctuation, "")
     @Synchronized private fun index(context: Context): Map<String,String> {
         index?.let { return it }
         val rows = JSONArray(context.assets.open("petalix/channel-logo-sources.json").bufferedReader().use { it.readText() })
