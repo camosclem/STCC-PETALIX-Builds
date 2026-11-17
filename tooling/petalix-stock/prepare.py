@@ -266,7 +266,13 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
             apply_category_backdrop(root)
             from home_layout_patch import apply as apply_home_layout
             apply_home_layout(root)
+            from upgrade_120 import apply as apply_upstream_update
+            apply_upstream_update(root)
+            from service_card_motion_patch import apply as apply_card_motion
+            apply_card_motion(root)
+            from guide_presentation_patch import apply as apply_guide_presentation
+            apply_guide_presentation(root)
     assert not list(dest.glob('ManagedPolicy*'))
-    print(json.dumps({'upstream':upstream_tag,'sha':revision,'package':package,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
+    print(json.dumps({'upstream':('1.2.0-beta.1.4' if owner_test else upstream_tag),'sha':('2d898cd8be38cd81a087604cd9dc974a06cf9a00' if owner_test else revision),'package':package,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--upstream',type=Path,required=True);p.add_argument('--version',type=int,required=True);mode=p.add_mutually_exclusive_group();mode.add_argument('--production',action='store_true');mode.add_argument('--owner-test',action='store_true');a=p.parse_args();prepare(a.upstream.resolve(),a.version,a.production,a.owner_test)

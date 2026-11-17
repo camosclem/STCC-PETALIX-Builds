@@ -4,9 +4,6 @@
 // See assets/licenses/ARVIO-NOTICE.txt and petalix2/service-media-manifest.json.
 package com.nuvio.tv.petalix
 
-import android.graphics.Color as AndroidColor
-import android.view.LayoutInflater
-import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.animation.animateColorAsState
@@ -22,20 +19,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.C
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
-import com.nuvio.tv.R
 import kotlinx.coroutines.delay
 
 private val petalixOriginalServiceIds = mapOf(
@@ -87,9 +80,8 @@ fun PetalixServiceTileBackdrop(folderId: String, focused: Boolean, modifier: Mod
 }
 
 /**
- * Draw after the native card's image/GIF. It stays transparent until the first
- * video frame, and disappears after completion or error so the original fallback
- * remains visible. Pass focused=false when the card's animation setting is off.
+ * Retain the original focus sound without drawing its opaque video over the card.
+ * The complete photographic card animates through petalixServiceTileMotion.
  */
 @Composable
 fun PetalixServiceMediaOverlay(
@@ -133,7 +125,7 @@ fun PetalixServiceMediaOverlay(
     }
 
     if (focused && foreground && dwellFinished && !clipFinished) {
-        PetalixOriginalServiceClip(videoUri, modifier) {
+        PetalixOriginalServiceSound(videoUri) {
             clipFinished = true
             dwellFinished = false
         }
@@ -142,22 +134,17 @@ fun PetalixServiceMediaOverlay(
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-private fun PetalixOriginalServiceClip(
-    videoUri: String,
-    modifier: Modifier,
-    onFinished: () -> Unit
-) {
+private fun PetalixOriginalServiceSound(videoUri: String, onFinished: () -> Unit) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnFinished by rememberUpdatedState(onFinished)
-    var firstFrameRendered by remember(videoUri) { mutableStateOf(false) }
-    val player = remember(videoUri, context.applicationContext, lifecycleOwner) {
-        ExoPlayer.Builder(context.applicationContext).build()
+    val player = remember(videoUri, context.applicationContext) {
+        ExoPlayer.Builder(context.applicationContext).build().apply {
+            trackSelectionParameters = trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
+        }
     }
-
-    DisposableEffect(player, lifecycleOwner) {
+    DisposableEffect(player) {
         var finished = false
-        var released = false
         fun finishOnce() {
             if (!finished) {
                 finished = true
@@ -165,33 +152,12 @@ private fun PetalixOriginalServiceClip(
             }
         }
         val listener = object : Player.Listener {
-            override fun onRenderedFirstFrame() {
-                firstFrameRendered = true
-            }
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) finishOnce()
             }
-            override fun onPlayerError(error: PlaybackException) {
-                // The existing card image/GIF remains visible on unsupported devices.
-                finishOnce()
-            }
-        }
-        fun releasePlayer() {
-            if (!released) {
-                released = true
-                player.removeListener(listener)
-                player.playWhenReady = false
-                player.release()
-            }
-        }
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_DESTROY) {
-                releasePlayer()
-                finishOnce()
-            }
+            override fun onPlayerError(error: PlaybackException) { finishOnce() }
         }
         player.addListener(listener)
-        lifecycleOwner.lifecycle.addObserver(observer)
         player.setAudioAttributes(AudioAttributes.DEFAULT, true)
         player.repeatMode = Player.REPEAT_MODE_OFF
         player.volume = 0.8f
@@ -199,32 +165,9 @@ private fun PetalixOriginalServiceClip(
         player.prepare()
         player.playWhenReady = true
         onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            releasePlayer()
+            player.removeListener(listener)
+            player.playWhenReady = false
+            player.release()
         }
     }
-
-    AndroidView(
-        modifier = modifier.graphicsLayer { alpha = if (firstFrameRendered) 1f else 0f },
-        factory = { viewContext ->
-            (LayoutInflater.from(viewContext)
-                .inflate(R.layout.petalix_service_media_tile, null) as PlayerView).apply {
-                useController = false
-                setControllerAutoShow(false)
-                hideController()
-                isFocusable = false
-                isFocusableInTouchMode = false
-                isClickable = false
-                descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                setShutterBackgroundColor(AndroidColor.TRANSPARENT)
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            }
-        },
-        update = { view -> view.player = player },
-        onRelease = { view -> view.player = null }
-    )
 }
