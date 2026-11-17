@@ -87,7 +87,7 @@ def apply(root):
     val imageVersion = com.nuvio.tv.core.image.rememberImageRevalidationKey(displayUrl)''')
     replace(components,'androidx.compose.runtime.remember(url, imageVersion)', 'androidx.compose.runtime.remember(displayUrl, imageVersion)')
     replace(components,'coil3.request.ImageRequest.Builder(logoContext).data(url)', 'coil3.request.ImageRequest.Builder(logoContext).data(displayUrl)')
-    replace(components,'onError = { DeadLogos.failed(url, it.result.throwable) }', 'onError = { logoFailed = true; DeadLogos.failed(displayUrl ?: url, it.result.throwable) }')
+    replace(components,'onError = { DeadLogos.failed(url, it.result.throwable) }', 'onError = { state -> logoFailed = true; displayUrl?.let { failedUrl -> DeadLogos.failed(failedUrl, state.result.throwable) } }')
 
     for relative in ('livetv/sports/SportsDesign.kt','livetv/sports/SportsScreen.kt'):
         path=source/relative
