@@ -98,3 +98,5 @@ def apply(root):
 
     private suspend fun ensureLocalHome(profileId: Int) {
         ensureBritBoxService(profileId)''')
+    from cinema_redesign_patch import apply as apply_cinema_redesign
+    apply_cinema_redesign(root)
