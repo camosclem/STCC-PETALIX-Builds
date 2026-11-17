@@ -3155,5 +3155,105 @@
     "targets": [
       "trailer_settings"
     ]
+  },
+  "petalix_home_live_tv": {
+    "key": "petalix_home_live_tv",
+    "label": "Live TV Home shortcuts",
+    "group": "Home sections",
+    "type": "boolean",
+    "targets": [
+      "layout_settings"
+    ],
+    "default": false
+  },
+  "petalix_home_services": {
+    "key": "petalix_home_services",
+    "label": "Streaming Services",
+    "group": "Home sections",
+    "type": "boolean",
+    "targets": [
+      "layout_settings"
+    ],
+    "default": true
+  },
+  "petalix_home_trending_movies": {
+    "key": "petalix_home_trending_movies",
+    "label": "Trending Movies Today",
+    "group": "Home sections",
+    "type": "boolean",
+    "targets": [
+      "layout_settings"
+    ],
+    "default": true
+  },
+  "petalix_home_trending_tv": {
+    "key": "petalix_home_trending_tv",
+    "label": "Trending TV Today",
+    "group": "Home sections",
+    "type": "boolean",
+    "targets": [
+      "layout_settings"
+    ],
+    "default": true
+  },
+  "petalix_home_popular_movies": {
+    "key": "petalix_home_popular_movies",
+    "label": "Popular Movies",
+    "group": "Home sections",
+    "type": "boolean",
+    "targets": [
+      "layout_settings"
+    ],
+    "default": false
+  },
+  "petalix_home_popular_tv": {
+    "key": "petalix_home_popular_tv",
+    "label": "Popular TV Shows",
+    "group": "Home sections",
+    "type": "boolean",
+    "targets": [
+      "layout_settings"
+    ],
+    "default": false
+  },
+  "petalix_home_cinemas": {
+    "key": "petalix_home_cinemas",
+    "label": "In Cinemas",
+    "group": "Home sections",
+    "type": "boolean",
+    "targets": [
+      "layout_settings"
+    ],
+    "default": false
+  },
+  "petalix_home_airing_tv": {
+    "key": "petalix_home_airing_tv",
+    "label": "TV Airing Today",
+    "group": "Home sections",
+    "type": "boolean",
+    "targets": [
+      "layout_settings"
+    ],
+    "default": false
+  },
+  "petalix_home_top_movies": {
+    "key": "petalix_home_top_movies",
+    "label": "Top Rated Movies",
+    "group": "Home sections",
+    "type": "boolean",
+    "targets": [
+      "layout_settings"
+    ],
+    "default": false
+  },
+  "petalix_home_service_artwork": {
+    "key": "petalix_home_service_artwork",
+    "label": "Service thumbnail artwork",
+    "group": "Home sections",
+    "type": "string",
+    "advanced": true,
+    "targets": [
+      "layout_settings"
+    ]
   }
 }

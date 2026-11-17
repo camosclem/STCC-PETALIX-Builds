@@ -21,21 +21,27 @@ class PetalixHomeRepairPolicyTest {
         val ordered = petalixServicesFirst(keys) { it }
         assertEquals(listOf("collection_$PETALIX_LIVE_SHORTCUT_COLLECTION", PETALIX_SERVICES_ROW, "trending"), ordered)
     }
-    @Test fun renderedHomeContainsLiveShortcutsEvenWhenPanelHasOnlyServices() {
+    @Test fun defaultHomeStartsWithServicesAndOmitsLiveShortcuts() {
         val service = com.nuvio.tv.domain.model.Collection(id = PETALIX_SERVICES_COLLECTION, title = "Streaming Services")
         val rendered = petalixRepairedHomeRows(listOf(com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow(service)), emptyList())
         val collections = rendered.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow>()
-        assertEquals(listOf(PETALIX_LIVE_SHORTCUT_COLLECTION, PETALIX_SERVICES_COLLECTION), collections.map { it.collection.id })
-        assertEquals(listOf("My Locals", "Entertainment", "Sports", "News"), collections.first().collection.folders.map { it.title })
+        assertEquals(listOf(PETALIX_SERVICES_COLLECTION), collections.map { it.collection.id })
+        val enabled = petalixRepairedHomeRows(emptyList(), emptyList(), PetalixHomeLayout(showLiveTv = true))
+        val live = (enabled.single() as com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow).collection
+        assertEquals(listOf("My Locals", "Entertainment", "Sports", "News"), live.folders.map { it.title })
     }
 
     @Test fun homeUsesExistingChartTilesWithoutAdditionalProviderShelves() {
         val chart = com.nuvio.tv.domain.model.CatalogRow(addonId = "tmdb", addonName = "TMDB", addonBaseUrl = "",
-            catalogId = "popular", catalogName = "Popular Movies", type = com.nuvio.tv.domain.model.ContentType.MOVIE,
+            catalogId = "petalix-home-trending/movie/day", catalogName = "Trending Movies Today", type = com.nuvio.tv.domain.model.ContentType.MOVIE,
             items = emptyList())
         val rendered = petalixRepairedHomeRows(emptyList(), listOf(chart))
         val catalogs = rendered.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.Catalog>()
         assertEquals(listOf(chart), catalogs.map { it.row })
+        val removed = chart.copy(catalogId = "petalix-home-movie/popular", catalogName = "Popular Movies")
+        val filtered = petalixRepairedHomeRows(emptyList(), listOf(chart, removed))
+            .filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.Catalog>()
+        assertEquals(listOf(chart), filtered.map { it.row })
     }
 
 }

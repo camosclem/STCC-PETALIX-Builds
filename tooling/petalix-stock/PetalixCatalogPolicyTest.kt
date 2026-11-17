@@ -9,6 +9,8 @@ class PetalixCatalogPolicyTest {
         assertEquals("trending/tv/day", PetalixCatalogPolicy.charts[1].path)
         assertTrue(PetalixCatalogPolicy.charts[1].tv)
         assertTrue(PetalixCatalogPolicy.charts.none { it.title.contains("Netflix") || it.path.contains("upcoming") })
+        assertEquals(listOf("Trending Movies Today", "Trending TV Today"),
+            PetalixCatalogPolicy.charts.filter { it.defaultEnabled }.map { it.title })
     }
     @Test fun `fresh data avoids repeat calls and failed requests back off`() {
         val now = 10_000_000L

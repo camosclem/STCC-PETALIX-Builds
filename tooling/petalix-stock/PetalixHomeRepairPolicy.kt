@@ -12,13 +12,16 @@ internal object PetalixHomeRepairPolicy {
         primary?.takeIf { it.isNotBlank() } ?: poster?.takeIf { it.isNotBlank() }
 }
 
-/** The rendered Home rows, kept separate so regressions cannot silently drop Live TV again. */
+/** Apply the chosen sections even to cached data from older Home builds. */
 internal fun petalixRepairedHomeRows(
     source: List<com.nuvio.tv.ui.screens.home.HomeRow>,
-    charts: List<com.nuvio.tv.domain.model.CatalogRow>
+    charts: List<com.nuvio.tv.domain.model.CatalogRow>,
+    layout: PetalixHomeLayout = PetalixHomeLayout()
 ): List<com.nuvio.tv.ui.screens.home.HomeRow> {
     val native = source.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow>()
-        .filter { it.collection.id != PETALIX_LIVE_SHORTCUT_COLLECTION }
-    return listOf(com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow(petalixHomeLiveCollection())) + native +
-        charts.map { com.nuvio.tv.ui.screens.home.HomeRow.Catalog(it) }
+        .filter { layout.showServices && it.collection.id == PETALIX_SERVICES_COLLECTION }
+    val live = if (layout.showLiveTv)
+        listOf(com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow(petalixHomeLiveCollection())) else emptyList()
+    return live + native + charts.filter { it.catalogId.removePrefix("petalix-home-") in layout.charts }
+        .map { com.nuvio.tv.ui.screens.home.HomeRow.Catalog(it) }
 }

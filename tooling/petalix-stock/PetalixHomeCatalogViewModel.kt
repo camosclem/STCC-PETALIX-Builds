@@ -21,10 +21,12 @@ class PetalixHomeCatalogViewModel @Inject constructor(
     private val api: TmdbApi, @ApplicationContext context: Context,
     private val liveRepository: com.nuvio.tv.livetv.data.LiveTvRepository,
     private val livePreferences: com.nuvio.tv.livetv.data.LiveTvPreferences,
-    private val channels: com.nuvio.tv.livetv.data.LiveTvChannelStore
+    private val channels: com.nuvio.tv.livetv.data.LiveTvChannelStore,
+    private val homePreferences: PetalixHomePreferences
 ) : ViewModel() {
     private val _rows = MutableStateFlow<List<CatalogRow>>(emptyList())
     val rows = _rows.asStateFlow()
+    val homeLayout = homePreferences.layout
     private val disk = File(context.filesDir, "petalix-home-charts-v2.json")
     private val cached = JSONObject()
     private var restored = false
@@ -45,13 +47,14 @@ class PetalixHomeCatalogViewModel @Inject constructor(
                 } catch (_: Exception) { }
                 restored = true
             }
+            publish()
             val key = PetalixRuntimeConfig.apiKey
-            if (liveArtworkJob?.isActive != true && System.currentTimeMillis() - liveArtworkAt >= 10 * 60_000L) {
+            if (homeLayout.value.showLiveTv && liveArtworkJob?.isActive != true && System.currentTimeMillis() - liveArtworkAt >= 10 * 60_000L) {
                 liveArtworkJob = viewModelScope.launch(Dispatchers.IO) { refreshLiveArtwork(key) }
             }
             if (key.isBlank()) return@launch
             // Sequential, bounded requests avoid a burst against the API on every TV startup.
-            for (chart in PetalixCatalogPolicy.charts) {
+            for (chart in PetalixCatalogPolicy.charts.filter { it.path in homeLayout.value.charts }) {
                 val now = System.currentTimeMillis()
                 val prior = cached.optJSONObject(chart.path)
                 if (!PetalixCatalogPolicy.shouldRefresh(now, prior?.optLong("fetchedAt") ?: 0L,
@@ -128,7 +131,7 @@ class PetalixHomeCatalogViewModel @Inject constructor(
 
     private fun publish() {
         fun image(path: String, size: String) = path.takeIf { it.startsWith("/") }?.let { "https://image.tmdb.org/t/p/$size$it" }
-        _rows.value = PetalixCatalogPolicy.charts.mapNotNull { chart ->
+        _rows.value = PetalixCatalogPolicy.charts.filter { it.path in homeLayout.value.charts }.mapNotNull { chart ->
             val results = cached.optJSONObject(chart.path)?.optJSONObject("data")?.optJSONArray("results") ?: return@mapNotNull null
             val items = (0 until results.length()).mapNotNull item@ { index ->
                 val item = results.optJSONObject(index) ?: return@item null
