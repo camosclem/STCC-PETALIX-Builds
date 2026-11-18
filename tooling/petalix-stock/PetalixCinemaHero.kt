@@ -40,8 +40,10 @@ internal fun PetalixCinemaHero(
         resume -> "CONTINUE WATCHING"
         else -> rowTitle()?.uppercase() ?: "FIND YOUR NEXT WATCH"
     }
+    val ratings = preview.mdbListRatings?.takeUnless { it.isEmpty() }
     val metadata = listOfNotNull(preview.yearText, preview.ageRatingText, preview.runtimeText,
-        preview.imdbText?.takeIf { showRatings && it.isNotBlank() }?.let { "IMDb $it" })
+        preview.imdbText?.takeIf { showRatings && ratings?.imdb == null &&
+            !(payload is ModernPayload.Catalog && payload.itemId.startsWith("tmdb:")) && it.isNotBlank() }?.let { "IMDb $it" })
         .filter { it.isNotBlank() }.joinToString("  ·  ")
     val description = preview.description?.takeIf { it.isNotBlank() } ?: when {
         liveChannel -> "Return to the channel you were watching."
@@ -66,6 +68,12 @@ internal fun PetalixCinemaHero(
         }
         if (metadata.isNotBlank()) Text(metadata, color = Color.White.copy(alpha = .82f), fontSize = 11.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (showRatings && !service && !liveGroup && !liveChannel && ratings != null) {
+            com.nuvio.tv.ui.components.MDBListRatingsRow(
+                ratings = ratings, order = preview.mdbListRatingOrder,
+                maxItems = 4, iconSize = 20.dp
+            )
+        }
         description?.let {
             Text(it, color = Color.White.copy(alpha = .84f), fontSize = 13.sp, lineHeight = 18.sp,
                 maxLines = 3, overflow = TextOverflow.Ellipsis)

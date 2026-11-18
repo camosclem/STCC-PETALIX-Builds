@@ -15,6 +15,8 @@ def apply(root):
         homeCatalogViewModel.load()
         if (!homeLayout.showLiveTv) {
             com.nuvio.tv.petalix.PetalixLiveCategoryFocus.category.value = null
+        }
+        if (!homeLayout.showRecentLiveTv) {
             com.nuvio.tv.petalix.PetalixLiveCategoryFocus.recent.value = null
         }
     }
@@ -36,12 +38,12 @@ def apply(root):
         '    if (!petalixHomeLayout().showLiveTv) return\n    val actions = LocalLiveTvHomeActions.current')
     live=source/'livetv/home/LiveTvHomeRow.kt'
     replace(live,'fun rememberLiveTvHomeRowPosition(): Boolean? {',
-        'fun rememberLiveTvHomeRowPosition(): Boolean? {\n    if (!com.nuvio.tv.petalix.petalixHomeLayout().showLiveTv) return null')
+        'fun rememberLiveTvHomeRowPosition(): Boolean? {\n    if (!com.nuvio.tv.petalix.petalixHomeLayout().showRecentLiveTv) return null')
     replace(live,'fun LiveTvHomeHint(modifier: Modifier = Modifier) {',
-        'fun LiveTvHomeHint(modifier: Modifier = Modifier) {\n    if (!com.nuvio.tv.petalix.petalixHomeLayout().showLiveTv) return')
+        'fun LiveTvHomeHint(modifier: Modifier = Modifier) {\n    if (!com.nuvio.tv.petalix.petalixHomeLayout().showRecentLiveTv) return')
     # The native row can be called directly by fallback Home, independently of row position.
     text=live.read_text();start=text.index('fun LiveTvHomeRow(');body=text.index(') {',start)+3
-    live.write_text(text[:body]+'\n    if (!com.nuvio.tv.petalix.petalixHomeLayout().showLiveTv) return'+text[body:])
+    live.write_text(text[:body]+'\n    if (!com.nuvio.tv.petalix.petalixHomeLayout().showRecentLiveTv) return'+text[body:])
     cards=source/'ui/screens/home/ModernHomeRows.kt'
     replace(cards,'    val petalixArtwork = payload?.folderId?.let { com.nuvio.tv.petalix.petalixServiceArtworkUri(it) }',
         '''    val homeLayout = com.nuvio.tv.petalix.petalixHomeLayout()

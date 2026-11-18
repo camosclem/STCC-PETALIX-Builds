@@ -7,6 +7,7 @@ class PetalixHomeLayoutTest {
     @Test fun defaultSectionsAreServicesAndTheTwoDailyTrendingCharts() {
         val layout = PetalixHomeLayout.from(emptyMap())
         assertFalse(layout.showLiveTv)
+        assertTrue(layout.showRecentLiveTv)
         assertTrue(layout.showServices)
         assertEquals(setOf("trending/movie/day", "trending/tv/day"), layout.charts)
     }
@@ -27,4 +28,11 @@ class PetalixHomeLayoutTest {
         assertEquals(mapOf("folder-petalix-britbox" to "https://images.example/britbox.jpg"), layout.serviceArtwork)
         assertTrue(PetalixHomeLayout.from(mapOf("petalix_home_service_artwork" to "broken json")).serviceArtwork.isEmpty())
     }
+    @Test fun recentChannelsStayAvailableWhenCategoryTilesAreHidden() {
+        val layout = PetalixHomeLayout.from(mapOf("petalix_home_live_tv" to false))
+        assertFalse(layout.showLiveTv)
+        assertTrue(layout.showRecentLiveTv)
+        assertFalse(PetalixHomeLayout.from(mapOf("petalix_home_recent_live_tv" to false)).showRecentLiveTv)
+    }
+
 }

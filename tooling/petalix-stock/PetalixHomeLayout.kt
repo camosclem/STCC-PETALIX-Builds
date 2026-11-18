@@ -5,6 +5,7 @@ import org.json.JSONObject
 /** Home defaults for this build; explicit panel preferences can change each section. */
 data class PetalixHomeLayout(
     val showLiveTv: Boolean = false,
+    val showRecentLiveTv: Boolean = true,
     val showServices: Boolean = true,
     val charts: Set<String> = setOf("trending/movie/day", "trending/tv/day"),
     val serviceArtwork: Map<String, String> = emptyMap()
@@ -23,6 +24,7 @@ data class PetalixHomeLayout(
             }.getOrDefault(emptyMap())
             return PetalixHomeLayout(
                 showLiveTv = enabled("petalix_home_live_tv", false),
+                showRecentLiveTv = enabled("petalix_home_recent_live_tv", true),
                 showServices = enabled("petalix_home_services", true),
                 charts = PetalixCatalogPolicy.charts.filter {
                     enabled(it.preference, it.defaultEnabled)

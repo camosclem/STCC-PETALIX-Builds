@@ -46,4 +46,22 @@ class PetalixGuidePresentationTest {
         assertTrue(petalixGuideChannelAllowed(aroundClock, false))
     }
 
+    @Test fun cachedPolicyReusesWorkAndInvalidatesForDatasetSavedChoiceAndBitrate() {
+        val cache = PetalixGuideCache()
+        val pool = listOf(channel("a", "ESPN HD"), channel("b", "ESPN UHD"))
+        val filtered = cache.channels(pool, emptySet())
+        assertSame(filtered, cache.channels(pool, emptySet()))
+        val rates = mapOf("a" to 7_000_000L, "b" to 3_000_000L)
+        val first = cache.presentation(filtered, rates)
+        assertSame(first, cache.presentation(filtered.toList(), rates))
+        assertEquals("a", first.single().key)
+        assertEquals("b", cache.presentation(filtered, mapOf("b" to 9_000_000L)).single().key)
+        val hidden = channel("hidden", "CNN", "News").copy(petalixGuideHidden = true)
+        val updated = pool + hidden
+        assertFalse(cache.channels(updated, emptySet()).any { it.key == "hidden" })
+        assertTrue(cache.channels(updated, setOf("hidden")).any { it.key == "hidden" })
+        assertEquals(3, updated.size)
+        assertNotSame(filtered, cache.channels(pool.toList(), emptySet()))
+    }
+
 }

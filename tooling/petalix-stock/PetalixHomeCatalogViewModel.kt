@@ -141,8 +141,11 @@ class PetalixHomeCatalogViewModel @Inject constructor(
                     name = title, poster = image(item.optString("poster_path"), "w500"), posterShape = PosterShape.POSTER,
                     background = image(item.optString("backdrop_path"), "w1280"), logo = null,
                     description = item.optString("overview"), releaseInfo = item.optString(if (chart.tv) "first_air_date" else "release_date"),
-                    // TMDB vote averages are not IMDb ratings. The native enrichment loads actual ratings.
+                    // Preserve the chart rating with its actual provider; never call it IMDb.
                     imdbRating = null, genres = emptyList(),
+                    mdbListRatings = item.optDouble("vote_average").takeIf {
+                        item.optInt("vote_count") > 0 && it.isFinite() && it > 0.0 && it <= 10.0
+                    }?.let { MDBListRatings(tmdb = it) },
                     rawPosterUrl = image(item.optString("poster_path"), "w500"))
             }
             if (items.isEmpty()) null else CatalogRow(addonId = "tmdb", addonName = "TMDB", addonBaseUrl = "",

@@ -275,6 +275,8 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
                 apply_guide_presentation(root)
                 from quiet_commercials_patch import apply as apply_quiet_commercials
                 apply_quiet_commercials(root)
+                from native_guide_patch import apply as apply_native_guide
+                apply_native_guide(root)
     assert not list(dest.glob('ManagedPolicy*'))
     print(json.dumps({'upstream':('1.2.0-beta.1.4' if owner_test else upstream_tag),'sha':('2d898cd8be38cd81a087604cd9dc974a06cf9a00' if owner_test else revision),'package':package,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
 if __name__=='__main__':
