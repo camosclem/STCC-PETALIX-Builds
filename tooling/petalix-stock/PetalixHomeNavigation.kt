@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 
 internal enum class HomeTab(val label: String) {
-    HOME("Home"), SEARCH("Search"), LIVE("Live TV"), MOVIES("Movies"), SERIES("Series"), SETTINGS("Settings")
+    HOME("Home"), SEARCH("Search"), LIVE("Live TV"), SPORTS("Sports"), LIBRARY("Library"), MOVIES("Movies"), SERIES("Series"), SETTINGS("Settings")
 }
 
 internal val LocalPetalixHomeTab = staticCompositionLocalOf<((HomeTab) -> Unit)?> { null }

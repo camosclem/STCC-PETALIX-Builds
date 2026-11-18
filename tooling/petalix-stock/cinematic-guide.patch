@@ -253,7 +253,7 @@ index 98c0700..c6ee9db 100644
  internal fun guideSurfaceVariant(): Color {
 +    if (LocalPetalixGuide.current) {
 +        val alpha = when (LocalGuideDarkness.current) { "standard" -> 0.64f; "solid" -> 1f; else -> 0.84f }
-+        return Color(0xFF29374D).copy(alpha = alpha)
++        return Color(0xFF303033).copy(alpha = alpha)
 +    }
      val c = NuvioTheme.colors.Background
      val base = if (c.luminance() < 0.003f) Color(0xFF0E0E12) else c
@@ -263,8 +263,8 @@ index 98c0700..c6ee9db 100644
  internal fun liveCellColors(focused: Boolean, idle: Color, idleText: Color = NuvioTheme.colors.TextPrimary): LiveCellColors {
      if (!focused) return LiveCellColors(idle, Color.Transparent, idleText)
 +    if (LocalPetalixGuide.current) return if (LocalLiveSolidHighlight.current)
-+        LiveCellColors(GuideSilver, GuideSilver, GuideInk)
-+    else LiveCellColors(Color(0xFF39485D), GuideSilver, Color.White)
++        LiveCellColors(Color(0xFF413726), GuideGold, Color.White)
++    else LiveCellColors(GuidePanel, GuideGold, Color.White)
      return if (LocalLiveSolidHighlight.current) {
          LiveCellColors(NuvioTheme.colors.Secondary, Color.Transparent, NuvioTheme.colors.OnSecondary)
      } else {
@@ -273,13 +273,13 @@ index 98c0700..c6ee9db 100644
  @Composable
  internal fun focusedTextColor(focused: Boolean): Color =
 -    if (focused && LocalLiveSolidHighlight.current) NuvioTheme.colors.OnSecondary else NuvioTheme.colors.TextPrimary
-+    if (focused && LocalLiveSolidHighlight.current && LocalPetalixGuide.current) GuideInk
++    if (focused && LocalLiveSolidHighlight.current && LocalPetalixGuide.current) Color.White
 +    else if (focused && LocalLiveSolidHighlight.current) NuvioTheme.colors.OnSecondary else NuvioTheme.colors.TextPrimary
 
  @Composable
  internal fun focusedSecondaryTextColor(focused: Boolean): Color =
 -    if (focused && LocalLiveSolidHighlight.current) NuvioTheme.colors.OnSecondary.copy(alpha = 0.8f)
-+    if (focused && LocalLiveSolidHighlight.current && LocalPetalixGuide.current) GuideInk.copy(alpha = 0.8f)
++    if (focused && LocalLiveSolidHighlight.current && LocalPetalixGuide.current) Color.White.copy(alpha = 0.8f)
 +    else if (focused && LocalLiveSolidHighlight.current) NuvioTheme.colors.OnSecondary.copy(alpha = 0.8f)
      else NuvioTheme.colors.TextSecondary
 
@@ -497,7 +497,7 @@ diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app
          val playingMark = isPlaying && settings.markPlayingChannel && !reorderMode && !moving && !nameFocused
          // The channel picked up to move: its own color (gold), apart from the highlight.
          val cell = if (moving) LiveCellColors(NuvioTheme.colors.Rating, NuvioTheme.colors.Rating, Color.Black)
-+            else if (LocalPetalixGuide.current && channelFocused) LiveCellColors(GuideSilver, GuideSilver, GuideInk)
++            else if (LocalPetalixGuide.current && channelFocused) LiveCellColors(Color(0xFF413726), GuideGold, Color.White)
              else liveCellColors(focused = nameFocused, idle = guideSurface())
          Row(
              modifier = Modifier

@@ -30,11 +30,11 @@ import com.nuvio.tv.livetv.model.LiveChannel
 import com.nuvio.tv.livetv.model.LiveTvSettings
 
 internal val LocalPetalixGuide = staticCompositionLocalOf { false }
-internal val GuideInk = Color(0xFF091124)
-internal val GuidePanel = Color(0xFF151F34)
+internal val GuideInk = Color(0xFF101113)
+internal val GuidePanel = Color(0xFF1C1D20)
 internal val GuideGold = Color(0xFFEAC680)
 internal val GuideSilver = Color(0xFFE7ECF5)
-private val guideMuted = Color(0xFFB9C4D7)
+private val guideMuted = Color(0xFFC7C5BF)
 
 internal fun Modifier.petalixPreviewFade(base: Color): Modifier = drawWithCache {
     val clear = base.copy(alpha = 0f)
@@ -138,11 +138,11 @@ internal fun PetalixGuideHeader(
     if (settings.showProgramDetails || settings.showPreview) {
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
         val height = if (compact) (screenHeight * 0.23f).coerceAtMost(142.dp)
-            else (screenHeight * 0.37f).coerceAtMost(242.dp)
+            else (screenHeight * 0.33f).coerceAtMost(242.dp)
         Box(Modifier.fillMaxWidth().height(height)) {
             val hasVideo = playing && settings.showPreview
-            val details = if (settings.showProgramDetails && channel != null) rememberShowDetails(channel.key, program) else null
-            val about = if (settings.showProgramDetails && channel != null) rememberChannelAbout(channel, details) else null
+            val details = if (settings.showProgramDetails && channel != null) key(channel.key, program?.startMs) { rememberShowDetails(channel.key, program) } else null
+            val about = if (settings.showProgramDetails && channel != null) key(channel.key, program?.startMs) { rememberChannelAbout(channel, details) } else null
             if (settings.showPosters && settings.showProgramDetails) {
                 val image = about?.backdropUrl ?: details?.icon ?: poster
                 HeroBackdrop(image, categoryPhoto(group) ?: categoryPhoto(channel?.group), base, hasVideo)
@@ -176,7 +176,7 @@ internal fun PetalixGuideHeader(
                         }
                     }
                     if (GuideInfoPart.TITLE !in hidden) {
-                        LiveText(details?.title?.let { titleMarks(it).title } ?: channel.name,
+                        LiveText((program?.title ?: details?.title)?.let { titleMarks(it).title } ?: channel.name,
                             size = if (compact) 23.sp else 30.sp, color = Color.White, weight = FontWeight.Bold,
                             maxLines = if (compact) 1 else 2, lineHeight = if (compact) 25.sp else 33.sp)
                     }
@@ -192,7 +192,7 @@ internal fun PetalixGuideHeader(
                         ProgressBar((now - start).toFloat() / (stop - start), Modifier.width(165.dp), GuideGold, GuidePanel)
                     }
                     if (GuideInfoPart.DESCRIPTION !in hidden) {
-                        val description = about?.description?.takeIf { it.isNotBlank() } ?: details?.description
+                        val description = details?.description?.takeIf { it.isNotBlank() } ?: about?.description
                         if (!description.isNullOrBlank()) LiveText(description, color = Color.White.copy(alpha = 0.84f), size = 13.sp,
                             maxLines = if (compact) 1 else 3, lineHeight = 18.sp)
                     }

@@ -1,0 +1,198 @@
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+@@ -65,6 +65,7 @@
+ }
+ 
+ data class LiveTvUiState(
++    val guideReady: Boolean = false,
+     val groups: List<ChannelGroup> = emptyList(),
+     val selectedGroupId: String = ChannelGroup.ALL,
+     val channels: List<LiveChannel> = emptyList(),
+@@ -1865,6 +1866,7 @@
+         rawList.mapIndexed { i, c -> c.copy(number = i + 1) }
+     } else rawList
+     return LiveTvUiState(
++        guideReady = true,
+         groups = groups,
+         selectedGroupId = groupId,
+         channels = list,
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -1662,6 +1662,7 @@
+                             .focusable()
+                     ) {
+                         when {
++                            !ui.guideReady -> EmptyGuideMessage(title = "Loading guide…", body = "", action = null)
+                             !ui.hasSources -> EmptyGuideMessage(
+                                 title = "No playlists yet",
+                                 body = "Add an M3U playlist, Xtream login or XMLTV guide in Settings › Live TV.",
+--- a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+@@ -351,6 +351,8 @@
+                                 else com.nuvio.tv.livetv.ondemand.VodKind.SERIES
+                             navController.navigate(Screen.OnDemand.route) { launchSingleTop = true }
+                         }
++                        com.nuvio.tv.ui.screens.home.HomeTab.SPORTS -> navController.navigate(Screen.Sports.route) { launchSingleTop = true }
++                        com.nuvio.tv.ui.screens.home.HomeTab.LIBRARY -> navController.navigate(Screen.Library.route) { launchSingleTop = true }
+                         com.nuvio.tv.ui.screens.home.HomeTab.SETTINGS -> navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+                     }
+                 },
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
+@@ -741,7 +741,7 @@
+                     val enrichedHero = if (enrichedItem != null) {
+                         HeroPreview(
+                             title = enrichedItem.name,
+-                            logo = enrichedItem.logo,
++                            logo = firstNonBlank(enrichedItem.logo, activeCarouselItem?.heroPreview?.logo),
+                             description = enrichedItem.description,
+                             contentTypeText = activeCarouselItem?.heroPreview?.contentTypeText,
+                             isSeries = isSeriesType(enrichedItem.apiType),
+@@ -750,14 +750,14 @@
+                             runtimeText = formatHeroRuntime(enrichedItem.runtime)
+                                 ?: activeCarouselItem?.heroPreview?.runtimeText,
+                             imdbText = enrichedItem.imdbRating
+-                                ?.let { String.format(java.util.Locale.US, "%.1f", it) },
++                                ?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: activeCarouselItem?.heroPreview?.imdbText,
+                             ageRatingText = enrichedItem.ageRating,
+                             statusText = enrichedItem.status,
+                             countryText = enrichedItem.country,
+                             languageText = enrichedItem.language?.uppercase(),
+                             genres = enrichedItem.genres.take(3).asStable(),
+-                            poster = enrichedItem.poster,
+-                            backdrop = enrichedItem.backdropUrl,
++                            poster = firstNonBlank(enrichedItem.poster, activeCarouselItem?.heroPreview?.poster),
++                            backdrop = firstNonBlank(enrichedItem.backdropUrl, activeCarouselItem?.heroPreview?.backdrop),
+                             imageUrl = activeCarouselItem?.heroPreview?.imageUrl,
+                             mdbListRatings = enrichedItem.mdbListRatings?.let { ratings ->
+                                 ratings.copy(tmdb = ratings.tmdb ?: activeCarouselItem?.heroPreview?.mdbListRatings?.tmdb)
+@@ -785,17 +785,10 @@
+                     val effectiveEnrichmentActive = activeCarouselItem == null || enrichmentActive ||
+                         (enrichedHero == null && activeItemId != null && heroEnrichmentEnabled && !enrichmentFailed)
+                     
+-                    val activeRowKeyVal = activeRowKey.value
+-                    val activeRow = activeRowKeyVal?.let { rowByKey[it] }
+-                    val activeRowFallbackBackdrop = activeRow?.items?.list?.firstNotNullOfOrNull { item ->
+-                        item.heroPreview.backdrop?.takeIf { it.isNotBlank() }
+-                    }
+-                    
+                     val heroBackdrop = firstNonBlank(
+                         resolvedHero?.backdrop,
+                         resolvedHero?.imageUrl,
+                         resolvedHero?.poster,
+-                        activeRowFallbackBackdrop,
+                         "file:///android_asset/petalix/home-art/home.webp"
+                     )
+                     
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/HomeViewModelPresentationPipeline.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/HomeViewModelPresentationPipeline.kt
+@@ -688,10 +688,10 @@
+             // Merge results: apply external meta first (base layer), then TMDB on top
+             // respecting which TMDB settings are enabled.
+             if (externalMeta != null) {
+-                updateCatalogItemWithMeta(item.id, externalMeta)
++                updateCatalogItemWithMeta(item, externalMeta)
+             }
+             if (tmdbEnrichment != null) {
+-                updateCatalogItemWithTmdb(item.id, tmdbEnrichment)
++                updateCatalogItemWithTmdb(item, tmdbEnrichment)
+             }
+ 
+             // If neither source produced anything, mark enrichment in previews
+@@ -804,10 +804,10 @@
+             }
+ 
+             if (externalMeta != null) {
+-                updateCatalogItemWithMeta(item.id, externalMeta)
++                updateCatalogItemWithMeta(item, externalMeta)
+             }
+             if (tmdbEnrichment != null) {
+-                updateCatalogItemWithTmdb(item.id, tmdbEnrichment)
++                updateCatalogItemWithTmdb(item, tmdbEnrichment)
+             }
+ 
+             // MDBList ratings are handled by batch row prefetch
+@@ -894,7 +894,8 @@
+     }
+ }
+ 
+-private fun HomeViewModel.updateCatalogItemWithTmdb(itemId: String, enrichment: TmdbEnrichment) {
++private fun HomeViewModel.updateCatalogItemWithTmdb(item: MetaPreview, enrichment: TmdbEnrichment) {
++    val itemId = item.id
+     enrichmentMergedIds.add(itemId)
+     val isModernLayout = _uiState.value.homeLayout == HomeLayout.MODERN
+     fun mergeItem(currentItem: MetaPreview): MetaPreview {
+@@ -927,7 +928,7 @@
+ 
+     applyEnrichmentToDisplayedRows(itemId, ::mergeItem)
+ 
+-    findCatalogItemById(itemId)?.let { enriched ->
++    (findCatalogItemById(itemId) ?: mergeItem(_enrichedPreviews.value[itemId]?.takeIf { it.type == item.type } ?: item)).let { enriched ->
+         _lastEnrichedPreview.value = enriched
+         addEnrichedPreview(itemId, enriched)
+     }
+@@ -1000,7 +1001,8 @@
+     }
+ }
+ 
+-private fun HomeViewModel.updateCatalogItemWithMeta(itemId: String, meta: Meta) {
++private fun HomeViewModel.updateCatalogItemWithMeta(item: MetaPreview, meta: Meta) {
++    val itemId = item.id
+     enrichmentMergedIds.add(itemId)
+     val incomingTrailerYtIds = meta.trailerYtIds
+     val seasonCount = meta.videos
+@@ -1030,7 +1032,7 @@
+     clearEnrichmentFailure(itemId)
+ 
+     applyEnrichmentToDisplayedRows(itemId, ::mergeItem)
+-    findCatalogItemById(itemId)?.let { enriched ->
++    (findCatalogItemById(itemId) ?: mergeItem(_enrichedPreviews.value[itemId]?.takeIf { it.type == item.type } ?: item)).let { enriched ->
+         _lastEnrichedPreview.value = enriched
+         addEnrichedPreview(itemId, enriched)
+     }
+--- a/app/src/main/java/com/nuvio/tv/data/local/AddonPreferences.kt
++++ b/app/src/main/java/com/nuvio/tv/data/local/AddonPreferences.kt
+@@ -119,6 +119,7 @@
+             if (states != oldStates) preferences[addonEnabledStatesKey] = gson.toJson(states)
+         }
+     }
++    suspend fun applyManagedMetadata(manifest: String?) = applyPanelAddon("metadata", manifest)
+     suspend fun applyManagedKaptain(manifest: String?) = applyPanelAddon("kaptain", manifest)
+     suspend fun ensureMigrated() {
+         val ds = store()
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixManagedCoordinator.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixManagedCoordinator.kt
+@@ -41,6 +41,8 @@
+     @ApplicationContext private val context: Context,
+     private val live: LiveTvPreferences,
+     private val collections: com.nuvio.tv.data.local.CollectionsDataStore,
++    private val ratings: com.nuvio.tv.data.local.MDBListSettingsDataStore,
++    private val metadataAddons: com.nuvio.tv.data.local.AddonPreferences,
+     private val tmdb: com.nuvio.tv.data.local.TmdbSettingsDataStore,
+     private val layout: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
+     private val experience: com.nuvio.tv.data.local.ExperienceModeDataStore,
+@@ -220,9 +222,23 @@
+ 
+     private suspend fun applySettings(doc: JSONObject) {
+ 
+-        doc.optJSONObject("nativeConfig")?.optString("tmdbApiKey")?.let { PetalixRuntimeConfig.store(context, it) }
++        val config = doc.optJSONObject("nativeConfig")
++        config?.optString("tmdbApiKey")?.takeIf { it.isNotBlank() }?.let { PetalixRuntimeConfig.store(context, it) }
+         profiles.activeProfileReady.first { it }
+         ensureLocalHome(profiles.activeProfileId.value)
++        config?.optString("mdbListApiKey")?.takeIf { it.isNotBlank() && it != "null" }?.let {
++            ratings.setApiKey(it)
++            ratings.setEnabled(true)
++            ratings.setShowOnHero(true)
++        }
++        if (config != null && config.has("metadataManifest")) {
++            val manifest = config.optString("metadataManifest").toHttpUrlOrNull()
++            if (config.isNull("metadataManifest")) metadataAddons.applyManagedMetadata(null)
++            else if (manifest != null && manifest.isHttps && manifest.encodedPath.endsWith("/manifest.json") &&
++                manifest.username.isEmpty() && manifest.password.isEmpty()) {
++                metadataAddons.applyManagedMetadata(manifest.toString())
++            }
++        }
+         applyPanelSettings(doc)
+         val quietKey = "quietCommercialsV2:${profiles.activeProfileId.value}"
+         if (!prefs.getBoolean(quietKey, false)) {

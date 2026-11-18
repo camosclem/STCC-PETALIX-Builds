@@ -31,6 +31,7 @@ def brand_string(match):
 
 def apply(root):
     subprocess.run(['git', 'apply', '--whitespace=error', str(HERE / 'cinematic-guide.patch')], cwd=root, check=True)
+    subprocess.run(['git', 'apply', '--whitespace=error', str(HERE / 'guide-ready.patch')], cwd=root, check=True)
     source = root / 'app/src'
     ui = source / 'main/java/com/nuvio/tv/livetv/ui'
     copy2(HERE / 'PetalixGuideHero.kt', ui / 'PetalixGuideHero.kt')
