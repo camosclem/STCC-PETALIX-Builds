@@ -16,11 +16,11 @@ class PetalixGuidePresentationTest {
         assertEquals(listOf("b"), view.map { it.key })
         assertEquals(2, pool.size)
     }
-    @Test fun `affiliates keep separate identities and linear streaming gets its own group`() {
+    @Test fun `affiliates keep separate identities and linear streaming keeps its original group`() {
         val locals = listOf(channel("a", "CBS (WBTV)", "Locals"), channel("b", "CBS (WCCO)", "Locals"))
         assertEquals(2, petalixGuidePresentation(locals, emptyMap()).size)
         val streaming = petalixGuidePresentation(listOf(channel("c", "Pluto TV Action", "Entertainment")), emptyMap())
-        assertEquals("Streaming Channels", streaming.single().group)
+        assertEquals("Entertainment", streaming.single().group)
     }
     @Test fun `quality suffixes disappear and golf channel moves to Sports`() {
         assertEquals("ESPN", petalixCleanChannelName("ESPN UHD"))

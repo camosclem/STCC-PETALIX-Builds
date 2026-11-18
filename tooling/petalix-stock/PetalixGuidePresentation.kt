@@ -38,7 +38,6 @@ internal fun petalixGuideChannelAllowed(channel: LiveChannel, explicitSavedChoic
 internal fun petalixGuidePresentation(channels: List<LiveChannel>, bitrates: Map<String, Long>): List<LiveChannel> {
     val grouped = channels.map { channel ->
         when {
-            petalixStreamingGuideChannel(channel) -> channel.copy(groupId = "petalix-guide:streaming", group = "Streaming Channels")
             golfGroup.containsMatchIn(channel.group) -> channel.copy(groupId = "petalix-guide:sports", group = "Sports")
             else -> channel
         }

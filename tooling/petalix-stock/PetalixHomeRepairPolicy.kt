@@ -20,8 +20,7 @@ internal fun petalixRepairedHomeRows(
 ): List<com.nuvio.tv.ui.screens.home.HomeRow> {
     val native = source.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow>()
         .filter { layout.showServices && it.collection.id == PETALIX_SERVICES_COLLECTION }
-    val live = if (layout.showLiveTv)
-        listOf(com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow(petalixHomeLiveCollection())) else emptyList()
-    return live + native + charts.filter { it.catalogId.removePrefix("petalix-home-") in layout.charts }
+    // Live categories render once below Services, with their own native-guide shortcut buttons.
+    return native + charts.filter { it.catalogId.removePrefix("petalix-home-") in layout.charts }
         .map { com.nuvio.tv.ui.screens.home.HomeRow.Catalog(it) }
 }

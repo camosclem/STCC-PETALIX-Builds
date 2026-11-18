@@ -17,13 +17,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.media3.ui.PlayerView
+import androidx.media3.ui.AspectRatioFrameLayout
+import android.view.LayoutInflater
+import com.nuvio.tv.R
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.media3.common.C
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -80,8 +86,7 @@ fun PetalixServiceTileBackdrop(folderId: String, focused: Boolean, modifier: Mod
 }
 
 /**
- * Retain the original focus sound without drawing its opaque video over the card.
- * The complete photographic card animates through petalixServiceTileMotion.
+ * Play the original branded clip across the entire focused tile, then reveal its unchanged artwork.
  */
 @Composable
 fun PetalixServiceMediaOverlay(
@@ -125,7 +130,7 @@ fun PetalixServiceMediaOverlay(
     }
 
     if (focused && foreground && dwellFinished && !clipFinished) {
-        PetalixOriginalServiceSound(videoUri) {
+        PetalixOriginalServiceVideo(videoUri, modifier) {
             clipFinished = true
             dwellFinished = false
         }
@@ -134,15 +139,29 @@ fun PetalixServiceMediaOverlay(
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-private fun PetalixOriginalServiceSound(videoUri: String, onFinished: () -> Unit) {
+private fun PetalixOriginalServiceVideo(videoUri: String, modifier: Modifier, onFinished: () -> Unit) {
     val context = LocalContext.current
     val currentOnFinished by rememberUpdatedState(onFinished)
     val player = remember(videoUri, context.applicationContext) {
-        ExoPlayer.Builder(context.applicationContext).build().apply {
-            trackSelectionParameters = trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
-        }
+        ExoPlayer.Builder(context.applicationContext).build()
     }
+    var firstFrame by remember(player) { mutableStateOf(false) }
+    val videoAlpha by animateFloatAsState(if (firstFrame) 1f else 0f, tween(160), label = "serviceClipReveal")
+    AndroidView(
+        modifier = modifier.graphicsLayer { alpha = videoAlpha },
+        factory = { ctx ->
+            (LayoutInflater.from(ctx).inflate(R.layout.petalix_service_media_tile, null) as PlayerView).apply {
+                useController = false
+                isFocusable = false
+                isFocusableInTouchMode = false
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                this.player = player
+            }
+        },
+        update = { it.player = player },
+        onRelease = { it.player = null }
+    )
     DisposableEffect(player) {
         var finished = false
         fun finishOnce() {
@@ -152,6 +171,7 @@ private fun PetalixOriginalServiceSound(videoUri: String, onFinished: () -> Unit
             }
         }
         val listener = object : Player.Listener {
+            override fun onRenderedFirstFrame() { firstFrame = true }
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) finishOnce()
             }

@@ -37,4 +37,28 @@ class PetalixQuietAudioProcessorTest {
         assertTrue(abs(left) < .35f)
         assertEquals(-2f, left / right, .01f)
     }
+    @Test fun programToCommercialTransitionGetsAudibleReductionAndOffIsUnchanged() {
+        fun tailLevel(mode: NightMode): Float {
+            val processor = PetalixQuietAudioProcessor().apply {
+                setMode(mode)
+                configure(AudioProcessor.AudioFormat(48000, 1, C.ENCODING_PCM_16BIT))
+                flush()
+            }
+            var tail = 0f
+            for (block in 0 until 300) {
+                val amplitude = if (block < 100) .04f else .8f
+                val input = ByteBuffer.allocateDirect(480 * 2).order(ByteOrder.nativeOrder())
+                repeat(480) { input.putShort((amplitude * 32768).toInt().toShort()) }
+                input.flip(); processor.queueInput(input)
+                val output = processor.output.order(ByteOrder.nativeOrder())
+                while (output.remaining() >= 2) tail = abs(output.short / 32768f)
+            }
+            return tail
+        }
+        val unprocessed = tailLevel(NightMode.OFF)
+        val processed = tailLevel(NightMode.MEDIUM)
+        assertEquals(.8f, unprocessed, .001f)
+        assertTrue("Commercial level should be reduced by at least 6 dB", processed < unprocessed * .5f)
+    }
+
 }

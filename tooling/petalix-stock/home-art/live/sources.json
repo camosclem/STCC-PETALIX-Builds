@@ -1,0 +1,35 @@
+{
+  "license": "https://www.pexels.com/license/",
+  "photos": {
+    "sports": {
+      "pexelsId": 28827841,
+      "source": "https://www.pexels.com/photo/28827841/",
+      "downloadWidth": 1920
+    },
+    "news": {
+      "pexelsId": 33925166,
+      "source": "https://www.pexels.com/photo/33925166/",
+      "downloadWidth": 1920
+    },
+    "locals": {
+      "pexelsId": 29014307,
+      "source": "https://www.pexels.com/photo/29014307/",
+      "downloadWidth": 1920
+    },
+    "entertainment": {
+      "pexelsId": 34410696,
+      "source": "https://www.pexels.com/photo/34410696/",
+      "downloadWidth": 1920
+    },
+    "around-clock": {
+      "pexelsId": 7991112,
+      "source": "https://www.pexels.com/photo/7991112/",
+      "downloadWidth": 1920
+    },
+    "westerns": {
+      "pexelsId": 27508766,
+      "source": "https://www.pexels.com/photo/27508766/",
+      "downloadWidth": 1920
+    }
+  }
+}

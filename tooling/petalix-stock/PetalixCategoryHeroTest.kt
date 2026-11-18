@@ -9,10 +9,11 @@ class PetalixCategoryHeroTest {
 
     @Test fun eachCategoryReplacesStaleServiceArtAndMedia() {
         val artwork = listOf("Sports" to "sports", "News" to "news",
-            "Entertainment" to "entertainment", "My Locals" to "locals")
+            "Entertainment" to "entertainment", "My Locals" to "locals",
+            "24/7 Channels" to "around-clock", "Westerns" to "westerns")
         for ((title, art) in artwork) {
             val scene = petalixCategoryHero(service, title)
-            assertEquals("file:///android_asset/petalix/home-art/$art.webp", scene.heroBackdrop)
+            assertEquals("file:///android_asset/petalix/home-art/live/$art.jpg", scene.heroBackdrop)
             assertEquals(title, scene.preview?.title)
             assertNull(scene.preview?.logo)
             assertFalse(scene.shouldPlayTrailer)

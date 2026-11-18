@@ -8,6 +8,8 @@ internal fun petalixCategoryHero(base: ModernHeroSceneState, category: String?):
         "News" -> "news"
         "Entertainment" -> "entertainment"
         "My Locals" -> "locals"
+        "24/7 Channels" -> "around-clock"
+        "Westerns" -> "westerns"
         else -> return base
     }
     val backdrop = "file:///android_asset/petalix/home-art/$art.webp"

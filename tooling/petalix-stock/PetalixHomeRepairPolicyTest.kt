@@ -27,8 +27,7 @@ class PetalixHomeRepairPolicyTest {
         val collections = rendered.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow>()
         assertEquals(listOf(PETALIX_SERVICES_COLLECTION), collections.map { it.collection.id })
         val enabled = petalixRepairedHomeRows(emptyList(), emptyList(), PetalixHomeLayout(showLiveTv = true))
-        val live = (enabled.single() as com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow).collection
-        assertEquals(listOf("My Locals", "Entertainment", "Sports", "News"), live.folders.map { it.title })
+        assertTrue("Home must not duplicate the separately rendered category row", enabled.isEmpty())
     }
 
     @Test fun homeUsesExistingChartTilesWithoutAdditionalProviderShelves() {

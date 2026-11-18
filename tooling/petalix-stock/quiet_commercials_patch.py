@@ -35,3 +35,11 @@ def apply(root):
                     )''')
     coordinator=source/'petalix/PetalixManagedCoordinator.kt'
     replace(coordinator,'showQualityBadges = false)', 'showQualityBadges = false, quietCommercials = true)')
+
+    # A separate upgrade key is required: older installations already consumed viewing defaults.
+    replace(coordinator, '        val viewingKey = "netflixViewingV1:${profiles.activeProfileId.value}"', '''        val quietKey = "quietCommercialsV2:${profiles.activeProfileId.value}"
+        if (!prefs.getBoolean(quietKey, false)) {
+            live.updateSettings { it.copy(quietCommercials = true) }
+            check(prefs.edit().putBoolean(quietKey, true).commit())
+        }
+        val viewingKey = "netflixViewingV1:${profiles.activeProfileId.value}"''')

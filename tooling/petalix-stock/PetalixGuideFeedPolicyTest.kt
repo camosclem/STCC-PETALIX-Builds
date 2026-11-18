@@ -98,4 +98,19 @@ https://example.test/live/user/pass/123.ts
         assertEquals(2, channels.size)
         assertEquals("https://example.test/2.ts", channels[1].url)
     }
+    @Test fun duplicateGuideCategorySelectionMergesChannelsButRetainsNativeLists() {
+        val base = LiveChannel("z", "playlist", "Test", "Zulu", null, null, null,
+            "one", "Entertainment", 1, "https://example.test/z.ts")
+        val pool = listOf(base, base.copy(key = "a", name = "Alpha", groupId = "two", group = " entertainment "),
+            base.copy(key = "stream", name = "Pluto Action", groupId = "stream", group = "Streaming Channels"))
+        val settings = LiveTvSettings(channelSort = com.nuvio.tv.livetv.model.ChannelSort.NAME)
+        val guide = buildUi(pool, LiveUserState(), settings, "two", "", true)
+        assertEquals(listOf("a", "z"), guide.channels.map { it.key })
+        assertEquals(1, guide.groups.count { it.title.trim().equals("Entertainment", true) })
+        assertFalse(guide.groups.any { petalixStreamingCategory(it.title) })
+        val favorites = buildUi(pool, LiveUserState(favorites = listOf("a")), settings, ChannelGroup.FAVORITES, "", true)
+        assertEquals(listOf("a"), favorites.channels.map { it.key })
+        assertEquals(3, pool.size)
+    }
+
 }

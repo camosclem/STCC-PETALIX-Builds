@@ -6,7 +6,7 @@ import org.junit.Test
 class PetalixHomeLayoutTest {
     @Test fun defaultSectionsAreServicesAndTheTwoDailyTrendingCharts() {
         val layout = PetalixHomeLayout.from(emptyMap())
-        assertFalse(layout.showLiveTv)
+        assertTrue(layout.showLiveTv)
         assertTrue(layout.showRecentLiveTv)
         assertTrue(layout.showServices)
         assertEquals(setOf("trending/movie/day", "trending/tv/day"), layout.charts)
