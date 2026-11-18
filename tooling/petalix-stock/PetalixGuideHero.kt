@@ -1,13 +1,9 @@
 package com.nuvio.tv.livetv.ui
 
-import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.nuvio.tv.R
-import com.nuvio.tv.livetv.model.ChannelGroup
 import com.nuvio.tv.livetv.model.EpgProgram
 import com.nuvio.tv.livetv.model.LiveChannel
 import com.nuvio.tv.livetv.model.LiveTvSettings
@@ -78,44 +73,6 @@ private fun GuideCommand(
     }
 }
 
-@Composable
-internal fun PetalixCategoryPicker(
-    groups: List<ChannelGroup>,
-    selected: String,
-    onDismiss: () -> Unit,
-    onPick: (ChannelGroup) -> Unit
-) {
-    if (groups.isEmpty()) {
-        LaunchedEffect(Unit) { onDismiss() }
-        return
-    }
-    val first = remember { FocusRequester() }
-    val initial = groups.indexOfFirst { it.id == selected }.coerceAtLeast(0)
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.width(350.dp).background(GuidePanel, RoundedCornerShape(14.dp)).padding(16.dp)) {
-            LiveText("Categories", color = Color.White, size = 21.sp, weight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            val state = rememberLazyListState(initialFirstVisibleItemIndex = initial)
-            LazyColumn(Modifier.heightIn(max = 300.dp), state = state) {
-                items(groups, key = { it.id }) { group ->
-                    val target = group.id == groups[initial].id
-                    LiveFocusRow(modifier = Modifier.fillMaxWidth().then(if (target) Modifier.focusRequester(first) else Modifier),
-                        selected = group.id == selected, onClick = { onPick(group) }) { focused ->
-                        LiveText(group.title, Modifier.weight(1f), focusedTextColor(focused), 15.sp)
-                        if (group.locked) LiveText("PIN", color = focusedTextColor(focused), size = 11.sp)
-                        if (group.id == selected) LiveText("✓", color = focusedTextColor(focused), size = 14.sp)
-                    }
-                }
-            }
-            LaunchedEffect(groups[initial].id) {
-                state.scrollToItem(initial)
-                withFrameNanos { }
-                runCatching { first.requestFocus() }
-            }
-        }
-    }
-}
-
 private fun categoryPhoto(title: String?): String? {
     val file = when (title?.trim()?.lowercase()) {
         "sports", "sports networks" -> "sports"
@@ -158,56 +115,22 @@ internal fun PetalixGuideHeader(
     group: String,
     playing: Boolean,
     onBounds: (androidx.compose.ui.geometry.Rect?) -> Unit,
-    onCategories: () -> Unit,
-    onCycle: (Int) -> Unit,
+    groupsOpen: Boolean,
     onMenu: () -> Unit,
-    onHeaderFocus: (Boolean) -> Unit,
     onDown: () -> Unit,
-    categoryFocus: FocusRequester,
-    menuFocus: FocusRequester
+    settingsFocus: FocusRequester
 ) {
     val compact = settings.smallHeader
     val hidden = remember(settings.guideInfoHidden) { BarPart.parse(settings.guideInfoHidden) }
     val base = if (settings.guideBackdrop == "auto") GuideInk else backdropBase(resolveBackdrop(settings.guideBackdrop))
-    Box(Modifier.fillMaxWidth().onFocusChanged { onHeaderFocus(it.hasFocus) }.focusGroup()
-        .padding(horizontal = 28.dp, vertical = 5.dp)) {
+    Box(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 5.dp)) {
         Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.petalix_guide_wordmark), "Petalix", Modifier.size(86.dp, 27.dp))
             Spacer(Modifier.width(9.dp))
             LiveText("Live TV", color = GuideGold, size = 14.sp, weight = FontWeight.Bold)
         }
-        var focused by remember { mutableStateOf(false) }
-        val ink = if (focused) GuideInk else GuideSilver
-        Row(Modifier.align(Alignment.Center).widthIn(max = 240.dp).focusRequester(categoryFocus)
-            .onFocusChanged { focused = it.isFocused }
-            .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (event.key) {
-                    Key.DirectionLeft, Key.DirectionRight -> {
-                        if (event.nativeKeyEvent.repeatCount == 0) onCycle(if (event.key == Key.DirectionLeft) -1 else 1)
-                        true
-                    }
-                    Key.DirectionDown -> { onDown(); true }
-                    Key.DirectionUp -> {
-                        if (event.nativeKeyEvent.repeatCount == 0) menuFocus.requestFocus()
-                        true
-                    }
-                    else -> false
-                }
-            }
-            .background(if (focused) GuideSilver else GuidePanel, RoundedCornerShape(18.dp))
-            .clickable(onClickLabel = "Open categories", onClick = onCategories)
-            .padding(horizontal = 12.dp, vertical = 5.dp),
-            horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
-            LiveText("‹", color = ink, size = 17.sp)
-            Column(Modifier.weight(1f, fill = false), horizontalAlignment = Alignment.CenterHorizontally) {
-                LiveText("Categories", color = ink.copy(alpha = 0.74f), size = 10.sp)
-                LiveText(group, color = ink, size = 15.sp, weight = FontWeight.SemiBold)
-            }
-            LiveText("›", color = ink, size = 17.sp)
-        }
         Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
-            GuideCommand("Guide menu", onMenu, { categoryFocus.requestFocus() }, Modifier.focusRequester(menuFocus))
+            GuideCommand("Guide menu", onMenu, onDown, Modifier.focusRequester(settingsFocus))
             Spacer(Modifier.width(10.dp))
             LiveText(formatClock(now, settings.use24HourClock), size = 13.sp, color = GuideSilver)
         }
@@ -276,5 +199,11 @@ internal fun PetalixGuideHeader(
                 }
             }
         }
+    }
+    Row(Modifier.fillMaxWidth().padding(start = 54.dp, top = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        LiveText("◂  $group", size = 14.sp, color = GuideSilver, weight = FontWeight.SemiBold)
+        LiveText(if (groupsOpen) "Press Right for channels" else "Press Left for categories",
+            size = 12.sp, color = guideMuted)
     }
 }

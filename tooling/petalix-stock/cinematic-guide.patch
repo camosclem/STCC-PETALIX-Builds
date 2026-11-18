@@ -323,40 +323,17 @@ index 98c0700..c6ee9db 100644
      androidx.compose.runtime.remember { LiveCorners.start(context) }
      return LiveCorners.radius.collectAsState().value.dp
 diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
-index ef56465..9f67642 100644
 --- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
 +++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
-@@ -452,6 +452,11 @@ private fun LiveTvGuideScreenBody(
+@@ -451,6 +451,7 @@
+     val groupsListState = rememberLazyListState()
      var menuTarget by remember { mutableStateOf<MenuTarget?>(null) }
      var guideGearOpen by remember { mutableStateOf(false) }
-     val guideGearFocus = remember { FocusRequester() }
-+    val categoryFocus = remember { FocusRequester() }
-+    var headerFocused by remember { mutableStateOf(false) }
-+    var cycleCursor by remember { mutableStateOf<String?>(null) }
-+    var categoryListOpen by remember { mutableStateOf(false) }
 +    var guideActionsOpen by remember { mutableStateOf(false) }
+     val guideGearFocus = remember { FocusRequester() }
      val groupSearchFocus = remember { FocusRequester() }
      /** Schedule a Recording (long-press menu): the channel it's for. */
-     var manualRecordingFor by remember { mutableStateOf<LiveChannel?>(null) }
-@@ -599,7 +604,16 @@ private fun LiveTvGuideScreenBody(
-         stoppedKey = playback.channelKey
-         viewModel.playback.stop()
-     }
--    fun focusGroups() {
-+    fun focusGroups(manage: Boolean = false) {
-+        if (settings.petalixGuide && !manage) {
-+            groupsOpen = false
-+            pendingGroupId = null
-+            scope.launch {
-+                androidx.compose.runtime.withFrameNanos { }
-+                if (!fullscreen) runCatching { categoryFocus.requestFocus() }
-+            }
-+            return
-+        }
-         groupsOpen = true
-         // If the group on screen sits in a folded playlist, unfold it so it can take focus.
-         ui.groups.firstOrNull { it.id == ui.selectedGroupId }?.sourceId?.let { src ->
-@@ -724,7 +738,7 @@ private fun LiveTvGuideScreenBody(
+@@ -724,7 +725,7 @@
      LaunchedEffect(pendingGroupId) {
          val id = pendingGroupId ?: return@LaunchedEffect
          delay(350)
@@ -365,55 +342,37 @@ index ef56465..9f67642 100644
              viewModel.selectGroup(id)
              row = 0
              column = GuideColumn.CHANNEL
-@@ -798,6 +812,7 @@ private fun LiveTvGuideScreenBody(
-                 windowStart = floorSlot(now)
-                 cursorMs = now
-             }
-+            settings.petalixGuide && headerFocused -> openSidebar()
-             // Browse by channel name: from the shows, Back goes to the channel name first.
-             settings.browseByChannelName && !nameFocus && !groupsOpen -> nameFocus = true
-             // Back from the channels: the group list, with the group you're in highlighted.
-@@ -966,6 +981,27 @@ private fun LiveTvGuideScreenBody(
-         cursorMs = now
-     }
-
-+    val categoryChoices = remember(ui.groups) {
-+        ui.groups.filter { it.id != ChannelGroup.SEARCH }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
-+    }
-+    val cycleChoices = remember(categoryChoices) { categoryChoices.filterNot { it.locked } }
-+    fun browseCategory(group: ChannelGroup) {
-+        if (group.locked) {
-+            pinRemovesLock = false
-+            pinWrong = false
-+            pinGroup = group
-+            return
-+        }
-+        pendingGroupId = null
-+        groupsOpen = false
-+        if (group.id != ui.selectedGroupId) {
-+            row = 0
-+        }
-+        viewModel.selectGroup(group.id)
-+        resetToNow()
-+        nameFocus = settings.browseByChannelName
-+    }
-+
-     /** True when the cursor is on what's on now. */
-     fun isAtNow(): Boolean {
-         if (focusedChannel == null) return true
-@@ -979,7 +1015,10 @@ private fun LiveTvGuideScreenBody(
+@@ -979,7 +980,10 @@
       * catch-up channel goes back into earlier shows; once you're there, each Left steps back.
       */
      fun moveLeft(held: Boolean = false) {
 -        val ch = focusedChannel ?: return
 +        val ch = focusedChannel ?: run {
-+            if (settings.petalixGuide && !held) focusGroups()
++            if (!held) focusGroups()
 +            return
 +        }
          val from = if (column == GuideColumn.CHANNEL) now else cursorMs
          val block = blockAt(focusedPrograms, from)
          val atNow = now >= block.startMs && now < block.stopMs
-@@ -1008,7 +1047,9 @@ private fun LiveTvGuideScreenBody(
+@@ -988,7 +992,7 @@
+         } else floorSlot(now)
+         if (atNow && !held) {
+             resetToNow()
+-            if (settings.browseByChannelName) nameFocus = true else focusGroups()
++            if (settings.browseByChannelName && !settings.petalixGuide) nameFocus = true else focusGroups()
+             return
+         }
+         // At the oldest show (or no catch-up on this channel): a tap opens the groups; holding
+@@ -996,7 +1000,7 @@
+         if (block.startMs <= earliest || (ch.catchup == null && block.startMs <= now)) {
+             if (!held) {
+                 resetToNow()
+-                if (settings.browseByChannelName) nameFocus = true else focusGroups()
++                if (settings.browseByChannelName && !settings.petalixGuide) nameFocus = true else focusGroups()
+             }
+             return
+         }
+@@ -1008,7 +1012,9 @@
          if (now >= landed.startMs && now < landed.stopMs && ch.catchup == null) resetToNow()
      }
 
@@ -424,7 +383,7 @@ index ef56465..9f67642 100644
      val hostActivity = androidx.compose.ui.platform.LocalContext.current as? com.nuvio.tv.MainActivity
      // Where the preview window is (the video view sits there when not full screen).
      var rootBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-@@ -1048,7 +1089,7 @@ private fun LiveTvGuideScreenBody(
+@@ -1048,7 +1054,7 @@
      Box(
          modifier = Modifier
              .fillMaxSize()
@@ -433,7 +392,7 @@ index ef56465..9f67642 100644
              .onGloballyPositioned { rootBounds = it.boundsInRoot() }
              .onFocusChanged {
                  if (it.hasFocus && !guideHasFocus) lastKeyAt = System.currentTimeMillis()
-@@ -1112,7 +1153,7 @@ private fun LiveTvGuideScreenBody(
+@@ -1112,7 +1118,7 @@
              }
      ) {
          // A soft glow in the theme color behind the info panel and preview (fades into the guide).
@@ -442,7 +401,7 @@ index ef56465..9f67642 100644
              // Stops before the channel rows, so the guide itself keeps the theme's own colors.
              ThemeGlow(Modifier.fillMaxWidth().height(if (settings.smallHeader) 150.dp else 220.dp))
          }
-@@ -1125,7 +1166,30 @@ private fun LiveTvGuideScreenBody(
+@@ -1125,7 +1131,19 @@
                  )
          ) {
              // ---------------------------------------------------------------- header
@@ -457,24 +416,13 @@ index ef56465..9f67642 100644
 +                stop = headerBlock?.stopMs, poster = headerPoster,
 +                playlist = if (settings.showPlaylistInInfo) headerChannel?.sourceId?.let { playlistNames[it] } else null,
 +                settings = settings, now = now, group = selectedGroupTitle, playing = playback.channelKey != null,
-+                onBounds = { previewBounds = it },
-+                onCategories = { if (categoryChoices.isNotEmpty()) categoryListOpen = true },
-+                onCycle = { delta ->
-+                    if (cycleChoices.isNotEmpty()) {
-+                        val index = cycleChoices.indexOfFirst { it.id == (cycleCursor ?: ui.selectedGroupId) }
-+                        val next = if (index < 0) (if (delta > 0) 0 else cycleChoices.lastIndex)
-+                            else Math.floorMod(index + delta, cycleChoices.size)
-+                        cycleCursor = cycleChoices[next].id
-+                        browseCategory(cycleChoices[next])
-+                    }
-+                },
-+                onMenu = { guideActionsOpen = true }, onHeaderFocus = { headerFocused = it; if (!it) cycleCursor = null },
-+                onDown = focusBelowHeader, categoryFocus = categoryFocus, menuFocus = guideGearFocus
++                onBounds = { previewBounds = it }, groupsOpen = groupsOpen, onMenu = { guideActionsOpen = true },
++                onDown = focusBelowHeader, settingsFocus = guideGearFocus
 +            ) else GuideHeader(
                  channel = headerChannel,
                  block = headerBlock,
                  poster = headerPoster,
-@@ -1136,11 +1200,7 @@ private fun LiveTvGuideScreenBody(
+@@ -1136,11 +1154,7 @@
                  onGear = { guideGearOpen = true },
                  // Down from the ● / ⚙ in the info bar: to Search when the group list is showing,
                  // otherwise to the top channel.
@@ -487,7 +435,7 @@ index ef56465..9f67642 100644
                  onRecordings = onOpenRecordings,
                  onMultiview = onOpenMultiview,
                  playlistName = if (settings.showPlaylistInInfo) headerChannel?.sourceId?.let { playlistNames[it] } else null,
-@@ -1334,8 +1394,8 @@ private fun LiveTvGuideScreenBody(
+@@ -1334,8 +1348,8 @@
                                      size = (13f * guideScale(settings)).sp
                                  )
                              }
@@ -498,18 +446,7 @@ index ef56465..9f67642 100644
                                  formatClock(now, settings.use24HourClock),
                                  modifier = Modifier
                                      .align(Alignment.CenterEnd)
-@@ -1596,7 +1656,9 @@ private fun LiveTvGuideScreenBody(
-                                 when {
-                                     event.key == Key.DirectionUp -> {
-                                         // Up from the first channel reaches the ⚙ in the top bar.
--                                        if (upTopPending) {
-+                                        if (cinematic && row == 0 && !visibilityMode) {
-+                                            if (event.nativeKeyEvent.repeatCount == 0) focusGroups()
-+                                        } else if (upTopPending) {
-                                             // Held at the top: wait for the long press (or the release).
-                                         } else if (row == 0 && channels.size == 1 && !visibilityMode) {
-                                             // Only one channel (a short Favorites or Recent list): there is
-@@ -1790,7 +1852,9 @@ private fun LiveTvGuideScreenBody(
+@@ -1790,7 +1804,9 @@
          // Rounded corners for the preview. The video surface can't be clipped to a rounded
          // shape on most TVs, so its four corners are painted over in exactly what's behind
          // them (the background and the theme glow), which looks the same.
@@ -520,7 +457,7 @@ index ef56465..9f67642 100644
              val bg = NuvioTheme.colors.Background
              val backdropResolved = resolveBackdrop(settings.guideBackdrop)
              val accent = NuvioTheme.colors.Secondary
-@@ -1857,6 +1921,13 @@ private fun LiveTvGuideScreenBody(
+@@ -1857,6 +1873,13 @@
                          .size(pb.width.toDp(), pb.height.toDp()),
                      contentAlignment = Alignment.Center
                  ) {
@@ -534,35 +471,22 @@ index ef56465..9f67642 100644
                      text?.let { LiveText(it, color = NuvioTheme.colors.TextSecondary, size = 14.sp) }
                      playback.error?.let { PlayerStatusMessage("Reconnecting…", it, compact = true) }
                      playback.catchupTitle?.let {
-@@ -2261,6 +2332,27 @@ private fun LiveTvGuideScreenBody(
+@@ -2261,6 +2284,14 @@
                  onConfirm = { value -> prompt.onConfirm(value); textPrompt = null }
              )
          }
-+        if (cinematic && !fullscreen && categoryListOpen) {
-+            PetalixCategoryPicker(categoryChoices, ui.selectedGroupId,
-+                onDismiss = { categoryListOpen = false },
-+                onPick = { group ->
-+                    categoryListOpen = false
-+                    browseCategory(group)
-+                    if (!group.locked) scope.launch {
-+                        androidx.compose.runtime.withFrameNanos { }
-+                        runCatching { gridFocus.requestFocus() }
-+                    }
-+                })
-+        }
 +        if (cinematic && !fullscreen && guideActionsOpen) {
 +            ActionMenuDialog("Guide menu", listOf(
 +                "Search" to { guideActionsOpen = false; LiveTvSearchBridge.origin.value = LiveTvSearchBridge.GUIDE; onOpenNuvioSearch() },
 +                "Recordings" to { guideActionsOpen = false; onOpenRecordings() },
 +                "Multiview" to { guideActionsOpen = false; onOpenMultiview() },
-+                "Manage categories" to { guideActionsOpen = false; focusGroups(manage = true) },
 +                "Guide settings" to { guideActionsOpen = false; guideGearOpen = true }
 +            ), onDismiss = { guideActionsOpen = false })
 +        }
          pinGroup?.let { g ->
              TextInputDialog(
                  title = if (pinWrong) "Wrong PIN, try again" else if (pinRemovesLock) "Enter your PIN to remove the lock" else "\"${g.title}\" is locked. Enter your PIN",
-@@ -2804,12 +2896,13 @@ private fun GuideRow(
+@@ -2804,12 +2835,13 @@
          // Channel cell
          // The channel cell is never highlighted; the program under the cursor is.
          // …except while it's being moved with Reorder channels.
@@ -577,7 +501,7 @@ index ef56465..9f67642 100644
              else liveCellColors(focused = nameFocused, idle = guideSurface())
          Row(
              modifier = Modifier
-@@ -2818,7 +2911,7 @@ private fun GuideRow(
+@@ -2818,7 +2850,7 @@
                  .padding(end = 6.dp)
                  .glassTile(
                      cell.background,
@@ -586,7 +510,7 @@ index ef56465..9f67642 100644
                      cellShape,
                      // Same as the group tiles: thin, and thicker only when highlighted (the red
                      // playing outline stays thick so it can still be seen).
-@@ -3335,6 +3428,8 @@ private fun GroupColumn(
+@@ -3335,6 +3367,8 @@
              .fillMaxHeight()
              .width(width)
              .padding(end = 8.dp, bottom = 12.dp)
@@ -595,7 +519,7 @@ index ef56465..9f67642 100644
              .onPreviewKeyEvent { e ->
                  if (hiddenPending != null) {
                      // Manage visibility: OK toggles, Left hides all, Right shows all, Back saves.
-@@ -3588,7 +3683,8 @@ private fun GroupItem(
+@@ -3588,7 +3622,8 @@
      // Tiles like the channel rows; the group on screen is tinted, with a thin accent outline.
      val colors = liveCellColors(
          focused = focused,
@@ -605,7 +529,7 @@ index ef56465..9f67642 100644
          idleText = if (selected) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextSecondary
      )
      Row(
-@@ -3601,6 +3697,7 @@ private fun GroupItem(
+@@ -3601,6 +3636,7 @@
                  if (focused) 2.dp else 1.dp,
                  when {
                      focused -> colors.border
@@ -613,7 +537,7 @@ index ef56465..9f67642 100644
                      selected -> NuvioTheme.colors.Secondary.copy(alpha = 0.8f)
                      else -> GuideGlassEdge
                  },
-@@ -3619,7 +3716,10 @@ private fun GroupItem(
+@@ -3619,7 +3655,10 @@
              .padding(end = 10.dp),
          verticalAlignment = Alignment.CenterVertically
      ) {
@@ -625,7 +549,7 @@ index ef56465..9f67642 100644
          LiveText(
              group.title,
              modifier = Modifier.weight(1f),
-@@ -3710,7 +3810,11 @@ private fun ChannelContextMenu(
+@@ -3710,7 +3749,11 @@
      // The Calendar's bell: follow this show, or put this movie's airing on the Calendar.
      val bell = com.nuvio.tv.livetv.calendar.rememberLiveBell(program ?: streamProgram, ch)
      LiveDialog(onDismiss = onDismiss, width = 460.dp) {
@@ -638,7 +562,7 @@ index ef56465..9f67642 100644
          LiveText(ch.group, color = NuvioTheme.colors.TextSecondary, size = 13.sp)
          Spacer(Modifier.height(14.dp))
          LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-@@ -3723,18 +3827,18 @@ private fun ChannelContextMenu(
+@@ -3723,18 +3766,18 @@
              }
              if (canCatchup) item { MenuItem("Play from archive: ${program!!.title}", onClick = { onCatchup(program!!) }) }
              if (program != null || streamProgram != null) {
@@ -660,7 +584,7 @@ index ef56465..9f67642 100644
              if (program != null && recordLabel != null) item { MenuItem(recordLabel, onClick = { onRecord(program) }) }
              if (program != null && seriesLabel != null) item { MenuItem(seriesLabel, onClick = { onSeries(program) }) }
              item { MenuItem("Schedule a recording…", onClick = onScheduleRecording) }
-@@ -3758,7 +3862,7 @@ private fun ChannelContextMenu(
+@@ -3758,7 +3801,7 @@
              item { MenuItem("Change channel number…", onClick = onRenumber) }
              item { MenuItem("Assign EPG…", onClick = onChangeEpg) }
              item { MenuItem("Change logo…", onClick = onChangeLogo) }
@@ -669,7 +593,7 @@ index ef56465..9f67642 100644
              item { MenuItem("Hide channel", onClick = onHide) }
              item { MenuItem("Hide group \"${ch.group}\"", onClick = onHideGroup) }
              item { MenuItem("Manage visibility…", onClick = onManageVisibility) }
-@@ -3922,6 +4026,7 @@ private fun EpgSidePanel(
+@@ -3922,6 +3965,7 @@
      else RoundedCornerShape(com.nuvio.tv.ui.theme.NuvioComponents.tokens.sidebar.panelRadius)
      // The theme's own surfaces (they carry its tint), like the rest of the guide.
      val panelBackground = when {
@@ -677,7 +601,7 @@ index ef56465..9f67642 100644
          classic -> NuvioTheme.colors.Background
          amoled -> Color.Black
          style == LiveMenuStyle.MODERN_BLUR -> NuvioTheme.colors.BackgroundElevated.copy(alpha = 0.65f)
-@@ -4394,7 +4499,7 @@ internal fun MenuHeader(title: String, first: Boolean = false) {
+@@ -4394,7 +4438,7 @@
          title.uppercase(),
          size = 11.sp,
          weight = FontWeight.Bold,
@@ -686,7 +610,7 @@ index ef56465..9f67642 100644
          modifier = Modifier.padding(start = 14.dp, top = if (first) 0.dp else 12.dp, bottom = 2.dp)
      )
  }
-@@ -4452,7 +4557,7 @@ private fun ProgramInfoDialog(
+@@ -4452,7 +4496,7 @@
              // For a show that hasn't started, streaming it through Nuvio is the main action.
              if (upcoming) {
                  LiveFocusRow(modifier = Modifier.focusRequester(first), onClick = { onFind(p!!) }) { f ->
@@ -695,7 +619,7 @@ index ef56465..9f67642 100644
                  }
              }
              when {
-@@ -4462,7 +4567,7 @@ private fun ProgramInfoDialog(
+@@ -4462,7 +4506,7 @@
                  else -> LiveFocusRow(modifier = Modifier.focusRequester(first), onClick = onWatch) { f -> LiveText("Watch channel now", color = focusedTextColor(f)) }
              }
              if (p != null && !upcoming) {
@@ -704,7 +628,7 @@ index ef56465..9f67642 100644
              }
              // On now, on a catch-up channel: start it over.
              if (p != null && now >= p.startMs && now < p.stopMs && canRestart) {
-@@ -4777,6 +4882,7 @@ private fun LogoSidePanel(
+@@ -4777,6 +4821,7 @@
      val panelShape = if (classic) androidx.compose.ui.graphics.RectangleShape
      else RoundedCornerShape(com.nuvio.tv.ui.theme.NuvioComponents.tokens.sidebar.panelRadius)
      val panelBackground = when {
@@ -725,3 +649,65 @@ index 7e896a7..038a1b1 100644
                          else -> stringResource(R.string.library_source_local)
                      },
                      style = MaterialTheme.typography.labelLarge,
+diff --git a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+--- a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+@@ -337,6 +337,23 @@
+                 }
+             }
+             androidx.compose.runtime.CompositionLocalProvider(
++                com.nuvio.tv.ui.screens.home.LocalPetalixHomeTab provides { tab ->
++                    when (tab) {
++                        com.nuvio.tv.ui.screens.home.HomeTab.HOME -> Unit
++                        com.nuvio.tv.ui.screens.home.HomeTab.SEARCH -> {
++                            com.nuvio.tv.livetv.ui.LiveTvSearchBridge.origin.value = com.nuvio.tv.livetv.ui.LiveTvSearchBridge.HOME
++                            navController.navigate(Screen.Search.route) { launchSingleTop = true }
++                        }
++                        com.nuvio.tv.ui.screens.home.HomeTab.LIVE -> openLiveTv()
++                        com.nuvio.tv.ui.screens.home.HomeTab.MOVIES, com.nuvio.tv.ui.screens.home.HomeTab.SERIES -> {
++                            com.nuvio.tv.livetv.ondemand.OnDemandHomeTab.last =
++                                if (tab == com.nuvio.tv.ui.screens.home.HomeTab.MOVIES) com.nuvio.tv.livetv.ondemand.VodKind.MOVIE
++                                else com.nuvio.tv.livetv.ondemand.VodKind.SERIES
++                            navController.navigate(Screen.OnDemand.route) { launchSingleTop = true }
++                        }
++                        com.nuvio.tv.ui.screens.home.HomeTab.SETTINGS -> navController.navigate(Screen.Settings.route) { launchSingleTop = true }
++                    }
++                },
+                 com.nuvio.tv.livetv.home.LocalLiveTvHomeActions provides com.nuvio.tv.livetv.home.LiveTvHomeActions(
+                     onHome = true,
+                     openFullscreen = {
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
+@@ -1138,7 +1138,10 @@
+                     .fillMaxWidth(0.47f)
+             }
+
+-            PetalixCinemaHeader(Modifier.align(Alignment.TopStart).padding(start = rowHorizontalPadding, top = 20.dp))
++            val openHomeTab = LocalPetalixHomeTab.current
++            if (openHomeTab != null) PetalixHomeNavigation(
++                Modifier.align(Alignment.TopCenter).padding(top = 12.dp), contentFocusRequester, openHomeTab
++            ) else PetalixCinemaHeader(Modifier.align(Alignment.TopStart).padding(start = rowHorizontalPadding, top = 20.dp))
+             PetalixCinemaHero(
+                 scene = heroSceneStateLambda,
+                 selection = { activeCarouselItemState.value?.payload },
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRowsList.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRowsList.kt
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRowsList.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRowsList.kt
+@@ -277,6 +277,7 @@
+         null
+     }
+
++    val hasHomeNavigation = LocalPetalixHomeTab.current != null
+     CompositionLocalProvider(
+         LocalBringIntoViewSpec provides verticalRowBringIntoViewSpec,
+         LocalFastScrollActive provides isFastScrolling,
+@@ -303,7 +304,7 @@
+                         event.key == Key.DirectionUp &&
+                         effectiveExpandEnabled &&
+                         expandedCatalogFocusKey.value != null &&
+-                        activeRowKey.value == firstRowKey &&
++                        !hasHomeNavigation && activeRowKey.value == firstRowKey &&
+                         firstRowKey != com.nuvio.tv.petalix.PETALIX_SERVICES_ROW &&
+                         !(liveTvRowAbove == true && com.nuvio.tv.livetv.home.LiveTvHomeReveal.available.value)
+                     ) return@onPreviewKeyEvent true

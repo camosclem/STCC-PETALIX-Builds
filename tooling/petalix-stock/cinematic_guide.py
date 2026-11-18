@@ -34,6 +34,7 @@ def apply(root):
     source = root / 'app/src'
     ui = source / 'main/java/com/nuvio/tv/livetv/ui'
     copy2(HERE / 'PetalixGuideHero.kt', ui / 'PetalixGuideHero.kt')
+    copy2(HERE / 'PetalixHomeNavigation.kt', source / 'main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt')
     # Prepare already installs the real Petalix artwork. Trim transparent margins for the toolbar.
     drawables = source / 'main/res/drawable-nodpi'
     with Image.open(drawables / 'app_logo_wordmark_gold.png') as wordmark:
