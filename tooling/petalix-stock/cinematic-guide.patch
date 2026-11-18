@@ -1,0 +1,592 @@
+diff --git a/app/src/main/java/com/nuvio/tv/core/party/PartyRepository.kt b/app/src/main/java/com/nuvio/tv/core/party/PartyRepository.kt
+index 2cabdc7..003a11f 100644
+--- a/app/src/main/java/com/nuvio/tv/core/party/PartyRepository.kt
++++ b/app/src/main/java/com/nuvio/tv/core/party/PartyRepository.kt
+@@ -707,7 +707,7 @@ class PartyRepository @Inject constructor(
+
+     private companion object {
+         const val TAG = "Party"
+-        const val DEFAULT_NAME = "Nuvio"
++        const val DEFAULT_NAME = "Petalix"
+         val COLOR_PATTERN = Regex("^#[0-9A-Fa-f]{6}$")
+         val HEARTBEAT_INTERVAL = 2.minutes
+         val PERSIST_DELAY = 1.5.seconds
+diff --git a/app/src/main/java/com/nuvio/tv/core/player/StalkerPlaybackBoundary.kt b/app/src/main/java/com/nuvio/tv/core/player/StalkerPlaybackBoundary.kt
+index c9dbb96..74354fb 100644
+--- a/app/src/main/java/com/nuvio/tv/core/player/StalkerPlaybackBoundary.kt
++++ b/app/src/main/java/com/nuvio/tv/core/player/StalkerPlaybackBoundary.kt
+@@ -8,7 +8,7 @@ internal fun isStalkerPlaybackAddress(value: String?): Boolean {
+ }
+
+ internal const val STALKER_EXTERNAL_PLAYBACK_UNAVAILABLE =
+-    "Stalker streams currently play only inside Nuvio. External playback is unavailable."
++    "Stalker streams currently play only inside Petalix. External playback is unavailable."
+
+ /** Drop the whole diagnostic value: truncating an encoded command can expose embedded credentials. */
+ internal fun redactStalkerPlaybackDetails(value: String): String =
+diff --git a/app/src/main/java/com/nuvio/tv/core/torrent/TorrentService.kt b/app/src/main/java/com/nuvio/tv/core/torrent/TorrentService.kt
+index 7a0eaa8..a7cff4f 100644
+--- a/app/src/main/java/com/nuvio/tv/core/torrent/TorrentService.kt
++++ b/app/src/main/java/com/nuvio/tv/core/torrent/TorrentService.kt
+@@ -318,10 +318,10 @@ class TorrentService @Inject constructor(
+         val stateDirectory = File(context.noBackupFilesDir, "nuvio-engine/state")
+         val cacheDirectory = File(context.cacheDir, "nuvio-engine")
+         check(stateDirectory.mkdirs() || stateDirectory.isDirectory) {
+-            "Could not create the Nuvio Engine state directory"
++            "Could not create the playback engine state directory"
+         }
+         check(cacheDirectory.mkdirs() || cacheDirectory.isDirectory) {
+-            "Could not create the Nuvio Engine cache directory"
++            "Could not create the playback engine cache directory"
+         }
+         migrateNestedPayloadDirectory(cacheDirectory)
+         return NuvioEngine.create(
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/crash/CrashCatcher.kt b/app/src/main/java/com/nuvio/tv/livetv/crash/CrashCatcher.kt
+index 483759c..9a77289 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/crash/CrashCatcher.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/crash/CrashCatcher.kt
+@@ -242,7 +242,7 @@ object CrashCatcher {
+             Triple(if (tid == pid) "main" else a.first, used, tid)
+         }.filter { it.second >= 3.0 }.sortedByDescending { it.second }.take(8)
+         return buildString {
+-            appendLine("Nuvio + IPTV ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · kit ${com.nuvio.tv.livetv.model.LiveTvLoadReport.KIT_STAMP}")
++            appendLine("Petalix ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · kit ${com.nuvio.tv.livetv.model.LiveTvLoadReport.KIT_STAMP}")
+             appendLine("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}")
+             appendLine(situation(app))
+             appendLine()
+@@ -292,7 +292,7 @@ object CrashCatcher {
+             else -> return null
+         }
+         return buildString {
+-            appendLine("Nuvio + IPTV ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · kit ${com.nuvio.tv.livetv.model.LiveTvLoadReport.KIT_STAMP}")
++            appendLine("Petalix ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · kit ${com.nuvio.tv.livetv.model.LiveTvLoadReport.KIT_STAMP}")
+             appendLine("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}")
+             appendLine()
+             appendLine("APP $reason")
+@@ -390,7 +390,7 @@ object CrashCatcher {
+                         written = true
+                         lastWriteAt = now
+                         val report = buildString {
+-                            appendLine("Nuvio + IPTV ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · kit ${com.nuvio.tv.livetv.model.LiveTvLoadReport.KIT_STAMP}")
++                            appendLine("Petalix ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · kit ${com.nuvio.tv.livetv.model.LiveTvLoadReport.KIT_STAMP}")
+                             appendLine("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}")
+                             appendLine(situation(app))
+                             appendLine()
+@@ -437,7 +437,7 @@ object CrashCatcher {
+         var root = error
+         while (root.cause != null && root.cause !== root) root = root.cause!!
+         return buildString {
+-            appendLine("Nuvio + IPTV ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · kit ${com.nuvio.tv.livetv.model.LiveTvLoadReport.KIT_STAMP}")
++            appendLine("Petalix ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · kit ${com.nuvio.tv.livetv.model.LiveTvLoadReport.KIT_STAMP}")
+             appendLine("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}")
+             appendLine(situation(null))
+             appendLine("Thread: ${thread.name}")
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+index 592f78a..e6b91f4 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+@@ -119,6 +119,7 @@ class LiveTvPreferences @Inject constructor(
+         val showAllGroup = booleanPreferencesKey("show_all_group")
+         val resumeInPreview = booleanPreferencesKey("resume_in_preview")
+         val showGroupCounts = booleanPreferencesKey("show_group_counts")
++        val petalixGuide = booleanPreferencesKey("petalix_cinematic_guide")
+         val smallHeader = booleanPreferencesKey("small_header")
+         val aspectMode = stringPreferencesKey("aspect_mode")
+         val sequentialNumbers = booleanPreferencesKey("sequential_numbers")
+@@ -606,6 +607,7 @@ class LiveTvPreferences @Inject constructor(
+             showAllChannelsGroup = p[Keys.showAllGroup] ?: d.showAllChannelsGroup,
+             resumeLastInPreview = p[Keys.resumeInPreview] ?: d.resumeLastInPreview,
+             showGroupCounts = p[Keys.showGroupCounts] ?: d.showGroupCounts,
++            petalixGuide = p[Keys.petalixGuide] ?: d.petalixGuide,
+             smallHeader = p[Keys.smallHeader] ?: d.smallHeader,
+             aspectMode = p[Keys.aspectMode] ?: d.aspectMode,
+             sequentialNumbers = p[Keys.sequentialNumbers] ?: d.sequentialNumbers,
+@@ -940,6 +942,7 @@ class LiveTvPreferences @Inject constructor(
+         p[Keys.showAllGroup] = s.showAllChannelsGroup
+         p[Keys.resumeInPreview] = s.resumeLastInPreview
+         p[Keys.showGroupCounts] = s.showGroupCounts
++        p[Keys.petalixGuide] = s.petalixGuide
+         p[Keys.smallHeader] = s.smallHeader
+         p[Keys.aspectMode] = s.aspectMode
+         p[Keys.sequentialNumbers] = s.sequentialNumbers
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvRepository.kt b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvRepository.kt
+index dd054ce..b1e2454 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvRepository.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvRepository.kt
+@@ -617,7 +617,7 @@ class LiveTvRepository @Inject constructor(
+         // an update you asked for is waiting behind this one).
+         suspend fun outOfTheWay() {
+             if (!automatic || !(BackgroundWork.nuvioPlaying.value || BackgroundWork.liveHold.value) || manualQueued.value) return
+-            LIVE_REPORT.add("Update check waiting while a channel is playing full screen or Nuvio's player is open")
++            LIVE_REPORT.add("Update check waiting while a channel is playing full screen or the Petalix player is open")
+             kotlinx.coroutines.flow.combine(BackgroundWork.nuvioPlaying, BackgroundWork.liveHold, manualQueued) { playing, hold, manual -> (!playing && !hold) || manual }
+                 .first { it }
+         }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/model/LiveTvModels.kt b/app/src/main/java/com/nuvio/tv/livetv/model/LiveTvModels.kt
+index 1ed32df..8ec8881 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/model/LiveTvModels.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/model/LiveTvModels.kt
+@@ -439,6 +439,8 @@ data class LiveTvSettings(
+     val resumeLastInPreview: Boolean = true,
+     /** Show how many channels each group has in the guide's group list. */
+     val showGroupCounts: Boolean = true,
++    /** Use the cinematic Petalix layout, with Classic available in Guide settings. */
++    val petalixGuide: Boolean = true,
+     /** Smaller info panel and preview at the top of the guide, so more channels fit. */
+     val smallHeader: Boolean = false,
+     /** Full-screen picture size, using Nuvio's own modes (Fit, Crop, Stretch, Cinema Zoom, …). */
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+index cf544c4..7677c79 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+@@ -1350,9 +1350,6 @@ private fun GamePage(
+     val vodLooked = viewModel.repo.vodMatches.collectAsStateWithLifecycle().value[ev.id]
+     val replays = vodLooked.orEmpty()
+     val vodAddons = viewModel.repo.vodAddons.collectAsStateWithLifecycle().value[ev.id]
+-    val suggestNuvioSports by viewModel.repo.suggestNuvioSports.collectAsStateWithLifecycle()
+-    val nuvioSportsTip = if (suggestNuvioSports)
+-        " Tip: ${SportsAddonSource.NUVIO_SPORTS_NAME} (${SportsAddonSource.NUVIO_SPORTS_SITE}) has replays of most games: add it in Add-ons." else ""
+     // A finished game: once replays turn up, put the highlight on the first one (once per visit).
+     val firstReplay = remember(ev.id) { FocusRequester() }
+     var replayFocused by remember(ev.id) { mutableStateOf(false) }
+@@ -1442,13 +1439,13 @@ private fun GamePage(
+                 modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
+             vodAddons != null && vodAddons.isEmpty() -> LiveText(
+                 "Replays and highlights come from sports add-ons that offer them (HighFly Premium, StremVerse…). " +
+-                    "None of your add-ons do yet: install one in Add-ons and they'll show here." + nuvioSportsTip,
++                    "None of your add-ons do yet: install one in Add-ons and they'll show here.",
+                 color = SportsLook.Dim, size = 12.sp, maxLines = 4, modifier = Modifier.padding(start = 6.dp, bottom = 4.dp)
+             )
+             else -> LiveText(
+                 (vodAddons?.takeIf { it.isNotEmpty() }?.let { "No replay of this game in ${it.joinToString(", ")} yet. " }
+                     ?: "No replay of this game in your sports add-ons yet. ") +
+-                    "They're often added a few hours after the game ends." + nuvioSportsTip,
++                    "They're often added a few hours after the game ends.",
+                 color = SportsLook.Dim, size = 12.sp, maxLines = 4, modifier = Modifier.padding(start = 6.dp, bottom = 4.dp)
+             )
+         }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/GuideGearPanel.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/GuideGearPanel.kt
+index 5a5d6d2..9113ff4 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/GuideGearPanel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/GuideGearPanel.kt
+@@ -80,12 +80,12 @@ internal fun GuideGearPanel(
+                 .align(Alignment.TopEnd)
+                 .padding(end = 36.dp, top = 24.dp)
+                 .width(470.dp)
+-                .glass(glassColor("darker"), RoundedCornerShape(20.dp))
++                .background(GuidePanel, RoundedCornerShape(12.dp))
++                .border(1.dp, GuideSilver.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                 .padding(12.dp)
+         ) {
+             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) {
+-                LiveText("Guide display", size = 14.sp, weight = FontWeight.Bold, modifier = Modifier.weight(1f))
+-                LiveText("The guide changes as you go", size = 11.sp, color = Color.White.copy(alpha = 0.55f))
++                LiveText("Petalix guide", size = 20.sp, weight = FontWeight.Bold, modifier = Modifier.weight(1f))
+             }
+             Spacer(Modifier.height(6.dp))
+             val hidden = BarPart.parse(settings.guideInfoHidden)
+@@ -102,12 +102,18 @@ internal fun GuideGearPanel(
+                 modifier = Modifier.padding(start = 10.dp, top = 8.dp, bottom = 2.dp)
+             )
+             Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+-                heading("Info panel")
++                GearRow(Modifier.fillMaxWidth().focusRequester(first), onClick = {
++                    onChange { it.copy(petalixGuide = !it.petalixGuide) }
++                }) { focused ->
++                    LiveText("Guide layout", Modifier.weight(1f), gearText(focused), 14.sp)
++                    LiveText(if (settings.petalixGuide) "Cinematic" else "Classic", color = gearText(focused), size = 14.sp)
++                }
++                heading("Program details")
+                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+-                    toggle(Modifier.weight(1f).focusRequester(first), "Show info panel", "Off hides all of it", settings.showProgramDetails) {
++                    toggle(Modifier.weight(1f), "Show info panel", "Off hides all of it", settings.showProgramDetails) {
+                         onChange { it.copy(showProgramDetails = !it.showProgramDetails) }
+                     }
+-                    toggle(Modifier.weight(1f), "Poster", "Off: channel logo", settings.showPosters) {
++                    toggle(Modifier.weight(1f), "Poster", "Show program artwork", settings.showPosters) {
+                         onChange { it.copy(showPosters = !it.showPosters) }
+                     }
+                 }
+@@ -135,12 +141,12 @@ internal fun GuideGearPanel(
+                     part(Modifier.weight(1f), GuideInfoPart.PROGRESS, "Progress bar")
+                     part(Modifier.weight(1f), GuideInfoPart.DESCRIPTION, "Description")
+                 }
+-                heading("Layout")
++                heading("Screen layout")
+                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+-                    toggle(Modifier.weight(1f), "Preview window", "Small live video", settings.showPreview) {
++                    toggle(Modifier.weight(1f), "Live preview", null, settings.showPreview) {
+                         onChange { it.copy(showPreview = !it.showPreview) }
+                     }
+-                    toggle(Modifier.weight(1f), "Smaller top", "More channels fit", settings.smallHeader) {
++                    toggle(Modifier.weight(1f), "Compact header", "Show more channels", settings.smallHeader) {
+                         onChange { it.copy(smallHeader = !it.smallHeader) }
+                     }
+                 }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvComponents.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvComponents.kt
+index 98c0700..c6ee9db 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvComponents.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvComponents.kt
+@@ -229,7 +229,7 @@ private fun accentOfKey(style: String): Pair<Color, Color> = when (style) {
+     else -> Color(0xFF59606E) to Color(0xFF3E5566) // "graphite"
+ }
+
+-private fun backdropBase(style: String): Color = if (style.startsWith("auto:")) {
++internal fun backdropBase(style: String): Color = if (style.startsWith("auto:")) {
+     androidx.compose.ui.graphics.lerp(accentOf(style).first, Color.Black, 0.94f)
+ } else when (GuideBackdrops.normalize(style)) {
+     "onyx" -> Color(0xFF000000)
+@@ -322,6 +322,10 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGuideBackdrop(
+  */
+ @Composable
+ internal fun guideSurface(): Color {
++    if (LocalPetalixGuide.current) {
++        val alpha = when (LocalGuideDarkness.current) { "standard" -> 0.64f; "solid" -> 1f; else -> 0.84f }
++        return GuidePanel.copy(alpha = alpha)
++    }
+     // The same dark, see-through glass as the info panel at the top (glassColor): the theme's
+     // background, not its lighter "elevated" grey, which read as a different, flatter material
+     // next to it. The tiles also get a soft white edge (see ProgramBlock/channel cell) — the
+@@ -334,6 +338,10 @@ internal fun guideSurface(): Color {
+ /** Shows on now, and the group on screen: a step lighter than [guideSurface] (same glass, lifted with white). */
+ @Composable
+ internal fun guideSurfaceVariant(): Color {
++    if (LocalPetalixGuide.current) {
++        val alpha = when (LocalGuideDarkness.current) { "standard" -> 0.64f; "solid" -> 1f; else -> 0.84f }
++        return Color(0xFF29374D).copy(alpha = alpha)
++    }
+     val c = NuvioTheme.colors.Background
+     val base = if (c.luminance() < 0.003f) Color(0xFF0E0E12) else c
+     val alpha = when (LocalGuideDarkness.current) { "solid" -> 0.96f; "standard" -> 0.58f; else -> 0.72f }
+@@ -349,6 +357,9 @@ internal data class LiveCellColors(val background: Color, val border: Color, val
+ @Composable
+ internal fun liveCellColors(focused: Boolean, idle: Color, idleText: Color = NuvioTheme.colors.TextPrimary): LiveCellColors {
+     if (!focused) return LiveCellColors(idle, Color.Transparent, idleText)
++    if (LocalPetalixGuide.current) return if (LocalLiveSolidHighlight.current)
++        LiveCellColors(GuideSilver, GuideSilver, GuideInk)
++    else LiveCellColors(Color(0xFF39485D), GuideSilver, Color.White)
+     return if (LocalLiveSolidHighlight.current) {
+         LiveCellColors(NuvioTheme.colors.Secondary, Color.Transparent, NuvioTheme.colors.OnSecondary)
+     } else {
+@@ -397,11 +408,13 @@ internal fun LiveFocusRow(
+
+ @Composable
+ internal fun focusedTextColor(focused: Boolean): Color =
+-    if (focused && LocalLiveSolidHighlight.current) NuvioTheme.colors.OnSecondary else NuvioTheme.colors.TextPrimary
++    if (focused && LocalLiveSolidHighlight.current && LocalPetalixGuide.current) GuideInk
++    else if (focused && LocalLiveSolidHighlight.current) NuvioTheme.colors.OnSecondary else NuvioTheme.colors.TextPrimary
+
+ @Composable
+ internal fun focusedSecondaryTextColor(focused: Boolean): Color =
+-    if (focused && LocalLiveSolidHighlight.current) NuvioTheme.colors.OnSecondary.copy(alpha = 0.8f)
++    if (focused && LocalLiveSolidHighlight.current && LocalPetalixGuide.current) GuideInk.copy(alpha = 0.8f)
++    else if (focused && LocalLiveSolidHighlight.current) NuvioTheme.colors.OnSecondary.copy(alpha = 0.8f)
+     else NuvioTheme.colors.TextSecondary
+
+ /**
+@@ -601,14 +614,27 @@ internal fun LiveDialog(
+                 .widthIn(min = minWidth, max = width)
+                 .heightIn(max = 620.dp)
+                 // The same dark glass as the play bar and the ⚙ panels.
+-                .glass(glassColor(glassLevel), RoundedCornerShape(corner))
++                .then(if (LocalPetalixGuide.current) Modifier.background(GuidePanel, RoundedCornerShape(12.dp))
++                    .border(1.dp, GuideSilver.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
++                    else Modifier.glass(glassColor(glassLevel), RoundedCornerShape(corner)))
+                 .padding(pad)
+         ) {
+             content()
+         }
+     }
+     if (anchor == null) {
+-        Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) { body() }
++        Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
++            if (LocalPetalixGuide.current) {
++                val parent = androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider
++                androidx.compose.runtime.DisposableEffect(parent) {
++                    val window = parent?.window
++                    val original = window?.attributes?.gravity
++                    window?.setGravity(android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL)
++                    onDispose { if (original != null) window?.setGravity(original) }
++                }
++                Box(Modifier.padding(16.dp)) { body() }
++            } else body()
++        }
+     } else {
+         val gap = with(androidx.compose.ui.platform.LocalDensity.current) { 8.dp.roundToPx() }
+         androidx.compose.ui.window.Popup(
+@@ -867,6 +893,7 @@ internal object LiveCorners {
+ /** The corner rounding for Live TV's cards and tiles (the same as Nuvio's posters). */
+ @Composable
+ internal fun liveCorner(): androidx.compose.ui.unit.Dp {
++    if (LocalPetalixGuide.current) return 5.dp
+     val context = androidx.compose.ui.platform.LocalContext.current
+     androidx.compose.runtime.remember { LiveCorners.start(context) }
+     return LiveCorners.radius.collectAsState().value.dp
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+index ef56465..fd9bb28 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -1008,7 +1008,9 @@ private fun LiveTvGuideScreenBody(
+         if (now >= landed.startMs && now < landed.stopMs && ch.catchup == null) resetToNow()
+     }
+
+-    CompositionLocalProvider(LocalLiveSolidHighlight provides settings.solidHighlight, LocalGuideDarkness provides settings.guideInfoBackground) {
++    val cinematic = settings.petalixGuide
++    val heroBase = if (settings.guideBackdrop == "auto") GuideInk else backdropBase(resolveBackdrop(settings.guideBackdrop))
++    CompositionLocalProvider(LocalPetalixGuide provides (cinematic && !fullscreen), LocalLiveSolidHighlight provides settings.solidHighlight, LocalGuideDarkness provides settings.guideInfoBackground) {
+     val hostActivity = androidx.compose.ui.platform.LocalContext.current as? com.nuvio.tv.MainActivity
+     // Where the preview window is (the video view sits there when not full screen).
+     var rootBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+@@ -1048,7 +1050,7 @@ private fun LiveTvGuideScreenBody(
+     Box(
+         modifier = Modifier
+             .fillMaxSize()
+-            .guideBackdrop(settings.guideBackdrop)
++            .then(if (cinematic) Modifier.background(heroBase) else Modifier.guideBackdrop(settings.guideBackdrop))
+             .onGloballyPositioned { rootBounds = it.boundsInRoot() }
+             .onFocusChanged {
+                 if (it.hasFocus && !guideHasFocus) lastKeyAt = System.currentTimeMillis()
+@@ -1112,7 +1114,7 @@ private fun LiveTvGuideScreenBody(
+             }
+     ) {
+         // A soft glow in the theme color behind the info panel and preview (fades into the guide).
+-        if (settings.showProgramDetails || settings.showPreview) {
++        if (!cinematic && (settings.showProgramDetails || settings.showPreview)) {
+             // Stops before the channel rows, so the guide itself keeps the theme's own colors.
+             ThemeGlow(Modifier.fillMaxWidth().height(if (settings.smallHeader) 150.dp else 220.dp))
+         }
+@@ -1125,7 +1127,21 @@ private fun LiveTvGuideScreenBody(
+                 )
+         ) {
+             // ---------------------------------------------------------------- header
+-            GuideHeader(
++            val focusBelowHeader: () -> Unit = {
++                val toSearch = groupsOpen && ui.groups.any { it.id == ChannelGroup.SEARCH } &&
++                    runCatching { groupSearchFocus.requestFocus() }.isSuccess
++                if (!toSearch) runCatching { gridFocus.requestFocus() }
++            }
++            if (cinematic) PetalixGuideHeader(
++                channel = headerChannel, program = headerBlock?.program, start = headerBlock?.startMs,
++                stop = headerBlock?.stopMs, poster = headerPoster,
++                playlist = if (settings.showPlaylistInInfo) headerChannel?.sourceId?.let { playlistNames[it] } else null,
++                settings = settings, now = now, group = selectedGroupTitle, playing = playback.channelKey != null,
++                onBounds = { previewBounds = it }, onCategories = { focusGroups() },
++                onSearch = { LiveTvSearchBridge.origin.value = LiveTvSearchBridge.GUIDE; onOpenNuvioSearch() },
++                onRecordings = onOpenRecordings, onMultiview = onOpenMultiview, onSettings = { guideGearOpen = true },
++                onDown = focusBelowHeader, settingsFocus = guideGearFocus
++            ) else GuideHeader(
+                 channel = headerChannel,
+                 block = headerBlock,
+                 poster = headerPoster,
+@@ -1136,11 +1152,7 @@ private fun LiveTvGuideScreenBody(
+                 onGear = { guideGearOpen = true },
+                 // Down from the ● / ⚙ in the info bar: to Search when the group list is showing,
+                 // otherwise to the top channel.
+-                onGearDown = {
+-                    val toSearch = groupsOpen && ui.groups.any { it.id == ChannelGroup.SEARCH } &&
+-                        runCatching { groupSearchFocus.requestFocus() }.isSuccess
+-                    if (!toSearch) runCatching { gridFocus.requestFocus() }
+-                },
++                onGearDown = focusBelowHeader,
+                 onRecordings = onOpenRecordings,
+                 onMultiview = onOpenMultiview,
+                 playlistName = if (settings.showPlaylistInInfo) headerChannel?.sourceId?.let { playlistNames[it] } else null,
+@@ -1334,8 +1346,8 @@ private fun LiveTvGuideScreenBody(
+                                     size = (13f * guideScale(settings)).sp
+                                 )
+                             }
+-                            // The current time at the right end (past the last time label).
+-                            LiveText(
++                            // Cinematic already shows the clock in the toolbar.
++                            if (!cinematic) LiveText(
+                                 formatClock(now, settings.use24HourClock),
+                                 modifier = Modifier
+                                     .align(Alignment.CenterEnd)
+@@ -1790,7 +1802,9 @@ private fun LiveTvGuideScreenBody(
+         // Rounded corners for the preview. The video surface can't be clipped to a rounded
+         // shape on most TVs, so its four corners are painted over in exactly what's behind
+         // them (the background and the theme glow), which looks the same.
+-        if (!fullscreen && pb != null && rb != null && pb.width > 1f) {
++        if (cinematic && !fullscreen && pb != null && rb != null && pb.width > 1f) {
++            Box(videoModifier.petalixPreviewFade(heroBase))
++        } else if (!fullscreen && pb != null && rb != null && pb.width > 1f) {
+             val bg = NuvioTheme.colors.Background
+             val backdropResolved = resolveBackdrop(settings.guideBackdrop)
+             val accent = NuvioTheme.colors.Secondary
+@@ -1857,6 +1871,13 @@ private fun LiveTvGuideScreenBody(
+                         .size(pb.width.toDp(), pb.height.toDp()),
+                     contentAlignment = Alignment.Center
+                 ) {
++                    if (cinematic && playback.channelKey != null && playback.catchupTitle == null) {
++                        playingChannel?.let {
++                            LiveText(it.name, Modifier.align(Alignment.TopEnd).padding(8.dp)
++                                .background(GuideInk.copy(alpha = 0.80f), RoundedCornerShape(4.dp))
++                                .padding(horizontal = 7.dp, vertical = 3.dp), Color.White, 11.sp)
++                        }
++                    }
+                     text?.let { LiveText(it, color = NuvioTheme.colors.TextSecondary, size = 14.sp) }
+                     playback.error?.let { PlayerStatusMessage("Reconnecting…", it, compact = true) }
+                     playback.catchupTitle?.let {
+@@ -2804,12 +2825,13 @@ private fun GuideRow(
+         // Channel cell
+         // The channel cell is never highlighted; the program under the cursor is.
+         // …except while it's being moved with Reorder channels.
+-        val channelFocused = moving || nameFocused
++        val channelFocused = moving || nameFocused || (LocalPetalixGuide.current && focusColumn != null)
+         // The channel that's playing: a red outline around its channel cell (not the shows).
+         // (A glow drawn behind the see-through cell showed as darker boxes inside it.)
+         val playingMark = isPlaying && settings.markPlayingChannel && !reorderMode && !moving && !nameFocused
+         // The channel picked up to move: its own color (gold), apart from the highlight.
+         val cell = if (moving) LiveCellColors(NuvioTheme.colors.Rating, NuvioTheme.colors.Rating, Color.Black)
++            else if (LocalPetalixGuide.current && channelFocused) LiveCellColors(GuideSilver, GuideSilver, GuideInk)
+             else liveCellColors(focused = nameFocused, idle = guideSurface())
+         Row(
+             modifier = Modifier
+@@ -2818,7 +2840,7 @@ private fun GuideRow(
+                 .padding(end = 6.dp)
+                 .glassTile(
+                     cell.background,
+-                    if (playingMark) NuvioTheme.colors.Error else if (cell.border == Color.Transparent) GuideGlassEdge else cell.border,
++                    if (playingMark) (if (LocalPetalixGuide.current) GuideGold else NuvioTheme.colors.Error) else if (cell.border == Color.Transparent) GuideGlassEdge else cell.border,
+                     cellShape,
+                     // Same as the group tiles: thin, and thicker only when highlighted (the red
+                     // playing outline stays thick so it can still be seen).
+@@ -3335,6 +3357,8 @@ private fun GroupColumn(
+             .fillMaxHeight()
+             .width(width)
+             .padding(end = 8.dp, bottom = 12.dp)
++            .then(if (LocalPetalixGuide.current) Modifier.background(GuidePanel, RoundedCornerShape(7.dp))
++                .padding(horizontal = 4.dp) else Modifier)
+             .onPreviewKeyEvent { e ->
+                 if (hiddenPending != null) {
+                     // Manage visibility: OK toggles, Left hides all, Right shows all, Back saves.
+@@ -3588,7 +3612,8 @@ private fun GroupItem(
+     // Tiles like the channel rows; the group on screen is tinted, with a thin accent outline.
+     val colors = liveCellColors(
+         focused = focused,
+-        idle = if (selected) NuvioTheme.colors.FocusBackground else guideSurface(),
++        idle = if (LocalPetalixGuide.current && selected) GuideGold.copy(alpha = 0.12f)
++            else if (selected) NuvioTheme.colors.FocusBackground else guideSurface(),
+         idleText = if (selected) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextSecondary
+     )
+     Row(
+@@ -3601,6 +3626,7 @@ private fun GroupItem(
+                 if (focused) 2.dp else 1.dp,
+                 when {
+                     focused -> colors.border
++                    LocalPetalixGuide.current -> Color.Transparent
+                     selected -> NuvioTheme.colors.Secondary.copy(alpha = 0.8f)
+                     else -> GuideGlassEdge
+                 },
+@@ -3619,7 +3645,10 @@ private fun GroupItem(
+             .padding(end = 10.dp),
+         verticalAlignment = Alignment.CenterVertically
+     ) {
+-        Spacer(Modifier.width(12.dp))
++        if (LocalPetalixGuide.current) {
++            Box(Modifier.width(3.dp).fillMaxHeight(0.55f).background(if (selected) GuideGold else Color.Transparent))
++            Spacer(Modifier.width(8.dp))
++        } else Spacer(Modifier.width(12.dp))
+         LiveText(
+             group.title,
+             modifier = Modifier.weight(1f),
+@@ -3710,7 +3739,11 @@ private fun ChannelContextMenu(
+     // The Calendar's bell: follow this show, or put this movie's airing on the Calendar.
+     val bell = com.nuvio.tv.livetv.calendar.rememberLiveBell(program ?: streamProgram, ch)
+     LiveDialog(onDismiss = onDismiss, width = 460.dp) {
+-        LiveText("${ch.number}  ${ch.name}", size = 20.sp, weight = FontWeight.Bold)
++        if (LocalPetalixGuide.current) {
++            LiveText("CHANNEL OPTIONS", size = 11.sp, color = GuideGold, weight = FontWeight.Bold)
++            Spacer(Modifier.height(6.dp))
++        }
++        LiveText(if (LocalPetalixGuide.current) ch.name else "${ch.number}  ${ch.name}", size = 23.sp, weight = FontWeight.Bold)
+         LiveText(ch.group, color = NuvioTheme.colors.TextSecondary, size = 13.sp)
+         Spacer(Modifier.height(14.dp))
+         LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+@@ -3723,18 +3756,18 @@ private fun ChannelContextMenu(
+             }
+             if (canCatchup) item { MenuItem("Play from archive: ${program!!.title}", onClick = { onCatchup(program!!) }) }
+             if (program != null || streamProgram != null) {
+-                item { MenuHeader("This show") }
++                item { MenuHeader("Program") }
+                 if (program != null) item { MenuItem("Program info", onClick = onProgramInfo) }
+                 if (bell != null) item { MenuItem(bell.label, onClick = { bell.toggle(); onDismiss() }) }
+                 if (streamProgram != null) {
+-                    item { MenuItem("Find & stream \"${streamProgram.title}\" in Nuvio", onClick = { onFindInNuvio(streamProgram) }) }
++                    item { MenuItem("Find & stream \"${streamProgram.title}\" on Petalix", onClick = { onFindInNuvio(streamProgram) }) }
+                 }
+                 // Upcoming show: Remind me (or Cancel reminder), right in the long-press menu.
+                 if (program != null && program.startMs > now) item {
+                     MenuItem(if (reminderSet) "Cancel reminder" else "Remind me", onClick = { onRemind(program) })
+                 }
+             }
+-            item { MenuHeader("Record") }
++            item { MenuHeader("Recording options") }
+             if (program != null && recordLabel != null) item { MenuItem(recordLabel, onClick = { onRecord(program) }) }
+             if (program != null && seriesLabel != null) item { MenuItem(seriesLabel, onClick = { onSeries(program) }) }
+             item { MenuItem("Schedule a recording…", onClick = onScheduleRecording) }
+@@ -3758,7 +3791,7 @@ private fun ChannelContextMenu(
+             item { MenuItem("Change channel number…", onClick = onRenumber) }
+             item { MenuItem("Assign EPG…", onClick = onChangeEpg) }
+             item { MenuItem("Change logo…", onClick = onChangeLogo) }
+-            item { MenuHeader("Hide & arrange") }
++            item { MenuHeader("Guide organization") }
+             item { MenuItem("Hide channel", onClick = onHide) }
+             item { MenuItem("Hide group \"${ch.group}\"", onClick = onHideGroup) }
+             item { MenuItem("Manage visibility…", onClick = onManageVisibility) }
+@@ -3922,6 +3955,7 @@ private fun EpgSidePanel(
+     else RoundedCornerShape(com.nuvio.tv.ui.theme.NuvioComponents.tokens.sidebar.panelRadius)
+     // The theme's own surfaces (they carry its tint), like the rest of the guide.
+     val panelBackground = when {
++        LocalPetalixGuide.current -> GuidePanel
+         classic -> NuvioTheme.colors.Background
+         amoled -> Color.Black
+         style == LiveMenuStyle.MODERN_BLUR -> NuvioTheme.colors.BackgroundElevated.copy(alpha = 0.65f)
+@@ -4394,7 +4428,7 @@ internal fun MenuHeader(title: String, first: Boolean = false) {
+         title.uppercase(),
+         size = 11.sp,
+         weight = FontWeight.Bold,
+-        color = NuvioTheme.colors.TextTertiary,
++        color = if (LocalPetalixGuide.current) GuideGold else NuvioTheme.colors.TextTertiary,
+         modifier = Modifier.padding(start = 14.dp, top = if (first) 0.dp else 12.dp, bottom = 2.dp)
+     )
+ }
+@@ -4452,7 +4486,7 @@ private fun ProgramInfoDialog(
+             // For a show that hasn't started, streaming it through Nuvio is the main action.
+             if (upcoming) {
+                 LiveFocusRow(modifier = Modifier.focusRequester(first), onClick = { onFind(p!!) }) { f ->
+-                    LiveText("Find & stream in Nuvio", color = focusedTextColor(f))
++                    LiveText("Find on Petalix", color = focusedTextColor(f))
+                 }
+             }
+             when {
+@@ -4462,7 +4496,7 @@ private fun ProgramInfoDialog(
+                 else -> LiveFocusRow(modifier = Modifier.focusRequester(first), onClick = onWatch) { f -> LiveText("Watch channel now", color = focusedTextColor(f)) }
+             }
+             if (p != null && !upcoming) {
+-                LiveFocusRow(onClick = { onFind(p) }) { f -> LiveText("Find & stream in Nuvio", color = focusedTextColor(f)) }
++                LiveFocusRow(onClick = { onFind(p) }) { f -> LiveText("Find on Petalix", color = focusedTextColor(f)) }
+             }
+             // On now, on a catch-up channel: start it over.
+             if (p != null && now >= p.startMs && now < p.stopMs && canRestart) {
+@@ -4777,6 +4811,7 @@ private fun LogoSidePanel(
+     val panelShape = if (classic) androidx.compose.ui.graphics.RectangleShape
+     else RoundedCornerShape(com.nuvio.tv.ui.theme.NuvioComponents.tokens.sidebar.panelRadius)
+     val panelBackground = when {
++        LocalPetalixGuide.current -> GuidePanel
+         classic -> NuvioTheme.colors.Background
+         amoled -> Color.Black
+         style == LiveMenuStyle.MODERN_BLUR -> NuvioTheme.colors.BackgroundElevated.copy(alpha = 0.65f)
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/library/LibraryScreen.kt b/app/src/main/java/com/nuvio/tv/ui/screens/library/LibraryScreen.kt
+index 7e896a7..038a1b1 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/library/LibraryScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/library/LibraryScreen.kt
+@@ -353,7 +353,7 @@ fun LibraryScreen(
+                         uiState.sourceMode == LibrarySourceMode.TRAKT -> "TRAKT"
+                         uiState.sourceMode == LibrarySourceMode.SIMKL -> "SIMKL"
+                         uiState.sourceMode == LibrarySourceMode.MDBLIST -> "MDBLIST"
+-                        uiState.isNuvioAccount -> "NUVIO"
++                        uiState.isNuvioAccount -> "PETALIX"
+                         else -> stringResource(R.string.library_source_local)
+                     },
+                     style = MaterialTheme.typography.labelLarge,
