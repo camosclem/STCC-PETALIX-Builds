@@ -2,6 +2,7 @@ package com.nuvio.tv
 
 import android.app.Dialog
 import android.graphics.Color
+import android.os.Build
 import android.graphics.drawable.ColorDrawable
 import android.view.KeyEvent
 import android.view.ViewGroup
@@ -23,6 +24,7 @@ private val tutorialKeys = mapOf(
     KeyEvent.KEYCODE_ESCAPE to "back", KeyEvent.KEYCODE_CHANNEL_UP to "chUp",
     KeyEvent.KEYCODE_CHANNEL_DOWN to "chDown", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE to "play",
     KeyEvent.KEYCODE_MEDIA_FAST_FORWARD to "ff", KeyEvent.KEYCODE_MEDIA_REWIND to "rew",
+    KeyEvent.KEYCODE_MEDIA_PLAY to "play", KeyEvent.KEYCODE_MEDIA_PAUSE to "play",
     KeyEvent.KEYCODE_MENU to "settings"
 )
 
@@ -31,6 +33,8 @@ internal fun PetalixRemoteGuide(onClose: () -> Unit) {
     val context = LocalContext.current
     val close by rememberUpdatedState(onClose)
     DisposableEffect(context) {
+        val initialModel = if (Build.MANUFACTURER.equals("NVIDIA", ignoreCase = true) ||
+            Build.MODEL.contains("SHIELD", ignoreCase = true)) "shield" else "onn"
         val dialog = Dialog(context)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         val page = WebView(context).apply {
@@ -43,7 +47,7 @@ internal fun PetalixRemoteGuide(onClose: () -> Unit) {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = true
                 override fun onPageFinished(view: WebView, url: String) {
-                    view.evaluateJavascript("document.querySelector('[data-model=onn]').focus()", null)
+                    view.evaluateJavascript("window.petalixTutorialStart('$initialModel')", null)
                 }
             }
         }

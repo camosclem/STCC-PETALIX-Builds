@@ -1,0 +1,506 @@
+--- a/app/src/main/java/com/nuvio/tv/core/auth/DeviceSessionRegistration.kt
++++ b/app/src/main/java/com/nuvio/tv/core/auth/DeviceSessionRegistration.kt
+@@ -24,7 +24,7 @@
+ import javax.inject.Singleton
+ 
+ private const val TAG = "DeviceSessionRegistration"
+-private const val CLIENT_NAME = "Nuvio TV"
++private const val CLIENT_NAME = "Petalix"
+ private const val REGISTRATION_INTERVAL_MS = 15 * 60 * 1000L
+ private const val MAX_DEVICE_NAME_LENGTH = 160
+ 
+--- a/app/src/main/java/com/nuvio/tv/data/mediaserver/mediabrowser/MediaBrowserClient.kt
++++ b/app/src/main/java/com/nuvio/tv/data/mediaserver/mediabrowser/MediaBrowserClient.kt
+@@ -89,7 +89,7 @@
+     }
+ 
+     fun authorizationValue(token: String?): String = buildString {
+-        append("MediaBrowser Client=\"Nuvio\", Device=\"")
++        append("MediaBrowser Client=\"Petalix\", Device=\"")
+         append(identity.device.headerValue())
+         append("\", DeviceId=\"")
+         append(deviceId.headerValue())
+--- a/app/src/main/java/com/nuvio/tv/data/mediaserver/mediabrowser/MediaBrowserProvider.kt
++++ b/app/src/main/java/com/nuvio/tv/data/mediaserver/mediabrowser/MediaBrowserProvider.kt
+@@ -594,7 +594,7 @@
+     }
+ 
+     private fun deviceProfile(capabilities: ServerPlayerCapabilities) = DeviceProfile(
+-        name = "Nuvio",
++        name = "Petalix",
+         maxStreamingBitrate = MAX_STREAMING_BITRATE,
+         directPlayProfiles = if (capabilities.allowDirectPlay) {
+             listOf(DirectPlayProfile())
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/GuideGearPanel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/GuideGearPanel.kt
+@@ -102,15 +102,9 @@
+                 modifier = Modifier.padding(start = 10.dp, top = 8.dp, bottom = 2.dp)
+             )
+             Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+-                GearRow(Modifier.fillMaxWidth().focusRequester(first), onClick = {
+-                    onChange { it.copy(petalixGuide = !it.petalixGuide) }
+-                }) { focused ->
+-                    LiveText("Guide layout", Modifier.weight(1f), gearText(focused), 14.sp)
+-                    LiveText(if (settings.petalixGuide) "Cinematic" else "Classic", color = gearText(focused), size = 14.sp)
+-                }
+                 heading("Program details")
+                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+-                    toggle(Modifier.weight(1f), "Show info panel", "Off hides all of it", settings.showProgramDetails) {
++                    toggle(Modifier.weight(1f).focusRequester(first), "Show info panel", "Off hides all of it", settings.showProgramDetails) {
+                         onChange { it.copy(showProgramDetails = !it.showProgramDetails) }
+                     }
+                     toggle(Modifier.weight(1f), "Poster", "Show program artwork", settings.showPosters) {
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -142,7 +142,7 @@
+     }
+ 
+ /** "Today", "Tomorrow", "Yesterday", or the day ("Sat, Oct 10") for the guide's time ruler. */
+-private fun guideDayLabel(windowStart: Long, now: Long): String {
++internal fun guideDayLabel(windowStart: Long, now: Long): String {
+     val dayOf = { ms: Long -> java.util.Calendar.getInstance().apply { timeInMillis = ms }.let { it.get(java.util.Calendar.YEAR) * 1000 + it.get(java.util.Calendar.DAY_OF_YEAR) } }
+     val shown = dayOf(windowStart)
+     val today = dayOf(now)
+@@ -163,8 +163,9 @@
+ }.timeInMillis
+ 
+ @Composable
+-fun LiveTvGuideScreen(
++internal fun PetalixLiveTvScreen(
+     onOpenFullscreen: () -> Unit,
++    homeCategoryRequested: Boolean = false,
+     onOpenSettings: () -> Unit,
+     onOpenRecordings: () -> Unit = {},
+     onFindInNuvio: () -> Unit = {},
+@@ -184,8 +185,9 @@
+         Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background))
+         return
+     }
+-    LiveTvGuideScreenBody(
++    PetalixLiveSession(
+         onOpenFullscreen = onOpenFullscreen,
++        homeCategoryRequested = homeCategoryRequested,
+         onOpenSettings = onOpenSettings,
+         onOpenRecordings = onOpenRecordings,
+         onOpenMultiview = onOpenMultiview,
+@@ -199,8 +201,9 @@
+ }
+ 
+ @Composable
+-private fun LiveTvGuideScreenBody(
++private fun PetalixLiveSession(
+     onOpenFullscreen: () -> Unit,
++    homeCategoryRequested: Boolean = false,
+     onOpenSettings: () -> Unit,
+     /** Opens Recordings (the ● button beside the ⚙). */
+     onOpenRecordings: () -> Unit = {},
+@@ -247,6 +250,7 @@
+     // Where you were browsing when you held Back / pressed Play to go full screen; restored
+     // when you come back, so you return to the channel you had selected.
+     var savedSpot by remember { mutableStateOf<Pair<String, String?>?>(null) }
++    var returnToCategories by remember { mutableStateOf(false) }
+     var exitFullscreenTick by remember { mutableIntStateOf(0) }
+     // Back to the guide with the preview window off: the channel stopped, still highlighted.
+     var stoppedKey by remember { mutableStateOf<String?>(null) }
+@@ -451,6 +455,7 @@
+     val groupsListState = rememberLazyListState()
+     var menuTarget by remember { mutableStateOf<MenuTarget?>(null) }
+     var guideGearOpen by remember { mutableStateOf(false) }
++    var showRemoteGuide by remember { mutableStateOf(false) }
+     var guideActionsOpen by remember { mutableStateOf(false) }
+     val guideGearFocus = remember { FocusRequester() }
+     val groupSearchFocus = remember { FocusRequester() }
+@@ -555,25 +560,18 @@
+             cursorMs = now
+         }
+     }
+-    // Opening Live TV from the menu: show the group list on the group you last watched in.
+-    // Coming back from full screen: stay on the channel.
++    // Start on the schedule. A category shortcut and player handoff own their own selection.
+     LaunchedEffect(Unit) {
+-        delay(150)
+         if (fullscreenComing || fullscreen) return@LaunchedEffect
+         val returning = viewModel.consumeReturningFromFullscreen()
+         val toGroups = returning && viewModel.consumeGroupsOnReturn()
+-        if (returning && !toGroups) {
+-            nameFocus = viewModel.settings.value.browseByChannelName
+-            runCatching { gridFocus.requestFocus() }
+-        } else {
+-            val loaded = viewModel.awaitGroups()
+-            // "Open on last group" off: opening Live TV starts on the main group every time
+-            // (not the group from earlier in this session, or the last channel's group).
+-            if (!returning && !viewModel.settings.value.rememberLastGroup && loaded != null) {
+-                viewModel.selectGroup(loaded.defaultGroupId)
+-            }
+-            delay(100)
+-            focusGroupsOnOpen = true
++        if (!returning && !homeCategoryRequested && !viewModel.settings.value.rememberLastGroup) {
++            val loaded = viewModel.uiState.first { it.guideReady }
++            if (!fullscreenComing && !fullscreen) viewModel.selectGroup(loaded.defaultGroupId)
++        }
++        androidx.compose.runtime.withFrameNanos { }
++        if (!fullscreenComing && !fullscreen) {
++            if (toGroups) focusGroupsOnOpen = true else runCatching { gridFocus.requestFocus() }
+         }
+     }
+     LaunchedEffect(numberBuffer) {
+@@ -600,12 +598,15 @@
+         stoppedKey = playback.channelKey
+         viewModel.playback.stop()
+     }
++    val editingGuide = visibilityMode || reorderActive || favoritesMode || copyPickMode ||
++        groupReorderMode || groupVisibilityList != null || epgPickerFor != null || logoPickerFor != null
+     fun focusGroups() {
+         groupsOpen = true
+         // If the group on screen sits in a folded playlist, unfold it so it can take focus.
+         ui.groups.firstOrNull { it.id == ui.selectedGroupId }?.sourceId?.let { src ->
+             if (src in viewModel.collapsedPlaylists.value) viewModel.togglePlaylistCollapsed(src)
+         }
++        if (!editingGuide) return
+         scope.launch {
+             // Let an unfolded playlist's groups appear first.
+             repeat(2) { androidx.compose.runtime.withFrameNanos { } }
+@@ -680,9 +681,11 @@
+             viewModel.selectGroup(spot.first)
+             spot.second?.let { highlightKey = it }
+         }
+-        groupsOpen = false
+-        delay(80)
+-        runCatching { gridFocus.requestFocus() }
++        val openCategories = returnToCategories
++        returnToCategories = false
++        groupsOpen = openCategories
++        androidx.compose.runtime.withFrameNanos { }
++        if (openCategories) focusGroups() else runCatching { gridFocus.requestFocus() }
+     }
+     LaunchedEffect(fullscreen) { LiveTvFullscreen.active.value = fullscreen }
+     androidx.compose.runtime.DisposableEffect(Unit) {
+@@ -722,7 +725,8 @@
+     }
+ 
+     // Moving through the group column shows that group straight away (Search opens on OK).
+-    LaunchedEffect(pendingGroupId) {
++    LaunchedEffect(pendingGroupId, editingGuide) {
++        if (!editingGuide) return@LaunchedEffect
+         val id = pendingGroupId ?: return@LaunchedEffect
+         delay(350)
+         if (id != ChannelGroup.SEARCH && id != ui.selectedGroupId && ui.groups.any { it.id == id && !it.locked }) {
+@@ -759,7 +763,7 @@
+         // Only change group when coming back from full screen, or when "Open on last group" is
+         // on. Then it's the group you watched in (a custom group stays a custom group), not
+         // the channel's original playlist group.
+-        val mayChangeGroup = viewModel.isReturningFromFullscreen() || viewModel.settings.value.rememberLastGroup
++        val mayChangeGroup = !homeCategoryRequested && (viewModel.isReturningFromFullscreen() || viewModel.settings.value.rememberLastGroup)
+         val group = viewModel.groupToShow(target)
+         if (group != null) {
+             if (!mayChangeGroup) return@LaunchedEffect
+@@ -789,10 +793,13 @@
+         if (sidebarExpanded) sidebarWasOpen = true
+         else if (sidebarWasOpen) {
+             sidebarWasOpen = false
+-            if (!fullscreen) focusGroups()
+-        }
+-    }
+-    BackHandler(enabled = !sidebarExpanded) {
++            if (!fullscreen) {
++                androidx.compose.runtime.withFrameNanos { }
++                runCatching { (if (groupsOpen) groupsFocus else gridFocus).requestFocus() }
++            }
++        }
++    }
++    BackHandler(enabled = !sidebarExpanded && !fullscreen) {
+         when {
+             column == GuideColumn.PROGRAM -> {
+                 column = GuideColumn.CHANNEL
+@@ -800,7 +807,7 @@
+                 cursorMs = now
+             }
+             // Browse by channel name: from the shows, Back goes to the channel name first.
+-            settings.browseByChannelName && !nameFocus && !groupsOpen -> nameFocus = true
++            editingGuide && settings.browseByChannelName && !nameFocus && !groupsOpen -> nameFocus = true
+             // Back from the channels: the group list, with the group you're in highlighted.
+             !groupsOpen -> focusGroups()
+             else -> openSidebar()
+@@ -832,8 +839,12 @@
+         return GuideBlock(s, e, null)
+     }
+ 
++    val focusedSchedule = remember(focusedPrograms) { PetalixAirtimes(focusedPrograms) }
+     val focusedBlock: GuideBlock? = focusedChannel?.let {
+-        if (column == GuideColumn.PROGRAM) blockAt(focusedPrograms, cursorMs) else blockAt(focusedPrograms, now)
++        val at = if (column == GuideColumn.PROGRAM) cursorMs else now
++        if (editingGuide) blockAt(focusedPrograms, at) else focusedSchedule.at(at).let { air ->
++            GuideBlock(air.start, air.end, air.program)
++        }
+     }
+ 
+     // A future portal listing may gain its archive id only after it airs. Refresh the
+@@ -859,7 +870,8 @@
+     val headerBlock = if (browsingGroups && playingChannel != null) {
+         val headerPrograms = if (playingChannel.key == focusedChannel?.key) focusedPrograms
+         else rememberGuidePrograms(playingChannel, programs[playingChannel.key].orEmpty(), now, settings.epgPastHours)
+-        blockAt(headerPrograms, now)
++        val airing = remember(headerPrograms) { PetalixAirtimes(headerPrograms) }.at(now)
++        GuideBlock(airing.start, airing.end, airing.program)
+     } else focusedBlock
+     val headerProgramKey = headerChannel?.key to headerBlock?.program?.startMs
+     val headerPoster by androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey) {
+@@ -1012,7 +1024,7 @@
+         if (now >= landed.startMs && now < landed.stopMs && ch.catchup == null) resetToNow()
+     }
+ 
+-    val cinematic = settings.petalixGuide
++    val cinematic = true
+     val heroBase = if (settings.guideBackdrop == "auto") GuideInk else backdropBase(resolveBackdrop(settings.guideBackdrop))
+     CompositionLocalProvider(LocalPetalixGuide provides (cinematic && !fullscreen), LocalLiveSolidHighlight provides settings.solidHighlight, LocalGuideDarkness provides settings.guideInfoBackground) {
+     val hostActivity = androidx.compose.ui.platform.LocalContext.current as? com.nuvio.tv.MainActivity
+@@ -1032,8 +1044,8 @@
+     LaunchedEffect(windowFocused, fullscreen) { lastKeyAt = System.currentTimeMillis() }
+     // The ⚙ panel open counts as in use, and never stays up over full screen.
+     LaunchedEffect(fullscreen) { if (fullscreen) guideGearOpen = false }
+-    LaunchedEffect(idleMinutes, lastKeyAt, fullscreen, guideHasFocus, windowFocused, playback.channelKey, guideGearOpen) {
+-        if (idleMinutes <= 0 || fullscreen || guideGearOpen || !guideHasFocus || !windowFocused || playback.channelKey == null) return@LaunchedEffect
++    LaunchedEffect(idleMinutes, lastKeyAt, fullscreen, guideHasFocus, windowFocused, playback.channelKey, guideGearOpen, showRemoteGuide) {
++        if (idleMinutes <= 0 || fullscreen || guideGearOpen || showRemoteGuide || !guideHasFocus || !windowFocused || playback.channelKey == null) return@LaunchedEffect
+         val wait = idleMinutes * 60_000L - (System.currentTimeMillis() - lastKeyAt)
+         delay(wait.coerceAtLeast(5_000L))
+         if (viewModel.playbackState.value.channelKey == null || viewModel.playbackState.value.error != null) return@LaunchedEffect
+@@ -1122,7 +1134,77 @@
+             // Stops before the channel rows, so the guide itself keeps the theme's own colors.
+             ThemeGlow(Modifier.fillMaxWidth().height(if (settings.smallHeader) 150.dp else 220.dp))
+         }
+-        Column(
++        if (!fullscreen && !editingGuide) {
++            fun closeCategories() {
++                groupsOpen = false
++                resetToNow()
++                scope.launch {
++                    androidx.compose.runtime.withFrameNanos { }
++                    runCatching { gridFocus.requestFocus() }
++                }
++            }
++            val marks = remember(user.favorites, reminderStartsByChannel, scheduledStarts, recordingUntil) {
++                CableChannelMarks(user.favorites.toSet(), reminderStartsByChannel, scheduledStarts, recordingUntil)
++            }
++            val controls = CableGuideActions(
++                moveRow = ::moveRow,
++                seek = { time ->
++                    if (time == now) resetToNow() else {
++                        column = GuideColumn.PROGRAM
++                        cursorMs = time
++                        windowStart = petalixWindowFor(time, windowStart, guideWindowMs(settings))
++                    }
++                },
++                tune = { index, air, options ->
++                    channels.getOrNull(index)?.let { ch ->
++                        row = index
++                        val block = GuideBlock(air.start, air.end, air.program)
++                        val program = air.program
++                        when {
++                            options -> menuTarget = MenuTarget(ch, block)
++                            air.contains(now) -> playChannel(ch)
++                            else -> {
++                                column = GuideColumn.PROGRAM
++                                cursorMs = maxOf(air.start, windowStart)
++                                if (program != null && air.end <= now && CatchupUrlBuilder.isAvailable(ch, program, now) &&
++                                    viewModel.playCatchup(ch, program)) goFullscreen() else infoTarget = MenuTarget(ch, block)
++                            }
++                        }
++                    }
++                },
++                showCategories = ::focusGroups,
++                closeCategories = ::closeCategories,
++                pickCategory = { group, options ->
++                    when {
++                        options -> if (!group.special) groupMenu = group
++                        group.locked -> { pinGroup = group; pinWrong = false; pinRemovesLock = false }
++                        else -> {
++                            if (group.id != ui.selectedGroupId) {
++                                viewModel.selectGroup(group.id)
++                                row = 0
++                            }
++                            closeCategories()
++                        }
++                    }
++                },
++                digit = { if (numberBuffer.length < 5) numberBuffer += it.toString() },
++                lastChannel = { viewModel.previousChannel()?.let(::playChannel) },
++                openSettings = onOpenSettings
++            )
++            PetalixCableGuide(ui, channels, settings, programs, marks, playback.channelKey, now,
++                windowStart, if (column == GuideColumn.CHANNEL) now else cursorMs, row, groupsOpen,
++                playlistNames, collapsedPlaylists, viewModel::togglePlaylistCollapsed, listState,
++                gridFocus, groupsFocus, guideGearFocus, { gridFocused = it }, controls) {
++                PetalixGuideHeader(
++                    channel = headerChannel, program = headerBlock?.program, start = headerBlock?.startMs,
++                    stop = headerBlock?.stopMs, poster = headerPoster,
++                    playlist = if (settings.showPlaylistInInfo) headerChannel?.sourceId?.let { playlistNames[it] } else null,
++                    settings = settings, now = now, group = selectedGroupTitle, playing = playback.channelKey != null,
++                    onBounds = { previewBounds = it }, groupsOpen = groupsOpen, onMenu = { guideActionsOpen = true },
++                    onDown = { (if (groupsOpen) groupsFocus else gridFocus).requestFocus() }, settingsFocus = guideGearFocus
++                )
++            }
++        } else if (!fullscreen) Column(
+             modifier = Modifier
+                 .fillMaxSize()
+                 .then(
+@@ -2291,11 +2373,19 @@
+                 onConfirm = { value -> prompt.onConfirm(value); textPrompt = null }
+             )
+         }
++        if (showRemoteGuide) com.nuvio.tv.PetalixRemoteGuide(onClose = {
++            showRemoteGuide = false
++            scope.launch {
++                androidx.compose.runtime.withFrameNanos { }
++                runCatching { (if (groupsOpen) groupsFocus else gridFocus).requestFocus() }
++            }
++        })
+         if (cinematic && !fullscreen && guideActionsOpen) {
+             ActionMenuDialog("Guide menu", listOf(
+                 "Search" to { guideActionsOpen = false; LiveTvSearchBridge.origin.value = LiveTvSearchBridge.GUIDE; onOpenNuvioSearch() },
+                 "Recordings" to { guideActionsOpen = false; onOpenRecordings() },
+                 "Multiview" to { guideActionsOpen = false; onOpenMultiview() },
++                "Remote guide" to { guideActionsOpen = false; showRemoteGuide = true },
+                 "Guide settings" to { guideActionsOpen = false; guideGearOpen = true }
+             ), onDismiss = { guideActionsOpen = false })
+         }
+@@ -2505,7 +2595,7 @@
+                     }
+                 },
+                 onFindInNuvio = { com.nuvio.tv.livetv.record.RecordingLaunch.clearReturn(); com.nuvio.tv.livetv.sports.SportsLaunch.clearReturn(); fullscreenComing = false; fullscreenShown = false; exitFullscreenTick++; onFindInNuvio() },
+-                onBackToGroups = { com.nuvio.tv.livetv.record.RecordingLaunch.clearReturn(); com.nuvio.tv.livetv.sports.SportsLaunch.clearReturn(); fullscreenComing = false; stopIfNoPreview(); fullscreenShown = false; savedSpot = null; exitFullscreenTick++; focusGroups() },
++                onBackToGroups = { com.nuvio.tv.livetv.record.RecordingLaunch.clearReturn(); com.nuvio.tv.livetv.sports.SportsLaunch.clearReturn(); fullscreenComing = false; stopIfNoPreview(); fullscreenShown = false; savedSpot = null; returnToCategories = true; exitFullscreenTick++ },
+                 embedded = true,
+                 onOpenSettings = onOpenSettings,
+                 onOpenSportsMultiview = { panes -> onOpenSportsMultiview(panes, playback.channelKey) },
+@@ -4650,7 +4740,7 @@
+ internal const val LONG_PRESS_MS = 550L
+ 
+ /** How tall each channel row is: compact or normal, taller when show times are shown. */
+-private fun guideRowHeight(s: LiveTvSettings): Dp {
++internal fun guideRowHeight(s: LiveTvSettings): Dp {
+     val h = when (s.effectiveGuideSize) {
+         "COMPACT" -> if (s.showProgramTimes) 44.dp else 32.dp
+         "LARGE" -> if (s.showProgramTimes) 64.dp else 47.dp
+@@ -4669,7 +4759,7 @@
+ }
+ 
+ /** Guide Size: how much bigger (or smaller) the guide's text is than Standard. */
+-private fun guideScale(s: LiveTvSettings): Float = when (s.effectiveGuideSize) {
++internal fun guideScale(s: LiveTvSettings): Float = when (s.effectiveGuideSize) {
+     "COMPACT" -> 0.93f
+     "LARGE" -> 1.2f
+     "XLARGE" -> 1.4f
+@@ -4690,7 +4780,7 @@
+ private fun gdp(v: Float): Dp = (v * LocalGuideScale.current.coerceAtLeast(1f)).dp
+ 
+ /** How much time the guide shows across: Extra Large shows 1½ hours so short shows' text fits. */
+-private fun guideWindowMs(s: LiveTvSettings): Long =
++internal fun guideWindowMs(s: LiveTvSettings): Long =
+     if (s.effectiveGuideSize == "XLARGE") 90L * 60L * 1000L else WINDOW_MS
+ 
+ /** Minutes the guide can be left alone with a channel playing before it goes full screen. */
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
+@@ -1001,7 +1001,7 @@
+                 val browseParts = remember(shown?.description, shown?.year) { splitDescriptionYear(shown?.description, shown?.year) }
+                 LiveTvPlayerPanel(
+                     background = settings.panelBackground,
+-                    cinematic = settings.petalixGuide,
++                    cinematic = true,
+                     channel = b,
+                     mode = PanelMode.LIVE,
+                     full = false,
+@@ -1187,7 +1187,7 @@
+                     onBackupsBounds = { backupsAnchor = it },
+                     onMultiview = { openMultiview() },
+                     background = settings.panelBackground,
+-                    cinematic = settings.petalixGuide,
++                    cinematic = true,
+                     channel = ch,
+                     mode = mode,
+                     full = panelFull || pausedNow,
+--- a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+@@ -1515,7 +1515,7 @@
+             )
+         }
+ 
+-        forkPageComposable(Screen.LiveTv.route) { entry ->
++        composable(Screen.LiveTv.route) { entry ->
+             val category by entry.savedStateHandle.getStateFlow<String?>("petalixHomeCategory", null).collectAsStateWithLifecycle()
+             val viewModel: com.nuvio.tv.livetv.ui.LiveTvViewModel = androidx.hilt.navigation.compose.hiltViewModel(entry)
+             androidx.compose.runtime.LaunchedEffect(category) {
+@@ -1525,7 +1525,9 @@
+                 if (match != null) viewModel.selectGroup(match)
+                 entry.savedStateHandle["petalixHomeCategory"] = null
+             }
+-            com.nuvio.tv.livetv.ui.LiveTvGuideScreen(
++            val homeRequested = androidx.compose.runtime.remember(entry) { entry.savedStateHandle.get<String>("petalixHomeCategory") != null }
++            com.nuvio.tv.livetv.ui.PetalixLiveTvScreen(
++                homeCategoryRequested = homeRequested,
+                 viewModel = viewModel,
+                 onOpenFullscreen = {
+                     navController.navigate(Screen.LiveTvPlayer.route) { launchSingleTop = true }
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/collection/CollectionManagementScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/collection/CollectionManagementScreen.kt
+@@ -211,11 +211,11 @@
+                                     resolver.delete(
+                                         existingUri,
+                                         "${android.provider.MediaStore.Downloads.DISPLAY_NAME} = ?",
+-                                        arrayOf("nuvio-collections.json")
++                                        arrayOf("petalix-collections.json")
+                                     )
+                                     // Write new file
+                                     val values = android.content.ContentValues().apply {
+-                                        put(android.provider.MediaStore.Downloads.DISPLAY_NAME, "nuvio-collections.json")
++                                        put(android.provider.MediaStore.Downloads.DISPLAY_NAME, "petalix-collections.json")
+                                         put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/json")
+                                     }
+                                     val uri = resolver.insert(existingUri, values)
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/collection/CollectionManagementViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/collection/CollectionManagementViewModel.kt
+@@ -309,13 +309,14 @@
+         val uri = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+         val projection = arrayOf(android.provider.MediaStore.Downloads._ID)
+         val selection = "${android.provider.MediaStore.Downloads.DISPLAY_NAME} = ?"
+-        val selectionArgs = arrayOf("nuvio-collections.json")
+-        return resolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
+-            if (cursor.moveToFirst()) {
+-                val id = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads._ID))
+-                val fileUri = android.content.ContentUris.withAppendedId(uri, id)
+-                resolver.openInputStream(fileUri)?.bufferedReader()?.readText()
+-            } else null
++        return collectionFiles.firstNotNullOfOrNull { filename ->
++            resolver.query(uri, projection, selection, arrayOf(filename), null)?.use { cursor ->
++                if (cursor.moveToFirst()) {
++                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads._ID))
++                    val fileUri = android.content.ContentUris.withAppendedId(uri, id)
++                    resolver.openInputStream(fileUri)?.bufferedReader()?.readText()
++                } else null
++            }
+         }
+     }
+ 
+@@ -323,7 +324,8 @@
+         val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+             android.os.Environment.DIRECTORY_DOWNLOADS
+         )
+-        val file = java.io.File(downloadsDir, "nuvio-collections.json")
+-        return if (file.exists()) file.readText() else null
++        return collectionFiles.map { java.io.File(downloadsDir, it) }.firstOrNull { it.isFile }?.readText()
+     }
+ }
++
++private val collectionFiles = listOf("petalix-collections.json", "nuvio-collections.json")
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/settings/DebridSettingsViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/settings/DebridSettingsViewModel.kt
+@@ -244,7 +244,7 @@
+     suspend fun startDeviceAuthorization(providerId: String): DebridDeviceAuthorization? {
+         return when (DebridProviders.byId(providerId)?.id) {
+             DebridProviders.TORBOX_ID -> {
+-                val response = torboxApi.startDeviceAuthorization("Nuvio")
++                val response = torboxApi.startDeviceAuthorization("Petalix")
+                 val data = response.body()?.takeIf { response.isSuccessful && it.success != false }?.data
+                     ?: return null
+                 val deviceCode = data.deviceCode?.takeIf { it.isNotBlank() } ?: return null

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Petalix Remote Guide</title></head><body style="margin:0;background:#131415">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Petalix Remote Guide</title></head><body style="margin:0;background:#131415;color-scheme:dark">
 <div id="petalix-remote-guide">
 <style>
 #petalix-remote-guide{color-scheme:dark;box-sizing:border-box;background:#131415;color:#f9f5ef;padding:clamp(16px,3.5vw,44px);font:16px/1.4 "DM Sans",Arial,sans-serif}
@@ -34,7 +34,7 @@
 </style>
 <header><strong>PETALIX</strong><span>Remote guide</span></header>
 <div class="body"><div class="stage"><div class="device"><img alt=""><div class="buttons"></div></div></div>
-<section><h2>Know your remote</h2><p class="hint">Select a button on the remote to see what it does.</p>
+<section><h2>Know your remote</h2><p class="hint">Choose your remote. Select a pictured button to learn its controls.</p>
 <div class="controls" aria-label="Choose your remote"><button class="action" data-model="onn">onn. 4K</button><button class="action" data-model="shield">NVIDIA SHIELD</button></div>
 <div class="detail" aria-live="polite"><h3></h3><dl></dl></div>
 <div class="controls"><button class="action" data-action="guide" aria-expanded="false">All buttons</button><button class="action" data-action="practice" aria-pressed="false">Practice</button></div>
@@ -59,17 +59,17 @@ const layouts={
  ['ff',28,43.2,27,5.7],['voice',72,43.2,27,5.7],['play',28,50.8,27,5.7],['volUp',72,50.8,27,5.7],
  ['rew',28,58.4,27,5.7],['volDown',72,58.4,27,5.7],['netflix',50,66.2,70,5.7]]};
 const book={
- left:['Left','At the current listing, open channel categories. From a future listing, move back toward now.','On live TV, open categories or the channel overlay. During catch-up, seek backward.'],
+ left:['Left','At the current listing, tap Left for categories. Hold Left to browse earlier listings on catch-up channels.','On live TV, open categories or the channel overlay. During catch-up, seek backward.'],
  right:['Right','From categories, return to channels. In the grid, move forward through the schedule.','Tap to show channel info. Tap twice for backup streams, or hold to return to the last channel. During catch-up, seek forward.'],
- up:['Up','Move up one channel. At the first channel, hold Up to reach the guide options.','With controls closed, go to the next channel. Channel Surf mode lets you browse before tuning.'],
+ up:['Up','Move up one channel. At the first channel, press Up to reach Guide options.','With controls closed, go to the next channel. Channel Surf mode lets you browse before tuning.'],
  down:['Down','Move down one channel or category.','With controls closed, go to the previous channel, or browse it in Channel Surf mode.'],
  ok:['OK / Select','Select a category or listing. On a live channel, OK starts preview and a second OK opens full screen. With preview off or direct full screen enabled, one press opens it. Hold OK for channel options.','Show playback controls. Hold OK for player options.'],
- back:['Back','Step back from listings to channels, then categories. From categories, open the Petalix menu.','Close the open controls. From full screen, return to the screen you came from.'],
+ back:['Back','From another time, return to now. From the current listing, open categories. From categories, open the Petalix menu.','Close the open controls. From full screen, return to the screen you came from.'],
  chUp:['Channel +','Jump up eight channels in the grid.','Go to the next channel, or browse it when Channel Surf is on.'],
  chDown:['Channel −','Jump down eight channels in the grid.','Go to the previous channel, or browse it when Channel Surf is on.'],
  ff:['Fast-forward','Move forward four guide steps.','Use the playback timeline to seek forward when a recording, replay, or live buffer supports it.'],
  rew:['Rewind','Move backward four guide steps where earlier listings are available.','Use the playback timeline to seek backward when a recording, replay, or live buffer supports it.'],
- play:['Play / pause','Use OK on the current listing to start watching.','Pause or resume when the stream supports it.'],
+ play:['Play / pause','Open the channel already playing in the preview in full screen.','Pause or resume when the stream supports it.'],
  power:['Power','Puts the streamer to sleep or wakes it. TV power depends on your device setup.'],
  home:['Home','Opens the streaming device’s Home screen.'],
  input:['TV input','Changes the TV input when the onn. remote is configured to control your TV.'],
@@ -105,7 +105,7 @@ function draw(m){
  select(layouts[m].some(k=>k[0]===selected)?selected:'left');
 }
 function setPractice(on){practice=on;const b=q('[data-action=practice]');b.setAttribute('aria-pressed',String(on));b.textContent=on?'End practice':'Practice';
- q('.status').textContent=on?'Press an arrow or OK to try it. Back or Esc ends practice. Explore device shortcuts on the picture.':'';}
+ q('.status').textContent=on?'Try arrows, OK, or a playback button. Back ends practice. Select system shortcuts on the picture.':'';}
 all('[data-model]').forEach(b=>b.onclick=()=>{setPractice(false);draw(b.dataset.model);});
 q('[data-action=practice]').onclick=()=>setPractice(!practice);
 q('[data-action=guide]').onclick=()=>{const r=q('.reference');r.hidden=!r.hidden;q('[data-action=guide]').setAttribute('aria-expanded',String(!r.hidden));};
@@ -130,6 +130,11 @@ function input(id){
 const keys={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down',Escape:'back',Backspace:'back',Enter:'ok',MediaPlayPause:'play',MediaFastForward:'ff',MediaRewind:'rew',ChannelUp:'chUp',ChannelDown:'chDown'};
 root.addEventListener('keydown',e=>{const id=keys[e.key];if(id&&input(id))e.preventDefault();});
 window.petalixTutorialInput=input;
+window.petalixTutorialStart=m=>{
+ if(m==='shield'||m==='onn')draw(m);
+ q('[data-model="'+model+'"]').focus();
+};
 draw(model);
+q('[data-model="'+model+'"]').focus();
 })();
 </script></div></body></html>

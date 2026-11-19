@@ -282,6 +282,6 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
                 from cinematic_guide import apply as apply_cinematic_guide
                 apply_cinematic_guide(root)
     assert not list(dest.glob('ManagedPolicy*'))
-    print(json.dumps({'upstream':('1.2.0-beta.1.4' if owner_test else upstream_tag),'sha':('2d898cd8be38cd81a087604cd9dc974a06cf9a00' if owner_test else revision),'package':package,'versionCode':version,'nativeGuide':True,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
+    print(json.dumps({'upstream':('1.2.0-beta.1.4' if owner_test else upstream_tag),'sha':('2d898cd8be38cd81a087604cd9dc974a06cf9a00' if owner_test else revision),'package':package,'versionCode':version,'guidePresentation':('petalix-cable' if owner_test else 'native'),'nativeGuide':not owner_test,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--upstream',type=Path,required=True);p.add_argument('--version',type=int,required=True);mode=p.add_mutually_exclusive_group();mode.add_argument('--production',action='store_true');mode.add_argument('--owner-test',action='store_true');a=p.parse_args();prepare(a.upstream.resolve(),a.version,a.production,a.owner_test)
