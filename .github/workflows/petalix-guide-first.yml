@@ -24,7 +24,11 @@ jobs:
           java-version: '17'
       - name: Build Android test APK
         working-directory: guide-first
-        run: ./gradlew --no-daemon --console=plain lintDebug assembleDebug
+        run: |
+          ./gradlew --no-daemon --console=plain assembleDebug lintDebug || {
+            find build -name lint-results-debug.txt -exec cat {} +
+            exit 1
+          }
       - name: Verify APK package and signature
         run: |
           cp guide-first/build/outputs/apk/debug/*-debug.apk Petalix-Guide-Test.apk

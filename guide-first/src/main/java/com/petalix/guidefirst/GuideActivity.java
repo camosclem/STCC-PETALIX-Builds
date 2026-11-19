@@ -40,7 +40,7 @@ public class GuideActivity extends Activity {
     }
     private int dp(float px){return Math.round(px*getResources().getDisplayMetrics().density);}
     private TextView label(int size){TextView t=new TextView(this);t.setTextSize(size);t.setTextColor(-1);return t;}
-    private LinearLayout column(){LinearLayout v=new LinearLayout(this);v.setOrientation(1);return v;}
+    private LinearLayout column(){LinearLayout v=new LinearLayout(this);v.setOrientation(LinearLayout.VERTICAL);return v;}
     private void importButton(String name,int kind){
         Button b=new Button(this);b.setText(name);actions.addView(b);
         b.setOnClickListener(v->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE),kind));
@@ -74,7 +74,7 @@ public class GuideActivity extends Activity {
         hero.setLayoutParams(new LinearLayout.LayoutParams(-1,tuned==null?Math.min(dp(90),height/4):preview));
         video.setVisibility(tuned==null?View.GONE:View.VISIBLE);
         info.setVisibility(full?View.GONE:View.VISIBLE);
-        hero.setOrientation(!full&&portrait?1:0);
+        hero.setOrientation(!full && portrait ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         info.setLayoutParams(portrait?new LinearLayout.LayoutParams(-1,-2):new LinearLayout.LayoutParams(0,-1,1));
         video.setLayoutParams(full?new LinearLayout.LayoutParams(-1,-1):portrait?new LinearLayout.LayoutParams(-1,0,1):new LinearLayout.LayoutParams(0,-1,1));
         actions.setVisibility(full?View.GONE:View.VISIBLE);list.setVisibility(full?View.GONE:View.VISIBLE);
