@@ -31,17 +31,17 @@ jobs:
           }
       - name: Verify APK package and signature
         run: |
-          cp guide-first/build/outputs/apk/debug/*-debug.apk Petalix-Guide-Test.apk
+          cp guide-first/build/outputs/apk/debug/*-debug.apk Petalix-TV-Preview.apk
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
-          "$BUILD_TOOLS/apksigner" verify --verbose Petalix-Guide-Test.apk
-          "$BUILD_TOOLS/aapt" dump badging Petalix-Guide-Test.apk > badging.txt
-          grep -F "package: name='com.petalix.guidefirst'" badging.txt
+          "$BUILD_TOOLS/apksigner" verify --verbose Petalix-TV-Preview.apk
+          "$BUILD_TOOLS/aapt" dump badging Petalix-TV-Preview.apk > badging.txt
+          grep -F "package: name='com.petalix.guidereview'" badging.txt
           grep -F "leanback-launchable-activity:" badging.txt
-          sha256sum Petalix-Guide-Test.apk > SHA256SUMS.txt
+          sha256sum Petalix-TV-Preview.apk > SHA256SUMS.txt
       - name: Publish test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "petalix-guide-test-$GITHUB_RUN_ID" Petalix-Guide-Test.apk SHA256SUMS.txt \
-            --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide Android Test" \
-            --notes "Standalone Android TV guide prototype. Import an M3U playlist and XMLTV listings. OK previews a channel and a second press opens full screen. Debug-signed test package com.petalix.guidefirst."
+          gh release create "petalix-guide-test-$GITHUB_RUN_ID" Petalix-TV-Preview.apk SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix TV Preview" \
+            --notes "Full-screen program guide, sports and streaming service tiles. Sample listings open immediately. Sign in with a separate Petalix Control preview PIN to load the assigned lineup and listings. Independent Android package com.petalix.guidereview."
