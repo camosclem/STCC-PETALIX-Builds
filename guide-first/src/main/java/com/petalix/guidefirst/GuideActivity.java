@@ -17,6 +17,7 @@ import java.util.concurrent.*;
 import java.util.regex.*;
 import java.text.SimpleDateFormat;
 
+@androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
 public class GuideActivity extends Activity {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final List<Station> stations = new ArrayList<>();
@@ -52,7 +53,7 @@ public class GuideActivity extends Activity {
         info.setGravity(Gravity.CENTER_VERTICAL);title=label(22);description=label(16);title.setMaxLines(2);description.setMaxLines(2);
         title.setText("Petalix Live TV");description.setText("Open your channel playlist to begin.");
         info.addView(title);info.addView(description);hero.addView(info);
-        video=new PlayerView(this);video.setUseController(false);video.setFocusable(false);hero.addView(video);
+        video=new PlayerView(this);video.setErrorMessageProvider(error -> "Could not play this channel. Check the stream URL and try again.");video.setUseController(false);video.setFocusable(false);hero.addView(video);
         root.addView(hero);actions=new LinearLayout(this);root.addView(actions);
         importButton("Playlist",1);importButton("TV listings",2);
         list=new ListView(this);root.addView(list,new LinearLayout.LayoutParams(-1,0,1));
@@ -94,15 +95,16 @@ public class GuideActivity extends Activity {
     @Override public void onBackPressed(){if(full){full=false;layout();list.requestFocus();list.setSelection(stations.indexOf(tuned));}else super.onBackPressed();}
     @Override public void onStart(){super.onStart();player=new ExoPlayer.Builder(this).build();video.setPlayer(player);
         if(tuned!=null){player.setMediaItem(MediaItem.fromUri(tuned.url));player.prepare();player.play();}}
-    @Override public void onStop(){video.setPlayer(null);player.release();super.onStop();}
+    @Override public void onStop(){video.setPlayer(null);player.release();player=null;super.onStop();}
     @Override public void onDestroy(){io.shutdownNow();super.onDestroy();}
     @Override public void onActivityResult(int kind,int result,Intent data){super.onActivityResult(kind,result,data);
-        if(result==RESULT_OK&&data!=null&&data.getData()!=null){Uri u=data.getData();getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);load(u,kind);}}
+        if(result==RESULT_OK&&data!=null&&data.getData()!=null){Uri u=data.getData();try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (SecurityException ignored) {}
+            load(u,kind);}}
     private void load(Uri u,int kind){
         io.submit(()->{try(InputStream in=getContentResolver().openInputStream(u)){
             List<Station> next=kind==1?playlist(in):null;
             Map<String,List<Show>> shows=kind==2?listings(in):null;
-            runOnUiThread(()->{if(isDestroyed())return;if(next!=null){stations.clear();stations.addAll(next);tuned=null;if(player!=null)player.stop();}
+            runOnUiThread(()->{if(isDestroyed())return;if(next!=null){stations.clear();stations.addAll(next);tuned=null;full=false;if(player!=null)player.stop();}
                 if(shows!=null)schedule=shows;getPreferences(0).edit().putString("input"+kind,u.toString()).apply();refresh();});
         }catch(Exception ex){runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,"Cannot read "+(kind==1?"playlist":"TV listings"),Toast.LENGTH_LONG).show();});}});
     }
