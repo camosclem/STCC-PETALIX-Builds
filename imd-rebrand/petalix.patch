@@ -1,5 +1,5 @@
 diff --git a/app/build.gradle.kts b/app/build.gradle.kts
-index 149cff9..467421e 100644
+index 149cff9..1bd9f19 100644
 --- a/app/build.gradle.kts
 +++ b/app/build.gradle.kts
 @@ -14,11 +14,11 @@ android {
@@ -10,9 +10,10 @@ index 149cff9..467421e 100644
 +        applicationId = "com.petalix.imdpreview"
          minSdk = 26
          targetSdk = 35
-         versionCode = 9
+-        versionCode = 9
 -        versionName = "0.5.2"
-+        versionName = "0.5.2-petalix-preview.1"
++        versionCode = 10
++        versionName = "0.5.2-petalix-preview.2"
      }
  
      // Release key, kept outside the repo: ~/.config/iptv-tv/keystore.properties (storeFile, storePassword, keyAlias,
@@ -29,6 +30,27 @@ index 831dcba..087bd49 100644
  
      <!-- Browse files…: see which file manager apps can pick a .zip or an image. -->
      <queries>
+diff --git a/app/src/main/java/org/imdtv/iptvtv/AppContainer.kt b/app/src/main/java/org/imdtv/iptvtv/AppContainer.kt
+index ecb215b..52f6a24 100644
+--- a/app/src/main/java/org/imdtv/iptvtv/AppContainer.kt
++++ b/app/src/main/java/org/imdtv/iptvtv/AppContainer.kt
+@@ -58,6 +58,8 @@ class AppContainer(context: Context) {
+     /** Portal sessions per playlist, shared by sync, playback and recording. */
+     val stalkerLinks by lazy { org.imdtv.iptvtv.data.source.StalkerLinks(http) { db.providerDao().get(it) } }
+ 
++    val petalixAccount by lazy { org.imdtv.iptvtv.data.petalix.PetalixAccount(this) }
++
+     val catalogueSync: CatalogueSync by lazy {
+         CatalogueSync(db, keepLanguage = { if (settings.settings.first().matchTvLanguage) tvLanguage() else null })
+     }
+@@ -70,6 +72,7 @@ class AppContainer(context: Context) {
+                 try { if (LogoKind.OPEN_SOURCE in settings.settings.first().logoOrder) logos.refreshBuiltin(id) } catch (e: Exception) {
+                     if (e is kotlinx.coroutines.CancellationException) throw e; failed("tv-logos match", e)
+                 }
++                try { petalixAccount.updateSports(id) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; failed("sports refresh", e) }
+                 try { logos.pruneCustom() } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; failed("logo clean-up", e) }
+             }
+         })
 diff --git a/app/src/main/java/org/imdtv/iptvtv/MainActivity.kt b/app/src/main/java/org/imdtv/iptvtv/MainActivity.kt
 index 1597410..12711d6 100644
 --- a/app/src/main/java/org/imdtv/iptvtv/MainActivity.kt
@@ -59,13 +81,234 @@ index 1597410..12711d6 100644
          (application as IptvApp).container.sync.onForeground()
      }
  }
+diff --git a/app/src/main/java/org/imdtv/iptvtv/data/petalix/PetalixAccount.kt b/app/src/main/java/org/imdtv/iptvtv/data/petalix/PetalixAccount.kt
+new file mode 100644
+index 0000000..bc30aae
+--- /dev/null
++++ b/app/src/main/java/org/imdtv/iptvtv/data/petalix/PetalixAccount.kt
+@@ -0,0 +1,202 @@
++package org.imdtv.iptvtv.data.petalix
++
++import android.os.Build
++import androidx.room.withTransaction
++import java.io.IOException
++import java.time.Instant
++import java.util.Locale
++import java.util.UUID
++import kotlin.math.*
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.flow.first
++import kotlinx.coroutines.sync.Mutex
++import kotlinx.coroutines.sync.withLock
++import kotlinx.coroutines.withContext
++import okhttp3.HttpUrl.Companion.toHttpUrl
++import okhttp3.MediaType.Companion.toMediaType
++import okhttp3.Request
++import okhttp3.RequestBody.Companion.toRequestBody
++import org.imdtv.iptvtv.AppContainer
++import org.imdtv.iptvtv.BuildConfig
++import org.imdtv.iptvtv.data.db.ChannelEntity
++import org.imdtv.iptvtv.data.db.GroupPlacement
++import org.imdtv.iptvtv.data.db.ProviderEntity
++import org.imdtv.iptvtv.data.db.ProviderType
++import org.imdtv.iptvtv.data.model.Kind
++import org.imdtv.iptvtv.data.model.StreamFormat
++import org.imdtv.iptvtv.data.security.Secrets
++import org.json.JSONArray
++import org.json.JSONObject
++
++class PetalixSetupError(message: String) : IOException(message)
++
++class PetalixAccount(private val app: AppContainer) {
++    private val prefs = app.appContext.getSharedPreferences("petalix_imd_preview", 0)
++    private val lock = Mutex()
++    private val groupLock = Mutex()
++    private val client by lazy { app.http.newBuilder().followRedirects(false).followSslRedirects(false).build() }
++
++    val canResume: Boolean get() = prefs.contains("activation")
++    val zipCode: String get() = prefs.getString("zip", "").orEmpty()
++
++    suspend fun connect(pin: String?, progress: (String) -> Unit): String = withContext(Dispatchers.IO) {
++        lock.withLock {
++            val account = if (pin == null) {
++                val token = Secrets.decrypt(prefs.getString("activation", null))
++                    ?: throw PetalixSetupError("Enter the PIN for this preview device.")
++                post("status", null, token)
++            } else {
++                if (!pin.matches(Regex("[0-9]{8}"))) throw PetalixSetupError("Enter an 8-digit PIN.")
++                post("activate", pin, null).also { response ->
++                    val token = response.optString("token")
++                    if (token.isBlank()) throw PetalixSetupError("Petalix Control did not return a session.")
++                    val encrypted = Secrets.encrypt(token)
++                    if (!Secrets.isEncrypted(encrypted) || !prefs.edit().putString("activation", encrypted).commit()) {
++                        throw PetalixSetupError("Could not save the preview activation on this device.")
++                    }
++                }
++            }
++            val expiry = account.optString("expires").takeIf(String::isNotBlank)
++            if (expiry != null && Instant.parse(expiry).toEpochMilli() <= System.currentTimeMillis()) {
++                throw PetalixSetupError("This Petalix account has expired.")
++            }
++            val old = prefs.getLong("playlist", -1L).takeIf { it > 0 }?.let { app.db.providerDao().get(it) }
++            val raw = account.optString("server").trim()
++            val user = account.optString("username")
++            val password = account.optString("password")
++            val available = raw.isNotEmpty() && user.isNotEmpty() && password.isNotEmpty()
++            val provider = if (!available) old ?: throw PetalixSetupError("This account has no playlist assigned in Petalix Control.")
++            else {
++                val normalized = (if ("://" in raw) raw else "http://$raw").toHttpUrl()
++                if (normalized.username.isNotEmpty() || normalized.password.isNotEmpty()) {
++                    throw PetalixSetupError("Petalix Control returned an invalid provider address.")
++                }
++                val base = normalized.newBuilder().encodedPath("/").query(null).fragment(null).build().toString().trimEnd('/')
++                old?.copy(url = base, username = user, password = password) ?: ProviderEntity(
++                    name = "Petalix", type = ProviderType.XTREAM, url = base, username = user, password = password,
++                    userAgent = null, streamFormat = StreamFormat.TS, epgOverrideUrls = emptyList(), lastSync = null,
++                )
++            }
++            val id = if (old == null) app.providerRepository.add(provider).also {
++                check(prefs.edit().putLong("playlist", it).commit())
++            } else old.id
++            if (old != null && old != provider) app.providerRepository.update(provider)
++            val result = try {
++                app.providerRepository.syncNow(id, progress)
++            } catch (error: Exception) {
++                if (old != null && old != provider) app.providerRepository.update(old)
++                throw error
++            }
++            app.providerRepository.setActive(id)
++            "${result.channels} channels · ${result.movies} movies · ${result.series} series. The TV guide is loading."
++        }
++    }
++
++    private fun post(action: String, pin: String?, token: String?): JSONObject {
++        val base = "petalix-control.caroliinaconsultant.chatgpt.site"
++        val officialHosts = setOf(base, "petalix-control.pinkgiant5.chatgpt.site")
++        val route = "/api/device/$action"
++        var endpoint = "https://$base$route".toHttpUrl()
++        val id = prefs.getString("device", null) ?: UUID.randomUUID().toString().also {
++            check(prefs.edit().putString("device", it).commit())
++        }
++        val report = JSONObject().put("deviceId", id).put("brand", "petalix")
++            .put("label", "${Build.MANUFACTURER} ${Build.MODEL} (Petalix IMD Preview)")
++            .put("packageName", BuildConfig.APPLICATION_ID).put("clientVersion", BuildConfig.VERSION_NAME)
++            .put("clientBuild", BuildConfig.VERSION_CODE).put("capabilities", JSONArray().put("panel-session-origin-v1"))
++        if (pin != null) report.put("code", pin)
++        val body = report.toString().toRequestBody("application/json".toMediaType())
++        repeat(3) {
++            val request = Request.Builder().url(endpoint).post(body)
++            if (token != null) request.header("Authorization", "Bearer $token")
++            client.newCall(request.build()).execute().use { response ->
++                if (response.code in setOf(301, 302, 303, 307, 308)) {
++                    val next = response.header("Location")?.let(endpoint::resolve)
++                    if (next == null || !next.isHttps || next.port != 443 || next.host !in officialHosts ||
++                        next.username.isNotEmpty() || next.password.isNotEmpty() || next.encodedPath != route ||
++                        next.query != null || next.fragment != null) {
++                        throw PetalixSetupError("Petalix Control returned an unrecognized address.")
++                    }
++                    endpoint = next
++                } else {
++                    if (response.code == 401 || response.code == 403) {
++                        if (token != null) prefs.edit().remove("activation").apply()
++                        throw PetalixSetupError("Activation was declined. Check the PIN and available device slots in Petalix Control.")
++                    }
++                    if (!response.isSuccessful) throw PetalixSetupError("Petalix Control could not complete the request (${response.code}).")
++                    return JSONObject(response.body?.string().orEmpty())
++                }
++            }
++        }
++        throw PetalixSetupError("Petalix Control redirected too many times.")
++    }
++
++    suspend fun findLocals(zip: String): String = withContext(Dispatchers.IO) {
++        lock.withLock {
++            if (!zip.matches(Regex("[0-9]{5}"))) throw PetalixSetupError("Enter a 5-digit ZIP code.")
++            val provider = app.providerRepository.activeProviderId.first()
++                ?: throw PetalixSetupError("Load a playlist before finding local channels.")
++            val request = Request.Builder().url("https://api.zippopotam.us/us/$zip").build()
++            val place = app.http.newCall(request).execute().use { response ->
++                if (response.code == 404) throw PetalixSetupError("ZIP code not found.")
++                if (!response.isSuccessful) throw PetalixSetupError("ZIP lookup is temporarily unavailable.")
++                JSONObject(response.body?.string().orEmpty()).getJSONArray("places").getJSONObject(0)
++            }
++            val lat = Math.toRadians(place.getDouble("latitude"))
++            val lon = Math.toRadians(place.getDouble("longitude"))
++            val stations = app.appContext.assets.open("local-stations.json").bufferedReader().use {
++                JSONObject(it.readText()).getJSONArray("stations")
++            }
++            val calls = mutableSetOf<String>()
++            for (index in 0 until stations.length()) {
++                val station = stations.getJSONObject(index)
++                val y = Math.toRadians(station.getDouble("lat"))
++                val x = Math.toRadians(station.getDouble("lon"))
++                val arc = sin(lat) * sin(y) + cos(lat) * cos(y) * cos(lon - x)
++                if (acos(arc.coerceIn(-1.0, 1.0)) * 3959 <= 90) {
++                    calls += station.getString("call").uppercase(Locale.US).substringBefore('-')
++                }
++            }
++            val matches = app.db.channelDao().byProvider(provider).filter { channel ->
++                !channel.hidden && "${channel.name} ${channel.tvgId.orEmpty()}".uppercase(Locale.US)
++                    .split(CALL_SEPARATOR).any { it in calls }
++            }
++            if (matches.isEmpty()) throw PetalixSetupError("No local channels for $zip were found in this playlist.")
++            saveGroup(provider, "My Locals", matches)
++            prefs.edit().putString("zip", zip).apply()
++            "${matches.size} channels in My Locals"
++        }
++    }
++
++    suspend fun updateSports(provider: Long) {
++        val categories = app.db.categoryDao().all(provider, Kind.LIVE).associate { it.id to it.name }
++        val channels = app.db.channelDao().byProvider(provider).filter {
++            !it.hidden && SPORT.containsMatchIn("${categories[it.categoryId].orEmpty()} ${it.name}")
++        }
++        if (channels.isNotEmpty()) saveGroup(provider, "Sports Hub", channels)
++    }
++
++    private suspend fun saveGroup(provider: Long, title: String, matches: List<ChannelEntity>) = groupLock.withLock {
++        val prefsKey = "group:$provider:$title"
++        val dao = app.db.customGroupDao()
++        val tracked = prefs.getLong(prefsKey, -1L)
++        val group = app.db.withTransaction {
++            val id = dao.observe(provider).first().firstOrNull { it.id == tracked && it.name == title }?.id
++                ?: dao.create(provider, title)
++            dao.setPlacement(id, GroupPlacement.TOP)
++            val existing = dao.memberRemoteIds(id).toSet()
++            val wanted = matches.mapTo(HashSet()) { it.remoteId }
++            app.db.channelDao().remoteIds(provider).filter { it.remoteId in existing && it.remoteId !in wanted }
++                .forEach { dao.removeChannel(id, it.id) }
++            matches.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }).forEach { dao.addChannel(id, it.id) }
++            id
++        }
++        prefs.edit().putLong(prefsKey, group).apply()
++        Unit
++    }
++
++    private companion object {
++        val CALL_SEPARATOR = Regex("[^A-Z0-9]+")
++        val SPORT = Regex("""\b(sports?|nfl|nba|wnba|mlb|nhl|ncaa|ncaaf|ncaab|soccer|football|basketball|baseball|hockey|ufc|ppv|espn|tsn|fanduel|tennis|golf|fubo|f1|nascar|bein|dazn)\b""", RegexOption.IGNORE_CASE)
++    }
++}
 diff --git a/app/src/main/java/org/imdtv/iptvtv/data/settings/AppSettings.kt b/app/src/main/java/org/imdtv/iptvtv/data/settings/AppSettings.kt
-index 4417a64..729ec89 100644
+index 4417a64..ed4e87c 100644
 --- a/app/src/main/java/org/imdtv/iptvtv/data/settings/AppSettings.kt
 +++ b/app/src/main/java/org/imdtv/iptvtv/data/settings/AppSettings.kt
-@@ -71,7 +71,7 @@ data class AppSettings(
+@@ -11,7 +11,8 @@ fun themeIdOf(stored: String?): ThemeId = ThemeId.entries.find { it.name == stor
+  * Glass's dark→light gradient, [liquid] Liquid Glass's backdrop gradient. DEFAULT keeps each theme's own colours.
+  */
+ enum class ThemeColour(val label: String, val glass: List<Long>, val liquid: List<Long>) {
+-    DEFAULT("Default", listOf(0xFF0A1753, 0xFF1A39A6, 0xFF3459CA), listOf(0xFF0FB5BA, 0xFF7A3CF0)),
++    PETALIX("Petalix", listOf(0xFF20111B, 0xFF3B233B, 0xFF76506C), listOf(0xFFBB7055, 0xFF593D6A)),
++    DEFAULT("Original", listOf(0xFF0A1753, 0xFF1A39A6, 0xFF3459CA), listOf(0xFF0FB5BA, 0xFF7A3CF0)),
+     PURPLE("Purple", listOf(0xFF22104F, 0xFF4B21A0, 0xFF6E45C8), listOf(0xFF9B3CF0, 0xFFF03C9B)),
+     TEAL("Teal", listOf(0xFF06323A, 0xFF0D6F7A, 0xFF1C9AA0), listOf(0xFF0FB5BA, 0xFF0F5FBA)),
+     GREEN("Green", listOf(0xFF0A3318, 0xFF1A6E35, 0xFF2F9752), listOf(0xFF2FBF71, 0xFF0F9AB5)),
+@@ -69,9 +70,9 @@ data class AppSettings(
+     val guideOrder: List<GuideKind> = DEFAULT_GUIDE_ORDER,
+     val borrowSiblingGuide: Boolean = true,
      val hideHeaderChannels: Boolean = false,
-     val themeColour: ThemeColour = ThemeColour.DEFAULT,
+-    val themeColour: ThemeColour = ThemeColour.DEFAULT,
++    val themeColour: ThemeColour = ThemeColour.PETALIX,
      /** Celestial Glass / Liquid Glass: near-black versions of the theme colour. */
 -    val themeDark: Boolean = false,
 +    val themeDark: Boolean = true,
@@ -136,6 +379,152 @@ index d28c24c..98cc05b 100644
          c.share.rm(path)
      }
      null
+diff --git a/app/src/main/java/org/imdtv/iptvtv/ui/AppViewModel.kt b/app/src/main/java/org/imdtv/iptvtv/ui/AppViewModel.kt
+index 42bff67..c4fd8e2 100644
+--- a/app/src/main/java/org/imdtv/iptvtv/ui/AppViewModel.kt
++++ b/app/src/main/java/org/imdtv/iptvtv/ui/AppViewModel.kt
+@@ -64,6 +64,7 @@ data class FormState(val busy: Boolean = false, val error: String? = null, val r
+ class AppViewModel(app: Application) : AndroidViewModel(app) {
+     private val c = (app as IptvApp).container
+     val player get() = c.playerManager
++    val savedPetalixActivation get() = c.petalixAccount.canResume
+ 
+     val stack = MutableStateFlow<List<Screen>>(listOf(Screen.Loading))
+     val tab = MutableStateFlow(Tab.LIVE)
+@@ -145,6 +146,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
+         return true
+     }
+ 
++    fun connectPetalix(pin: String?) {
++        if (form.value.busy) return
++        form.value = FormState(busy = true, progress = "Connecting to Petalix Control…")
++        viewModelScope.launch {
++            try {
++                val summary = c.petalixAccount.connect(pin) { step -> form.value = form.value.copy(progress = step) }
++                hasProvider = true
++                EpgRefreshWorker.runNow(getApplication())
++                form.value = FormState(result = summary)
++            } catch (e: kotlinx.coroutines.CancellationException) {
++                throw e
++            } catch (e: org.imdtv.iptvtv.data.petalix.PetalixSetupError) {
++                form.value = FormState(error = e.message)
++            } catch (_: Exception) {
++                form.value = FormState(error = "Unable to load the assigned playlist. Check the connection and try again.")
++            }
++        }
++    }
++
+     /** A blank [name] keeps the automatic one: the URL's host. */
+     fun save(type: ProviderType, url: String, username: String, password: String, epgUrls: String, userAgent: String, editing: ProviderEntity? = null, name: String = "") {
+         val trimmed = url.trim().trimEnd('/')
+diff --git a/app/src/main/java/org/imdtv/iptvtv/ui/ProviderFormScreen.kt b/app/src/main/java/org/imdtv/iptvtv/ui/ProviderFormScreen.kt
+index 43737c4..16d6a7c 100644
+--- a/app/src/main/java/org/imdtv/iptvtv/ui/ProviderFormScreen.kt
++++ b/app/src/main/java/org/imdtv/iptvtv/ui/ProviderFormScreen.kt
+@@ -79,13 +79,31 @@ private fun ProviderForm(vm: AppViewModel, editing: ProviderEntity?) {
+     val ready = state.result != null
+     val next = remember { FocusRequester() }
+     val save = remember { FocusRequester() }
++    val pinFocus = remember { FocusRequester() }
+     // What was typed may never have been saved (a failed add is removed), so the scrubber is given it directly.
+     if (sendLogs) org.imdtv.iptvtv.ui.settings.SendLogsPage(listOf(user, pass, deviceId)) { sendLogs = false; runCatching { save.requestFocus() } }
+-    LaunchedEffect(ready) { if (ready) runCatching { next.requestFocus() } } // Save has gone: focus Watch/Done, not the top
++    LaunchedEffect(ready) { if (ready) runCatching { next.requestFocus() } }
++    LaunchedEffect(editing) {
++        if (editing == null && !vm.canLeaveSetup) {
++            androidx.compose.runtime.withFrameNanos { }
++            runCatching { pinFocus.requestFocus() }
++        }
++    } // Save has gone: focus Watch/Done, not the top
+     // One 1080p screen (960×540 dp): labels sit beside the fields, progress and Watch on the right.
+     // Scrolls only when the Name box is open on the tallest (Stalker) form.
+     Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 48.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+         Text(if (editing == null) "Add playlist" else "Edit ${editing.name}", style = MaterialTheme.typography.headlineSmall, color = Color.White)
++        if (editing == null && !ready) {
++            org.imdtv.iptvtv.ui.settings.EditRow(
++                "Petalix PIN", "Use a PIN assigned to a separate preview device.", null, "",
++                Modifier.width(560.dp).focusRequester(pinFocus), keyboard = KeyboardType.NumberPassword,
++                secret = true, saveLabel = "Connect",
++            ) { vm.connectPetalix(it) }
++            if (vm.savedPetalixActivation) {
++                Button(onClick = { vm.connectPetalix(null) }, enabled = !state.busy) { Text("Refresh Petalix account") }
++            }
++        }
++        if (editing == null && ready) org.imdtv.iptvtv.ui.settings.PetalixZipRow()
+         Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+             Column(Modifier.width(560.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                 if (editing == null) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+diff --git a/app/src/main/java/org/imdtv/iptvtv/ui/live/LiveGuideScreen.kt b/app/src/main/java/org/imdtv/iptvtv/ui/live/LiveGuideScreen.kt
+index 967a93d..d143ddc 100644
+--- a/app/src/main/java/org/imdtv/iptvtv/ui/live/LiveGuideScreen.kt
++++ b/app/src/main/java/org/imdtv/iptvtv/ui/live/LiveGuideScreen.kt
+@@ -83,10 +83,10 @@ fun LiveGuideScreen(vm: LiveViewModel, nav: @Composable () -> Unit, onFullScreen
+             Text("All live categories are hidden. Show them again in Settings › Channels & categories.", fontSize = 16.sp,
+                 color = Color.White, modifier = Modifier.padding(start = 24.dp, top = 380.dp))
+         }
+-        Row(Modifier.padding(start = 24.dp, top = gridTop - 18.dp), verticalAlignment = Alignment.CenterVertically) {
++        Row(Modifier.padding(start = 24.dp, top = gridTop - 22.dp), verticalAlignment = Alignment.CenterVertically) {
+             Text(
+                 "◀ ${entry?.title.orEmpty()}", fontSize = 11.sp, color = Color.White, maxLines = 1,
+-                modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(colors.cellDim).padding(horizontal = 7.dp, vertical = 2.dp),
++                modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(colors.panel).border(1.dp, colors.accent.copy(alpha = .64f), RoundedCornerShape(6.dp)).padding(horizontal = 9.dp, vertical = 2.dp),
+             )
+             Text("  Press left for categories", fontSize = 11.sp, color = colors.muted)
+             if (updating) {
+diff --git a/app/src/main/java/org/imdtv/iptvtv/ui/settings/PetalixZipRow.kt b/app/src/main/java/org/imdtv/iptvtv/ui/settings/PetalixZipRow.kt
+new file mode 100644
+index 0000000..6ee75da
+--- /dev/null
++++ b/app/src/main/java/org/imdtv/iptvtv/ui/settings/PetalixZipRow.kt
+@@ -0,0 +1,36 @@
++package org.imdtv.iptvtv.ui.settings
++
++import androidx.compose.runtime.*
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.input.KeyboardType
++import kotlinx.coroutines.CancellationException
++import kotlinx.coroutines.launch
++import org.imdtv.iptvtv.IptvApp
++import org.imdtv.iptvtv.data.petalix.PetalixSetupError
++
++@Composable
++fun PetalixZipRow() {
++    val account = (LocalContext.current.applicationContext as IptvApp).container.petalixAccount
++    val scope = rememberCoroutineScope()
++    var status by remember { mutableStateOf("Find local stations from your playlist") }
++    var busy by remember { mutableStateOf(false) }
++    var zip by remember { mutableStateOf(account.zipCode) }
++    EditRow("Local channels ZIP code", status, zip.ifEmpty { null }, zip, keyboard = KeyboardType.Number, saveLabel = "Find locals") { value ->
++        if (!busy) scope.launch {
++            busy = true
++            status = "Finding stations…"
++            try {
++                status = account.findLocals(value)
++                zip = account.zipCode
++            } catch (e: CancellationException) {
++                throw e
++            } catch (e: PetalixSetupError) {
++                status = e.message.orEmpty()
++            } catch (_: Exception) {
++                status = "Could not look up local stations. Try again."
++            } finally {
++                busy = false
++            }
++        }
++    }
++}
+diff --git a/app/src/main/java/org/imdtv/iptvtv/ui/settings/PlaylistSettings.kt b/app/src/main/java/org/imdtv/iptvtv/ui/settings/PlaylistSettings.kt
+index d3be83d..afdefab 100644
+--- a/app/src/main/java/org/imdtv/iptvtv/ui/settings/PlaylistSettings.kt
++++ b/app/src/main/java/org/imdtv/iptvtv/ui/settings/PlaylistSettings.kt
+@@ -48,6 +48,7 @@ fun PlaylistGroupRows(vm: SettingsViewModel, first: Modifier, openers: MutableMa
+     val providers by vm.providers.collectAsState()
+     val activeId by vm.providerId.collectAsState()
+     SettingRow("Add playlist", "Add another Xtream, M3U or Stalker playlist", null, first, onClick = onAdd)
++    if (activeId != null) PetalixZipRow()
+     providers.forEach { p ->
+         SettingRow(p.name, "${p.typeLabel()} · ${updatedLabel(p.lastSync)}${if (p.id == activeId) " · In use" else ""}", "›",
+             Modifier.focusRequester(openers.getOrPut(p.id) { FocusRequester() })) { onOpen(p.id) }
 diff --git a/app/src/main/java/org/imdtv/iptvtv/ui/settings/SupportRow.kt b/app/src/main/java/org/imdtv/iptvtv/ui/settings/SupportRow.kt
 index 54f9a3c..b012cc3 100644
 --- a/app/src/main/java/org/imdtv/iptvtv/ui/settings/SupportRow.kt
@@ -246,6 +635,26 @@ index 8a1d5d7..c9b6d2b 100644
                  chosen?.let { b -> key(b) {
                      EditRow("Code shown on ${b.name}", "Six digits, on that box's screen", "Not set", "", keyboard = KeyboardType.Number, saveLabel = "Pair") { code ->
                          scope.launch {
+diff --git a/app/src/main/java/org/imdtv/iptvtv/ui/theme/Themes.kt b/app/src/main/java/org/imdtv/iptvtv/ui/theme/Themes.kt
+index 59fae85..262d7cb 100644
+--- a/app/src/main/java/org/imdtv/iptvtv/ui/theme/Themes.kt
++++ b/app/src/main/java/org/imdtv/iptvtv/ui/theme/Themes.kt
+@@ -30,9 +30,13 @@ fun colorsOf(id: ThemeId, colour: ThemeColour = ThemeColour.DEFAULT, dark: Boole
+     return when (id) {
+         // Celestial Glass: cells, panel and VOD colours follow the chosen gradient the way the default blue's do.
+         ThemeId.CELESTIAL_GLASS -> {
+-            val (d, m, l) = colour.glass.mapIndexed { i, c -> themeStop(c, dark, if (i == 0) DARK_PULL_DEEPEST else DARK_PULL) }
++            val (d, m, l) = colour.glass.mapIndexed { i, c ->
++                themeStop(c, dark, if (colour == ThemeColour.PETALIX) .38f else if (i == 0) DARK_PULL_DEEPEST else DARK_PULL)
++            }
++            val focus = if (colour == ThemeColour.PETALIX) Color(0xFFFFD79E) else base.focus
++            val accent = if (colour == ThemeColour.PETALIX) Color(0xFFF0A469) else base.accent
+             base.copy(bg = listOf(d, m, l), cell = lerp(l, Color.White, .08f).copy(alpha = .55f), cellDim = l.copy(alpha = .35f),
+-                panel = lerp(d, Color.Black, .25f).copy(alpha = .94f), onFocus = d, vodBg = lerp(d, Color.Black, .1f), vodCard = lerp(d, m, .35f))
++                panel = lerp(d, Color.Black, .25f).copy(alpha = .94f), focus = focus, accent = accent, onFocus = d, vodBg = lerp(d, Color.Black, .1f), vodCard = lerp(d, m, .35f))
+         }
+         ThemeId.LIQUID_GLASS -> {
+             val bg = colour.liquid.map { themeStop(it, dark) }
 diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
 index e176145..67fee8f 100644
 --- a/app/src/main/res/values/strings.xml

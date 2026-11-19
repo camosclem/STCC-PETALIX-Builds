@@ -24,6 +24,8 @@ jobs:
           test "$(git -C source rev-parse HEAD)" = 369d43e05ba9de7e5b61fb0621fb7f2bf7558da8
           git -C source apply --whitespace=error "$GITHUB_WORKSPACE/imd-rebrand/petalix.patch"
           cp -a imd-rebrand/res/. source/app/src/main/res/
+          mkdir -p source/app/src/main/assets
+          cp tooling/android-build/local-stations.json source/app/src/main/assets/
           cp imd-rebrand/README.md source/PETALIX.md
           git -C source add .
           git -C source -c user.name='Petalix build' -c user.email='actions@users.noreply.github.com' commit -m 'Apply Petalix preview branding'
@@ -47,4 +49,4 @@ jobs:
         run: |
           gh release create "petalix-imd-preview-$GITHUB_RUN_ID" Petalix-IMD-Preview.apk Petalix-IMD-Source.zip SHA256SUMS.txt \
             --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix IMD Preview" \
-            --notes "Petalix preview based on IMD TV v0.5.2 by majorleeevil. Starts with Celestial Glass in Dark Mode. Installs alongside existing apps and uses its own playlist setup. Corresponding GPL-3.0 source is attached."
+            --notes "Petalix preview based on IMD TV v0.5.2 by majorleeevil. Petalix plum and gold theme, PIN activation, ZIP-based My Locals, and a Sports Hub populated from the assigned lineup. The native Movies and Series screens use the assigned Xtream catalogues. Standalone preview Android package. Corresponding GPL-3.0 source is attached."
