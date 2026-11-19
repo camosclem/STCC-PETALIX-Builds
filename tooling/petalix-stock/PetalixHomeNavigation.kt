@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
@@ -36,26 +37,29 @@ internal val LocalPetalixHomeTab = staticCompositionLocalOf<((HomeTab) -> Unit)?
 @Composable
 internal fun PetalixHomeNavigation(modifier: Modifier, contentFocus: FocusRequester, open: (HomeTab) -> Unit) {
     val shape = RoundedCornerShape(24.dp)
-    Row(modifier.clip(shape).background(Color(0xDD0A101B)).padding(4.dp),
+    Row(modifier.alpha(if (com.nuvio.tv.LocalSidebarExpanded.current) 0f else 1f)
+        .clip(shape).background(Color(0xE5161719)).padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
         HomeTab.entries.forEach { tab ->
-            var focused by remember { mutableStateOf(false) }
-            val home = tab == HomeTab.HOME
-            Text(
-                tab.label, fontSize = 14.sp, fontWeight = if (home || focused) FontWeight.Bold else FontWeight.Medium,
-                color = if (focused) Color(0xFF101725) else Color.White,
-                modifier = Modifier.clip(shape)
-                    .background(when { focused -> Color(0xFFF1F3F7); home -> Color(0xFF333D4B); else -> Color.Transparent })
-                    .semantics { selected = home }
-                    .onFocusChanged { focused = it.isFocused }
-                    .onPreviewKeyEvent {
-                        if (it.type == KeyEventType.KeyDown && it.key == Key.DirectionDown)
-                            runCatching { contentFocus.requestFocus(FocusDirection.Enter) }.getOrDefault(false)
-                        else false
-                    }
-                    .clickable { if (home) runCatching { contentFocus.requestFocus() } else open(tab) }
-                    .padding(horizontal = 12.dp, vertical = 7.dp)
-            )
+            PetalixDestination(tab.label, tab == HomeTab.HOME, Modifier.onPreviewKeyEvent {
+                if (it.type == KeyEventType.KeyDown && it.key == Key.DirectionDown)
+                    runCatching { contentFocus.requestFocus(FocusDirection.Enter) }.getOrDefault(false)
+                else false
+            }) { if (tab == HomeTab.HOME) runCatching { contentFocus.requestFocus() } else open(tab) }
         }
     }
+}
+
+@Composable
+internal fun PetalixDestination(label: String, active: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(18.dp)
+    Text(label, maxLines = 1, softWrap = false, fontSize = 14.sp,
+        fontWeight = if (active || focused) FontWeight.Bold else FontWeight.Medium,
+        color = if (focused) Color(0xFF161719) else Color.White,
+        modifier = modifier.clip(shape)
+            .background(when { focused -> Color(0xFFEAC680); active -> Color(0xFF393735); else -> Color.Transparent })
+            .semantics { selected = active }
+            .onFocusChanged { focused = it.isFocused }.clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp))
 }

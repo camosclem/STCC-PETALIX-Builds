@@ -32,7 +32,13 @@ def brand_string(match):
 def apply(root):
     subprocess.run(['git', 'apply', '--whitespace=error', str(HERE / 'cinematic-guide.patch')], cwd=root, check=True)
     subprocess.run(['git', 'apply', '--whitespace=error', str(HERE / 'guide-ready.patch')], cwd=root, check=True)
+    subprocess.run(['git', 'apply', '--whitespace=error', str(HERE / 'petalix-navigation.patch')], cwd=root, check=True)
     source = root / 'app/src'
+    copy2(HERE / 'PetalixNavigationShell.kt', source / 'main/java/com/nuvio/tv/PetalixNavigationShell.kt')
+    copy2(HERE / 'PetalixRemoteGuide.kt', source / 'main/java/com/nuvio/tv/PetalixRemoteGuide.kt')
+    remote_assets = source / 'main/assets/petalix/remote-guide'
+    remote_assets.mkdir(parents=True, exist_ok=True)
+    copy2(HERE / 'remote-guide/remote.html', remote_assets / 'remote.html')
     ui = source / 'main/java/com/nuvio/tv/livetv/ui'
     copy2(HERE / 'PetalixGuideHero.kt', ui / 'PetalixGuideHero.kt')
     copy2(HERE / 'PetalixHomeNavigation.kt', source / 'main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt')

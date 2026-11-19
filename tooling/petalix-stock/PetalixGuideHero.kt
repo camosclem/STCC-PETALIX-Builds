@@ -130,7 +130,8 @@ internal fun PetalixGuideHeader(
             LiveText("Live TV", color = GuideGold, size = 14.sp, weight = FontWeight.Bold)
         }
         Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
-            GuideCommand("Guide menu", onMenu, onDown, Modifier.focusRequester(settingsFocus))
+            GuideCommand("Petalix menu", com.nuvio.tv.LocalOpenSidebar.current, onDown)
+            GuideCommand("Guide options", onMenu, onDown, Modifier.focusRequester(settingsFocus))
             Spacer(Modifier.width(10.dp))
             LiveText(formatClock(now, settings.use24HourClock), size = 13.sp, color = GuideSilver)
         }

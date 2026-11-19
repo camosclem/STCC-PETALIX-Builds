@@ -1,0 +1,293 @@
+--- a/app/src/main/java/com/nuvio/tv/MainActivity.kt
++++ b/app/src/main/java/com/nuvio/tv/MainActivity.kt
+@@ -968,12 +968,6 @@
+                             }
+                         )
+                     } else {
+-                    val sidebarCollapsed = mainUiPrefs.sidebarCollapsed
+-                    val modernSidebarEnabled = mainUiPrefs.modernSidebarEnabled
+-                    val modernSidebarBlurEnabled =
+-                        mainUiPrefs.modernSidebarBlurPref && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+-                    val hideBuiltInHeadersForFloatingPill = modernSidebarEnabled && !sidebarCollapsed
+-
+                     // Live TV fork: "Open the App On": that page is the first screen, in place of
+                     // Home (read once, so the first screen never changes underneath).
+                     val openOnRoute = remember { if (petalixBridge.homeServicesMigrationPending) null else com.nuvio.tv.livetv.startup.StartPage.cachedRoute(this@MainActivity) }
+@@ -984,14 +978,12 @@
+                     }
+                     val navController = rememberNavController()
+                     val navViewModelStoreOwner = rememberNavSessionViewModelStoreOwner(navController)
+-                    var optimisticRoute by remember { mutableStateOf<String?>(null) }
+                     val navBackStackEntry by navController.currentBackStackEntryAsState()
+                     val actualRoute = navBackStackEntry?.destination?.route
+-                    val currentRoute = optimisticRoute ?: actualRoute
++                    val currentRoute = actualRoute
+                     startupDestination = startupDestinationForRoute(actualRoute ?: startDestination)
+ 
+                     LaunchedEffect(actualRoute) {
+-                        optimisticRoute = null
+                         ambientIdleController.onInteraction()
+                     }
+ 
+@@ -1247,8 +1239,6 @@
+                     val sideMenuLine = liveTvSettingsNow.sideMenuLine
+                     // (The Live TV sub-list is gone: every page is in the one menu again. These stay
+                     // so the menus' wiring is unchanged; nothing opens a sub-list any more.)
+-                    var liveTvGroupOpen by remember { mutableStateOf(false) }
+-                    var sidebarOpenNow by remember { mutableStateOf(false) }
+                     val rootRoutes = remember(discoverLocation, liveTvInSidebar, onDemandInSidebar, recordingsFromGuide) {
+                         buildSet {
+                             add(Screen.Home.route)
+@@ -1330,13 +1320,6 @@
+                             )
+                         }
+                     }
+-                    // Live TV fork: Recordings belongs to Live TV in the menu.
+-                    val menuRoute = if (currentRoute == Screen.Recordings.route && (recordingsFromGuide || !recordingsInSidebar)) Screen.LiveTv.route else currentRoute
+-                    val selectedDrawerRoute = drawerItems.firstOrNull { item ->
+-                        menuRoute == item.route || menuRoute?.startsWith("${item.route}/") == true
+-                    }?.route
+-                    val selectedDrawerItem = drawerItems.firstOrNull { it.route == selectedDrawerRoute } ?: drawerItems.first()
+-
+                     val confirmExitEnabled by profileManager.confirmExitEnabled.collectAsState()
+                     var backPressedOnce by remember { mutableStateOf(false) }
+                     LaunchedEffect(backPressedOnce) {
+@@ -1395,59 +1378,17 @@
+                                 LocalNavViewModelStoreOwner provides navViewModelStoreOwner,
+                                 com.nuvio.tv.livetv.ui.LocalSideMenuFit provides liveTvSettingsNow.sideMenuFit
+                             ) {
+-                                if (modernSidebarEnabled) {
+-                                    ModernSidebarScaffold(
+-                                        longPressBackHeld = longPressBackHeld,
+-                                        navController = navController,
+-                                        startDestination = startDestination,
+-                                        currentRoute = currentRoute,
+-                                        rootRoutes = rootRoutes,
+-                                        drawerItems = drawerItems,
+-                                        selectedDrawerRoute = selectedDrawerRoute,
+-                                        selectedDrawerItem = selectedDrawerItem,
+-                                        sidebarCollapsed = sidebarCollapsed,
+-                                        modernSidebarBlurEnabled = modernSidebarBlurEnabled,
+-                                        hideBuiltInHeaders = hideBuiltInHeadersForFloatingPill,
+-                                        activeProfileName = activeProfile?.name ?: "",
+-                                        activeProfileColorHex = activeProfile?.avatarColorHex ?: "#1E88E5",
+-                                        activeProfileAvatarImageUrl = activeProfileAvatarImageUrl,
+-                                        showProfileSelector = profiles.size > 1,
+-                                        onSwitchProfile = handleSwitchProfile,
+-                                        onNavigate = { optimisticRoute = it },
+-                                        onExitApp = handleExitApp,
+-                                        onToggleLiveTvGroup = { liveTvGroupOpen = !liveTvGroupOpen },
+-                                        onSidebarExpandedChange = { expanded ->
+-                                            sidebarOpenNow = expanded
+-                                            // Closed: ready for next time (unchanged when opening).
+-                                            if (!expanded) liveTvGroupOpen = false
+-                                        }
+-                                    )
+-                                } else {
+-                                    LegacySidebarScaffold(
+-                                        longPressBackHeld = longPressBackHeld,
+-                                        navController = navController,
+-                                        startDestination = startDestination,
+-                                        currentRoute = currentRoute,
+-                                        rootRoutes = rootRoutes,
+-                                        drawerItems = drawerItems,
+-                                        selectedDrawerRoute = selectedDrawerRoute,
+-                                        sidebarCollapsed = sidebarCollapsed,
+-                                        hideBuiltInHeaders = false,
+-                                        activeProfileName = activeProfile?.name ?: "",
+-                                        activeProfileColorHex = activeProfile?.avatarColorHex ?: "#1E88E5",
+-                                        activeProfileAvatarImageUrl = activeProfileAvatarImageUrl,
+-                                        showProfileSelector = profiles.size > 1,
+-                                        onSwitchProfile = handleSwitchProfile,
+-                                        onNavigate = { optimisticRoute = it },
+-                                        onExitApp = handleExitApp,
+-                                        onToggleLiveTvGroup = { liveTvGroupOpen = !liveTvGroupOpen },
+-                                        onSidebarExpandedChange = { expanded ->
+-                                            sidebarOpenNow = expanded
+-                                            // Closed: ready for next time (unchanged when opening).
+-                                            if (!expanded) liveTvGroupOpen = false
+-                                        }
+-                                    )
+-                                }
++                                PetalixNavigationShell(
++                                    navController = navController,
++                                    startDestination = startDestination,
++                                    currentRoute = currentRoute,
++                                    rootRoutes = rootRoutes,
++                                    items = drawerItems,
++                                    showProfiles = profiles.size > 1,
++                                    onSwitchProfile = handleSwitchProfile,
++                                    onExit = handleExitApp,
++                                    navigate = { target -> navigateToDrawerRoute(navController, currentRoute, target) }
++                                )
+                             }
+ 
+                             val autoNextOverlay by externalPlaybackTracker.autoNextOverlay.collectAsState()
+--- a/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandHomeScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandHomeScreen.kt
+@@ -168,6 +168,7 @@
+         focusState = HomeScreenFocusState()
+         gridFocusState = HomeScreenFocusState()
+     }
++    LaunchedEffect(OnDemandHomeTab.last) { switchTo(OnDemandHomeTab.last) }
+     val homeRows = remember(rows) { rows.map { HomeRow.Catalog(it) } }
+     val gridItems = remember(rows) {
+         buildList {
+@@ -574,7 +575,7 @@
+ 
+ /** The Movies / Series choice, remembered while the app runs. */
+ object OnDemandHomeTab {
+-    @Volatile var last: VodKind = VodKind.MOVIE
++    var last by mutableStateOf(VodKind.MOVIE)
+ }
+ 
+ @Composable
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -1132,9 +1132,15 @@
+         ) {
+             // ---------------------------------------------------------------- header
+             val focusBelowHeader: () -> Unit = {
+-                val toSearch = groupsOpen && ui.groups.any { it.id == ChannelGroup.SEARCH } &&
+-                    runCatching { groupSearchFocus.requestFocus() }.isSuccess
+-                if (!toSearch) runCatching { gridFocus.requestFocus() }
++                val categoryTarget = when {
++                    !groupsOpen -> null
++                    cinematic -> groupsFocus
++                    ui.groups.any { it.id == ChannelGroup.SEARCH } -> groupSearchFocus
++                    else -> null
++                }
++                if (categoryTarget == null || !runCatching { categoryTarget.requestFocus() }.getOrDefault(false)) {
++                    runCatching { gridFocus.requestFocus() }
++                }
+             }
+             if (cinematic) PetalixGuideHeader(
+                 channel = headerChannel, program = headerBlock?.program, start = headerBlock?.startMs,
+@@ -1174,7 +1180,7 @@
+                 modifier = Modifier
+                     .weight(1f)
+                     .fillMaxWidth()
+-                    .padding(start = 56.dp)
++                    .padding(start = if (cinematic) 28.dp else 56.dp, end = if (cinematic) 20.dp else 0.dp)
+             ) {
+                 // As wide as the longest group name needs, up to the full width (190dp) and never
+                 // below a small minimum. Based on every group, so it doesn't move while browsing.
+@@ -2829,7 +2835,7 @@
+         modifier = Modifier
+             .fillMaxWidth()
+             .height(rowHeight)
+-            .padding(vertical = 2.dp)
++            .padding(vertical = if (LocalPetalixGuide.current) 1.dp else 2.dp)
+             .graphicsLayer { alpha = if (visible == false) 0.45f else 1f }
+             .then(if (onToggleVisibility != null) Modifier.clickable(onClick = onToggleVisibility) else Modifier)
+     ) {
+@@ -2842,21 +2848,20 @@
+         val playingMark = isPlaying && settings.markPlayingChannel && !reorderMode && !moving && !nameFocused
+         // The channel picked up to move: its own color (gold), apart from the highlight.
+         val cell = if (moving) LiveCellColors(NuvioTheme.colors.Rating, NuvioTheme.colors.Rating, Color.Black)
+-            else if (LocalPetalixGuide.current && channelFocused) LiveCellColors(Color(0xFF413726), GuideGold, Color.White)
++            else if (LocalPetalixGuide.current && channelFocused) LiveCellColors(GuideGold, GuideGold, GuideInk)
+             else liveCellColors(focused = nameFocused, idle = guideSurface())
+         Row(
+             modifier = Modifier
+                 .width(channelColWidth)
+                 .fillMaxHeight()
+-                .padding(end = 6.dp)
+-                .glassTile(
++                .then(if (LocalPetalixGuide.current) Modifier.padding(end = 3.dp)
++                    .background(cell.background)
++                    .then(if (playingMark) Modifier.border(1.dp, GuideGold, androidx.compose.ui.graphics.RectangleShape) else Modifier)
++                else Modifier.padding(end = 6.dp).glassTile(
+                     cell.background,
+-                    if (playingMark) (if (LocalPetalixGuide.current) GuideGold else NuvioTheme.colors.Error) else if (cell.border == Color.Transparent) GuideGlassEdge else cell.border,
+-                    cellShape,
+-                    // Same as the group tiles: thin, and thicker only when highlighted (the red
+-                    // playing outline stays thick so it can still be seen).
+-                    edgeWidth = if (channelFocused || playingMark) 2.dp else 1.dp
+-                )
++                    if (playingMark) NuvioTheme.colors.Error else if (cell.border == Color.Transparent) GuideGlassEdge else cell.border,
++                    cellShape, edgeWidth = if (channelFocused || playingMark) 2.dp else 1.dp
++                ))
+                 .padding(horizontal = 8.dp),
+             verticalAlignment = Alignment.CenterVertically
+         ) {
+@@ -3153,9 +3158,10 @@
+             .offset(x = x)
+             .width(width)
+             .fillMaxHeight()
+-            .padding(horizontal = 3.dp)
+-            // A soft glass edge on every tile (not focused ones only), to match the bar and header.
+-            .glassTile(colors.background, if (colors.border == Color.Transparent) GuideGlassEdge else colors.border, shape, clipChildren = progress != null)
++            .then(if (LocalPetalixGuide.current) Modifier.padding(end = 2.dp)
++                .background(colors.background).then(if (focused) Modifier.border(1.dp, GuideGold, androidx.compose.ui.graphics.RectangleShape) else Modifier)
++            else Modifier.padding(horizontal = 3.dp).glassTile(colors.background,
++                if (colors.border == Color.Transparent) GuideGlassEdge else colors.border, shape, clipChildren = progress != null))
+     ) {
+         Column(
+             modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
+@@ -3302,6 +3308,7 @@
+     var focusedKey by remember { mutableStateOf<String?>(null) }
+     var searchFocused by remember { mutableStateOf(false) }
+     val stepping = remember { BooleanArray(1) }
++    val categoriesOnly = LocalPetalixGuide.current
+     val stepScope = rememberCoroutineScope()
+     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+     // The rows of the list below, in order (what Up / Down step through).
+@@ -3410,6 +3417,7 @@
+                     return@onPreviewKeyEvent e.key == Key.Back || e.key == Key.DirectionLeft || e.key == Key.DirectionRight ||
+                         (reorderingId != null && (e.key == Key.DirectionUp || e.key == Key.DirectionDown))
+                 }
++                if (categoriesOnly && e.key == Key.DirectionLeft) return@onPreviewKeyEvent true
+                 if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionRight) {
+                     onRight(); true
+                 } else if (e.type == KeyEventType.KeyDown && (e.key == Key.DirectionUp || e.key == Key.DirectionDown)) {
+@@ -3418,7 +3426,10 @@
+             }
+     ) {
+         // Search sits above the groups (it opens Nuvio's search), in the row beside the timeline.
+-        groups.firstOrNull { it.id == ChannelGroup.SEARCH }?.let { searchGroup ->
++        if (categoriesOnly) {
++            LiveText("Categories", modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
++                color = GuideGold, size = 13.sp, weight = FontWeight.SemiBold)
++        } else groups.firstOrNull { it.id == ChannelGroup.SEARCH }?.let { searchGroup ->
+             GroupSearchButton(
+                 modifier = Modifier.padding(bottom = 4.dp).then(if (searchFocusRequester != null) Modifier.focusRequester(searchFocusRequester) else Modifier),
+                 onFocusChange = { searchFocused = it },
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt
+@@ -238,6 +238,7 @@
+     audioBadge: String? = null,
+     /** How see-through the glass is: "standard", "darker" or "solid" (Live TV settings). */
+     background: String = "standard",
++    cinematic: Boolean = false,
+     /** Parts switched off (see [BarPart]). */
+     hidden: Set<String> = emptySet(),
+     /** The Calendar's bell is on for what's playing. */
+@@ -277,7 +278,8 @@
+             Modifier
+                 .fillMaxWidth()
+                 // Not trimmed at the edge, so the seek picture can rise above the card.
+-                .glass(glassColor(background), clipContent = false)
++                .then(if (cinematic) Modifier.background(GuideInk.copy(alpha = glassColor(background).alpha),
++                    RoundedCornerShape(8.dp)) else Modifier.glass(glassColor(background), clipContent = false))
+                 // Equal on every side, so the poster (and everything else) sits in an evenly
+                 // framed card instead of a wider gap on one axis than the other.
+                 .padding(14.dp)
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
+@@ -1001,6 +1001,7 @@
+                 val browseParts = remember(shown?.description, shown?.year) { splitDescriptionYear(shown?.description, shown?.year) }
+                 LiveTvPlayerPanel(
+                     background = settings.panelBackground,
++                    cinematic = settings.petalixGuide,
+                     channel = b,
+                     mode = PanelMode.LIVE,
+                     full = false,
+@@ -1186,6 +1187,7 @@
+                     onBackupsBounds = { backupsAnchor = it },
+                     onMultiview = { openMultiview() },
+                     background = settings.panelBackground,
++                    cinematic = settings.petalixGuide,
+                     channel = ch,
+                     mode = mode,
+                     full = panelFull || pausedNow,
