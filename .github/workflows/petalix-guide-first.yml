@@ -5,6 +5,10 @@ on:
     paths: [guide-first/**, .github/workflows/petalix-guide-first.yml]
   workflow_dispatch:
 
+concurrency:
+  group: petalix-guide-first-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 

@@ -53,7 +53,7 @@ public class GuideActivity extends Activity {
         info.setGravity(Gravity.CENTER_VERTICAL);title=label(22);description=label(16);title.setMaxLines(2);description.setMaxLines(2);
         title.setText("Petalix Live TV");description.setText("Open your channel playlist to begin.");
         info.addView(title);info.addView(description);hero.addView(info);
-        video=new PlayerView(this);video.setErrorMessageProvider(error -> "Could not play this channel. Check the stream URL and try again.");video.setUseController(false);video.setFocusable(false);hero.addView(video);
+        video=new PlayerView(this);video.setErrorMessageProvider(error -> android.util.Pair.create(error.errorCode, "Could not play this channel. Check the stream URL and try again."));video.setUseController(false);video.setFocusable(false);hero.addView(video);
         root.addView(hero);actions=new LinearLayout(this);root.addView(actions);
         importButton("Playlist",1);importButton("TV listings",2);
         list=new ListView(this);root.addView(list,new LinearLayout.LayoutParams(-1,0,1));
