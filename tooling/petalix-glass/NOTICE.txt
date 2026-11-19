@@ -1,0 +1,6 @@
+Petalix TV guide
+
+The program grid, preview blending, hero, category rail, and OK behavior in this guide are adapted from IMD TV v0.5.2 by majorleeevil and contributors, commit 369d43e05ba9de7e5b61fb0621fb7f2bf7558da8. The Petalix integration uses the 13.2 owner's channel identities, schedules, sports matching, and player. These modifications are distributed under GPL version 3. The original license accompanies the corresponding source.
+
+https://github.com/majorleeevil/imd-tv/tree/369d43e05ba9de7e5b61fb0621fb7f2bf7558da8
+https://github.com/camosclem/STCC-PETALIX-Builds/tree/dev/petalix-glass-13-2

@@ -1,0 +1,1258 @@
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
+index 7be0aae..f1d64f9 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
+@@ -64,10 +64,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
+ data class LiveTvHomeActions(
+     /** True only on Nuvio's real home screen (the same layouts are reused for collections). */
+     val onHome: Boolean = false,
+-    /** The channel is now playing in Live TV: open it full screen. */
+-    val openFullscreen: () -> Unit = {},
+-    /** Open the Live TV guide. */
+-    val openGuide: () -> Unit = {},
++    val openChannel: (String) -> Unit = {},
+     val openCategory: (String) -> Unit = {}
+ )
+ 
+@@ -378,13 +375,7 @@ private fun LiveTvHomeRowContent(
+                         compact = settings.homeRowCompact,
+                         showNext = settings.homeRowShowNext,
+                         use24h = settings.use24HourClock,
+-                        onClick = {
+-                            viewModel.playFromHome(e.channel)
+-                            if (settings.homeRowOpensGuide) actions.openGuide() else {
+-                                viewModel.markFullscreenOpened()
+-                                actions.openFullscreen()
+-                            }
+-                        }
++                        onClick = { actions.openChannel(e.channel.key) }
+                     )
+                 }
+             }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvLauncherRows.kt b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvLauncherRows.kt
+index 057ba85..92f403a 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvLauncherRows.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvLauncherRows.kt
+@@ -380,7 +380,7 @@ object LiveTvLauncherRows {
+ 
+     /**
+      * Opens what a launcher item points at: nuvio://livetv (the guide), nuvio://livetv/channel/<key>
+-     * (plays that channel full screen) or nuvio://livetv/game/<event id> (the best channel for
++     * (highlights that channel in the guide) or nuvio://livetv/game/<event id> (the best channel for
+      * that game, or its page in Sports if no channel is known yet).
+      */
+     suspend fun open(context: Context, navController: NavController, url: String) {
+@@ -394,21 +394,16 @@ object LiveTvLauncherRows {
+             navController.navigate(Screen.LiveTv.route) { launchSingleTop = true }
+             return
+         }
++        if (kind == "channel") {
++            navController.navigate(Screen.LiveTv.route) { launchSingleTop = true }
++            navController.currentBackStackEntry?.savedStateHandle?.set("petalixHomeChannel", arg)
++            return
++        }
+         val repo = entry.liveTvRepository()
+         repo.ensureLoaded(updateCheckDelayMs = 20_000)
+         // Cold start from the launcher: give the channel list a moment to load.
+         withTimeoutOrNull(15_000) { repo.channels.first { it.isNotEmpty() } }
+         when (kind) {
+-            "channel" -> {
+-                val ch = repo.channels.value.firstOrNull { it.key == arg }
+-                if (ch == null) {
+-                    navController.navigate(Screen.LiveTv.route) { launchSingleTop = true }
+-                } else {
+-                    sportsEntry.sportsPlayback().play(ch)
+-                    runCatching { entry.liveTvPreferences().recordWatched(ch.key) }
+-                    openLiveTvFullscreen(navController)
+-                }
+-            }
+             "game" -> {
+                 val sports = sportsEntry.sportsRepository()
+                 sports.start()
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+index d15a921..85e85a1 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -165,7 +165,11 @@ private fun nextMidnight(ms: Long): Long = java.util.Calendar.getInstance().appl
+ @Composable
+ internal fun PetalixLiveTvScreen(
+     onOpenFullscreen: () -> Unit,
+-    homeCategoryRequested: Boolean = false,
++    homeCategory: String? = null,
++    homeChannel: String? = null,
++    onHomeEntryHandled: () -> Unit = {},
++    onExitGuide: () -> Unit,
++    onOpenSportsHub: () -> Unit,
+     onOpenSettings: () -> Unit,
+     onOpenRecordings: () -> Unit = {},
+     onFindInNuvio: () -> Unit = {},
+@@ -187,7 +191,9 @@ internal fun PetalixLiveTvScreen(
+     }
+     PetalixLiveSession(
+         onOpenFullscreen = onOpenFullscreen,
+-        homeCategoryRequested = homeCategoryRequested,
++        homeCategory = homeCategory, homeChannel = homeChannel,
++        onHomeEntryHandled = onHomeEntryHandled,
++        onExitGuide = onExitGuide, onOpenSportsHub = onOpenSportsHub,
+         onOpenSettings = onOpenSettings,
+         onOpenRecordings = onOpenRecordings,
+         onOpenMultiview = onOpenMultiview,
+@@ -203,7 +209,11 @@ internal fun PetalixLiveTvScreen(
+ @Composable
+ private fun PetalixLiveSession(
+     onOpenFullscreen: () -> Unit,
+-    homeCategoryRequested: Boolean = false,
++    homeCategory: String? = null,
++    homeChannel: String? = null,
++    onHomeEntryHandled: () -> Unit = {},
++    onExitGuide: () -> Unit,
++    onOpenSportsHub: () -> Unit,
+     onOpenSettings: () -> Unit,
+     /** Opens Recordings (the ● button beside the ⚙). */
+     onOpenRecordings: () -> Unit = {},
+@@ -229,6 +239,7 @@ private fun PetalixLiveSession(
+                 com.nuvio.tv.livetv.sports.SportsWatchLaunch.singleHandoff.value == null)
+         }
+     }
++    val homeCategoryRequested = remember { homeCategory != null || homeChannel != null }
+     val sportsHandoffOnOpen = remember {
+         com.nuvio.tv.livetv.sports.SportsWatchLaunch.singleHandoff.value != null
+     }
+@@ -457,7 +468,6 @@ private fun PetalixLiveSession(
+     var guideGearOpen by remember { mutableStateOf(false) }
+     var showRemoteGuide by remember { mutableStateOf(false) }
+     var guideActionsOpen by remember { mutableStateOf(false) }
+-    val guideGearFocus = remember { FocusRequester() }
+     val groupSearchFocus = remember { FocusRequester() }
+     /** Schedule a Recording (long-press menu): the channel it's for. */
+     var manualRecordingFor by remember { mutableStateOf<LiveChannel?>(null) }
+@@ -739,9 +749,7 @@ private fun PetalixLiveSession(
+     }
+ 
+     // Opening Live TV (or coming back from full screen):
+-    //  1. "Auto-play last channel" (once per app launch) goes straight to full screen.
+-    //  2. Otherwise, if something is already playing, highlight it.
+-    //  3. Otherwise "Resume last channel in preview" starts the last channel in the preview.
++    // The current channel or a saved preview can be highlighted after an ordinary guide entry.
+     LaunchedEffect(Unit) {
+         if (sportsHandoffOnOpen || com.nuvio.tv.livetv.sports.SportsWatchLaunch.singleHandoff.value != null) return@LaunchedEffect
+         // Sports: "Watch from the start" on a game (a replay through the channel's catch-up).
+@@ -752,11 +760,8 @@ private fun PetalixLiveSession(
+                 return@LaunchedEffect
+             }
+         }
+-        if (viewModel.playbackState.value.channelKey == null) viewModel.autoPlayCandidate()?.let { ch ->
+-            viewModel.preview(ch)
+-            goFullscreen()
+-            return@LaunchedEffect
+-        }
++        // An explicit sports or recording handoff can start the player. A guide entry always opens the schedule.
++        if (homeCategoryRequested) return@LaunchedEffect
+         val target = viewModel.channelByKey(viewModel.playbackState.value.channelKey)
+             ?: viewModel.resumeCandidate()?.also { viewModel.preview(it) }
+             ?: return@LaunchedEffect
+@@ -784,7 +789,6 @@ private fun PetalixLiveSession(
+ 
+     // Back: leave program browsing, then leave a group for All channels, then open Nuvio's menu.
+     val sidebarExpanded = com.nuvio.tv.LocalSidebarExpanded.current
+-    val openSidebar = com.nuvio.tv.LocalOpenSidebar.current
+     // Right from Nuvio's menu back into Live TV: back to the group you left from. Left to
+     // itself, the highlight went to whatever tile sat level with the menu item (often several
+     // groups up, or the search button at the top of the list).
+@@ -808,9 +812,11 @@ private fun PetalixLiveSession(
+             }
+             // Browse by channel name: from the shows, Back goes to the channel name first.
+             editingGuide && settings.browseByChannelName && !nameFocus && !groupsOpen -> nameFocus = true
+-            // Back from the channels: the group list, with the group you're in highlighted.
+-            !groupsOpen -> focusGroups()
+-            else -> openSidebar()
++            groupsOpen -> {
++                groupsOpen = false
++                scope.launch { androidx.compose.runtime.withFrameNanos { }; runCatching { gridFocus.requestFocus() } }
++            }
++            else -> onExitGuide()
+         }
+     }
+ 
+@@ -927,9 +933,10 @@ private fun PetalixLiveSession(
+     }
+ 
+     fun playChannel(ch: LiveChannel) {
+-        val alreadyPreviewing = playback.channelKey == ch.key && playback.catchupTitle == null
++        val action = okAction(!settings.showPreview || settings.openFullscreenOnSelect,
++            playback.channelKey.takeIf { playback.catchupTitle == null }, ch.key)
+         viewModel.preview(ch)
+-        if (!settings.showPreview || settings.openFullscreenOnSelect || alreadyPreviewing) goFullscreen()
++        if (action == OkAction.FULL_SCREEN) goFullscreen()
+     }
+ 
+     fun activate() {
+@@ -1025,7 +1032,6 @@ private fun PetalixLiveSession(
+     }
+ 
+     val cinematic = true
+-    val heroBase = if (settings.guideBackdrop == "auto") GuideInk else backdropBase(resolveBackdrop(settings.guideBackdrop))
+     CompositionLocalProvider(LocalPetalixGuide provides (cinematic && !fullscreen), LocalLiveSolidHighlight provides settings.solidHighlight, LocalGuideDarkness provides settings.guideInfoBackground) {
+     val hostActivity = androidx.compose.ui.platform.LocalContext.current as? com.nuvio.tv.MainActivity
+     // Where the preview window is (the video view sits there when not full screen).
+@@ -1034,29 +1040,66 @@ private fun PetalixLiveSession(
+     var headerGlassBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+     // Only a Back press that *started* in the guide counts as "hold Back" here.
+     var backPressStartedHere by remember { mutableStateOf(false) }
+-    // Guide left alone for 2 minutes while a channel plays in the preview, with the guide itself
+-    // on screen (not a menu, a dialog or the side menu): back to full screen.
+-    var lastKeyAt by remember { mutableStateOf(System.currentTimeMillis()) }
+-    var guideHasFocus by remember { mutableStateOf(false) }
+-    val windowFocused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
+-    val idleMinutes = GUIDE_IDLE_FULL_SCREEN_MINUTES
+-    // Coming back from full screen or closing a dialog starts the wait again.
+-    LaunchedEffect(windowFocused, fullscreen) { lastKeyAt = System.currentTimeMillis() }
+     // The ⚙ panel open counts as in use, and never stays up over full screen.
+     LaunchedEffect(fullscreen) { if (fullscreen) guideGearOpen = false }
+-    LaunchedEffect(idleMinutes, lastKeyAt, fullscreen, guideHasFocus, windowFocused, playback.channelKey, guideGearOpen, showRemoteGuide) {
+-        if (idleMinutes <= 0 || fullscreen || guideGearOpen || showRemoteGuide || !guideHasFocus || !windowFocused || playback.channelKey == null) return@LaunchedEffect
+-        val wait = idleMinutes * 60_000L - (System.currentTimeMillis() - lastKeyAt)
+-        delay(wait.coerceAtLeast(5_000L))
+-        if (viewModel.playbackState.value.channelKey == null || viewModel.playbackState.value.error != null) return@LaunchedEffect
+-        com.nuvio.tv.livetv.model.LiveTvLoadReport.add("Guide left alone for $idleMinutes min: full screen")
+-        // Same as going full screen yourself: remember where you were, and use the playing
+-        // channel's group so Up / Down work from it.
+-        savedSpot = ui.selectedGroupId to focusedChannel?.key
+-        viewModel.channelByKey(viewModel.playbackState.value.channelKey)?.let { playing ->
+-            viewModel.groupToShow(playing)?.let { viewModel.selectGroup(it) }
++    fun closeCategories() {
++        groupsOpen = false
++        resetToNow()
++        scope.launch {
++            androidx.compose.runtime.withFrameNanos { }
++            runCatching { gridFocus.requestFocus() }
+         }
+-        goFullscreen()
++    }
++    fun pickGroup(group: ChannelGroup, options: Boolean) {
++        when {
++            options -> if (!group.special) groupMenu = group
++            group.locked -> { pinGroup = group; pinWrong = false; pinRemovesLock = false }
++            else -> {
++                if (group.id != ui.selectedGroupId) {
++                    viewModel.selectGroup(group.id)
++                    row = 0
++                }
++                closeCategories()
++            }
++        }
++    }
++    val guideContext = androidx.compose.ui.platform.LocalContext.current
++    var openSavedLocals by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
++    var requestedRailKey by remember { mutableStateOf<String?>(null) }
++    val setupLocals = androidx.activity.compose.rememberLauncherForActivityResult(
++        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
++    ) { result -> openSavedLocals = result.resultCode == android.app.Activity.RESULT_OK }
++    LaunchedEffect(openSavedLocals, ui.groups) {
++        if (!openSavedLocals) return@LaunchedEffect
++        val group = ui.groups.firstOrNull { it.id == com.nuvio.tv.petalix.PETALIX_ZIP_LOCALS } ?: return@LaunchedEffect
++        openSavedLocals = false
++        pickGroup(group, false)
++    }
++    LaunchedEffect(homeChannel, homeCategory, ui.guideReady, ui.groups, ui.allVisibleChannels) {
++        if ((homeChannel == null && homeCategory == null) || !ui.guideReady) return@LaunchedEffect
++        val key = homeChannel
++        val loaded = viewModel.uiState.value
++        if (loaded.hasSources && loaded.allVisibleChannels.isEmpty() && loaded.groups.none { it.count > 0 }) return@LaunchedEffect
++        if (key != null) {
++            val channel = viewModel.channelByKey(key)
++            if (channel != null) {
++                val groupId = viewModel.groupToShow(channel)
++                val parent = loaded.groups.firstOrNull { it.id == channel.groupId && it.locked }
++                val group = parent ?: loaded.groups.firstOrNull { it.id == groupId }
++                if (group != null) pickGroup(group, false)
++                highlightKey = channel.key
++            }
++        } else if (homeCategory != null) {
++            val id = if (homeCategory == "My Locals") com.nuvio.tv.petalix.PETALIX_ZIP_LOCALS
++                else com.nuvio.tv.petalix.petalixNativeHomeGroup(homeCategory, loaded.groups)
++            val group = loaded.groups.firstOrNull { it.id == id }
++            if (group != null) pickGroup(group, false)
++            else {
++                if (homeCategory == "My Locals") requestedRailKey = "action:locals"
++                focusGroups()
++            }
++        }
++        onHomeEntryHandled()
+     }
+     FrameMeter("Guide")
+     androidx.compose.runtime.CompositionLocalProvider(
+@@ -1066,14 +1109,9 @@ private fun PetalixLiveSession(
+     Box(
+         modifier = Modifier
+             .fillMaxSize()
+-            .then(if (cinematic) Modifier.background(heroBase) else Modifier.guideBackdrop(settings.guideBackdrop))
++            .then(if (cinematic) Modifier.glassGuideBackground() else Modifier.guideBackdrop(settings.guideBackdrop))
+             .onGloballyPositioned { rootBounds = it.boundsInRoot() }
+-            .onFocusChanged {
+-                if (it.hasFocus && !guideHasFocus) lastKeyAt = System.currentTimeMillis()
+-                guideHasFocus = it.hasFocus
+-            }
+             .onPreviewKeyEvent { e ->
+-                lastKeyAt = System.currentTimeMillis()
+                 // Full screen handles its own keys.
+                 if (fullscreen) return@onPreviewKeyEvent false
+                 val playingNow = playback.channelKey != null
+@@ -1135,14 +1173,6 @@ private fun PetalixLiveSession(
+             ThemeGlow(Modifier.fillMaxWidth().height(if (settings.smallHeader) 150.dp else 220.dp))
+         }
+         if (!fullscreen && !editingGuide) {
+-            fun closeCategories() {
+-                groupsOpen = false
+-                resetToNow()
+-                scope.launch {
+-                    androidx.compose.runtime.withFrameNanos { }
+-                    runCatching { gridFocus.requestFocus() }
+-                }
+-            }
+             val marks = remember(user.favorites, reminderStartsByChannel, scheduledStarts, recordingUntil) {
+                 CableChannelMarks(user.favorites.toSet(), reminderStartsByChannel, scheduledStarts, recordingUntil)
+             }
+@@ -1173,36 +1203,15 @@ private fun PetalixLiveSession(
+                     }
+                 },
+                 showCategories = ::focusGroups,
+-                closeCategories = ::closeCategories,
+-                pickCategory = { group, options ->
+-                    when {
+-                        options -> if (!group.special) groupMenu = group
+-                        group.locked -> { pinGroup = group; pinWrong = false; pinRemovesLock = false }
+-                        else -> {
+-                            if (group.id != ui.selectedGroupId) {
+-                                viewModel.selectGroup(group.id)
+-                                row = 0
+-                            }
+-                            closeCategories()
+-                        }
+-                    }
+-                },
+                 digit = { if (numberBuffer.length < 5) numberBuffer += it.toString() },
+                 lastChannel = { viewModel.previousChannel()?.let(::playChannel) },
+                 openSettings = onOpenSettings
+             )
+-            PetalixCableGuide(ui, channels, settings, programs, marks, playback.channelKey, now,
++            PetalixGlassGuide(ui, channels, settings, programs, marks, playback.channelKey, now,
+                 windowStart, if (column == GuideColumn.CHANNEL) now else cursorMs, row, groupsOpen,
+-                playlistNames, collapsedPlaylists, viewModel::togglePlaylistCollapsed, listState,
+-                gridFocus, groupsFocus, guideGearFocus, { gridFocused = it }, controls) {
+-                PetalixGuideHeader(
+-                    channel = headerChannel, program = headerBlock?.program, start = headerBlock?.startMs,
+-                    stop = headerBlock?.stopMs, poster = headerPoster,
+-                    playlist = if (settings.showPlaylistInInfo) headerChannel?.sourceId?.let { playlistNames[it] } else null,
+-                    settings = settings, now = now, group = selectedGroupTitle, playing = playback.channelKey != null,
+-                    onBounds = { previewBounds = it }, groupsOpen = groupsOpen, onMenu = { guideActionsOpen = true },
+-                    onDown = { (if (groupsOpen) groupsFocus else gridFocus).requestFocus() }, settingsFocus = guideGearFocus
+-                )
++                listState, gridFocus, { gridFocused = it }, controls) { modifier ->
++                PetalixGlassHero(headerChannel, headerBlock?.program, headerPoster, selectedGroupTitle,
++                    settings, now, playback.channelKey != null, { previewBounds = it }, ::focusGroups, modifier)
+             }
+         } else if (!fullscreen) Column(
+             modifier = Modifier
+@@ -1213,49 +1222,9 @@ private fun PetalixLiveSession(
+                 )
+         ) {
+             // ---------------------------------------------------------------- header
+-            val focusBelowHeader: () -> Unit = {
+-                val categoryTarget = when {
+-                    !groupsOpen -> null
+-                    cinematic -> groupsFocus
+-                    ui.groups.any { it.id == ChannelGroup.SEARCH } -> groupSearchFocus
+-                    else -> null
+-                }
+-                if (categoryTarget == null || !runCatching { categoryTarget.requestFocus() }.getOrDefault(false)) {
+-                    runCatching { gridFocus.requestFocus() }
+-                }
+-            }
+-            if (cinematic) PetalixGuideHeader(
+-                channel = headerChannel, program = headerBlock?.program, start = headerBlock?.startMs,
+-                stop = headerBlock?.stopMs, poster = headerPoster,
+-                playlist = if (settings.showPlaylistInInfo) headerChannel?.sourceId?.let { playlistNames[it] } else null,
+-                settings = settings, now = now, group = selectedGroupTitle, playing = playback.channelKey != null,
+-                onBounds = { previewBounds = it }, groupsOpen = groupsOpen, onMenu = { guideActionsOpen = true },
+-                onDown = focusBelowHeader, settingsFocus = guideGearFocus
+-            ) else GuideHeader(
+-                channel = headerChannel,
+-                block = headerBlock,
+-                poster = headerPoster,
+-                onSurfaceAttached = { viewModel.playback.onSurfaceAttached() },
+-                onPreviewBounds = { previewBounds = it },
+-                onGlassBounds = { headerGlassBounds = it },
+-                gearFocus = guideGearFocus,
+-                onGear = { guideGearOpen = true },
+-                // Down from the ● / ⚙ in the info bar: to Search when the group list is showing,
+-                // otherwise to the top channel.
+-                onGearDown = focusBelowHeader,
+-                onRecordings = onOpenRecordings,
+-                onMultiview = onOpenMultiview,
+-                playlistName = if (settings.showPlaylistInInfo) headerChannel?.sourceId?.let { playlistNames[it] } else null,
+-                settings = settings,
+-                now = now,
+-                showPreview = settings.showPreview,
+-                player = viewModel.playback.player,
+-                playingKey = playback.channelKey,
+-                playbackBuffering = playback.isBuffering,
+-                playbackError = playback.error,
+-                catchupTitle = playback.catchupTitle,
+-                status = status.message.takeIf { settings.showImportProgress && status.loading && !status.silent }
+-            )
++            PetalixGlassHero(headerChannel, headerBlock?.program, headerPoster, selectedGroupTitle,
++                settings, now, playback.channelKey != null, { previewBounds = it }, ::focusGroups,
++                Modifier.height(if (settings.smallHeader) 110.dp else 145.dp))
+ 
+             // ---------------------------------------------------------------- groups + guide
+             Row(
+@@ -1703,7 +1672,7 @@ private fun PetalixLiveSession(
+                                         } else if (row == 0 && channels.size == 1 && !visibilityMode) {
+                                             // Only one channel (a short Favorites or Recent list): there is
+                                             // nowhere to wrap to, so Up goes straight to the ⚙.
+-                                            runCatching { guideGearFocus.requestFocus() }
++                                            runCatching { (if (groupsOpen) groupsFocus else gridFocus).requestFocus() }
+                                         } else if (row == 0 && event.nativeKeyEvent.repeatCount == 0 && !visibilityMode && channels.size > 1) {
+                                             upTopPending = true
+                                             upTopFired = false
+@@ -1711,7 +1680,7 @@ private fun PetalixLiveSession(
+                                             upTopJob = scope.launch {
+                                                 delay(LONG_PRESS_MS)
+                                                 upTopFired = true
+-                                                runCatching { guideGearFocus.requestFocus() }
++                                                runCatching { (if (groupsOpen) groupsFocus else gridFocus).requestFocus() }
+                                             }
+                                         } else if (row == 0 && event.nativeKeyEvent.repeatCount > 0 && !visibilityMode && channels.size > 1) {
+                                             // Scrolled up to the top while holding: stay there (no wrap-around);
+@@ -1720,7 +1689,7 @@ private fun PetalixLiveSession(
+                                             if (heldTopSince == 0L) heldTopSince = nowMs
+                                             else if (heldTopSince > 0L && nowMs - heldTopSince >= 600L) {
+                                                 heldTopSince = -1L
+-                                                runCatching { guideGearFocus.requestFocus() }
++                                                runCatching { (if (groupsOpen) groupsFocus else gridFocus).requestFocus() }
+                                             }
+                                         } else moveRow(-1)
+                                         true
+@@ -1894,7 +1863,7 @@ private fun PetalixLiveSession(
+         // shape on most TVs, so its four corners are painted over in exactly what's behind
+         // them (the background and the theme glow), which looks the same.
+         if (cinematic && !fullscreen && pb != null && rb != null && pb.width > 1f) {
+-            Box(videoModifier.petalixPreviewFade(heroBase))
++            Box(videoModifier.glassPreviewFade(pb, rb))
+         } else if (!fullscreen && pb != null && rb != null && pb.width > 1f) {
+             val bg = NuvioTheme.colors.Background
+             val backdropResolved = resolveBackdrop(settings.guideBackdrop)
+@@ -1962,13 +1931,10 @@ private fun PetalixLiveSession(
+                         .size(pb.width.toDp(), pb.height.toDp()),
+                     contentAlignment = Alignment.Center
+                 ) {
+-                    if (cinematic && playback.channelKey != null && playback.catchupTitle == null) {
+-                        playingChannel?.let {
+-                            LiveText(it.name, Modifier.align(Alignment.TopEnd).padding(8.dp)
+-                                .background(GuideInk.copy(alpha = 0.80f), RoundedCornerShape(4.dp))
+-                                .padding(horizontal = 7.dp, vertical = 3.dp), Color.White, 11.sp)
+-                        }
+-                    }
++                    if (playback.channelKey != null && playback.catchupTitle == null && playback.error == null)
++                        LiveText("●  LIVE", Modifier.align(Alignment.TopEnd).padding(12.dp)
++                            .background(Color(0x66091122), RoundedCornerShape(8.dp)).padding(horizontal = 7.dp, vertical = 2.dp),
++                            Color.White, 10.sp, FontWeight.SemiBold)
+                     text?.let { LiveText(it, color = NuvioTheme.colors.TextSecondary, size = 14.sp) }
+                     playback.error?.let { PlayerStatusMessage("Reconnecting…", it, compact = true) }
+                     playback.catchupTitle?.let {
+@@ -1994,6 +1960,18 @@ private fun PetalixLiveSession(
+             }
+         }
+ 
++        if (!fullscreen && !editingGuide && groupsOpen) {
++            PetalixGlassCategories(ui, settings, groupsFocus, playlistNames, collapsedPlaylists,
++                viewModel::togglePlaylistCollapsed, ::pickGroup, onAction = { action ->
++                    when (action) {
++                        GuideAction.SPORTS -> { closeCategories(); onOpenSportsHub() }
++                        GuideAction.SET_UP_LOCALS -> setupLocals.launch(android.content.Intent(guideContext,
++                            com.nuvio.tv.petalix.PetalixLocalsActivity::class.java))
++                        GuideAction.OPTIONS -> { closeCategories(); guideActionsOpen = true }
++                    }
++                }, onClose = ::closeCategories, initialKey = requestedRailKey)
++        }
++        LaunchedEffect(groupsOpen) { if (!groupsOpen) requestedRailKey = null }
+         if (groupVisibilityList != null) {
+             Column(
+                 modifier = Modifier
+@@ -4783,9 +4761,6 @@ private fun gdp(v: Float): Dp = (v * LocalGuideScale.current.coerceAtLeast(1f)).
+ internal fun guideWindowMs(s: LiveTvSettings): Long =
+     if (s.effectiveGuideSize == "XLARGE") 90L * 60L * 1000L else WINDOW_MS
+ 
+-/** Minutes the guide can be left alone with a channel playing before it goes full screen. */
+-private const val GUIDE_IDLE_FULL_SCREEN_MINUTES = 2
+-
+ // ==================================================================== Change Logo
+ 
+ /**
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixCableGuide.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixCableGuide.kt
+index c118687..4e88a41 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixCableGuide.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixCableGuide.kt
+@@ -3,15 +3,12 @@ package com.nuvio.tv.livetv.ui
+ import android.view.KeyEvent as AndroidKey
+ import androidx.compose.foundation.ExperimentalFoundationApi
+ import androidx.compose.foundation.background
+-import androidx.compose.foundation.border
+ import androidx.compose.foundation.combinedClickable
+ import androidx.compose.foundation.focusable
+ import androidx.compose.foundation.layout.*
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.LazyListState
+ import androidx.compose.foundation.lazy.itemsIndexed
+-import androidx.compose.foundation.lazy.rememberLazyListState
+-import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.runtime.*
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+@@ -25,21 +22,12 @@ import androidx.compose.ui.input.key.*
+ import androidx.compose.ui.semantics.selected
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.font.FontWeight
+-import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import com.nuvio.tv.livetv.model.ChannelGroup
+ import com.nuvio.tv.livetv.model.EpgProgram
+ import com.nuvio.tv.livetv.model.LiveChannel
+ import com.nuvio.tv.livetv.model.LiveTvSettings
+-import com.nuvio.tv.petalix.petalixCleanChannelName
+-
+-private val StationSurface = Color(0xFF171A20)
+-private val AiringSurface = Color(0xFF20242B)
+-private val FutureSurface = Color(0xFF181C23)
+-private val SelectedSurface = Color(0xFF3C424B)
+-private val QuietText = Color(0xFFB5BBC4)
+-private val GuideRule = Color(0xFF30343B)
+ 
+ /** Playback and editing stay in the session. The Petalix guide owns its grid and key handling. */
+ internal class CableGuideActions(
+@@ -47,8 +35,6 @@ internal class CableGuideActions(
+     val seek: (Long) -> Unit,
+     val tune: (Int, PetalixAiring, Boolean) -> Unit,
+     val showCategories: () -> Unit,
+-    val closeCategories: () -> Unit,
+-    val pickCategory: (ChannelGroup, Boolean) -> Unit,
+     val digit: (Int) -> Unit,
+     val lastChannel: () -> Unit,
+     val openSettings: () -> Unit
+@@ -69,7 +55,7 @@ private fun airtimes(channel: LiveChannel?, listings: List<EpgProgram>, now: Lon
+ 
+ /** The normal customer guide. Its surfaces fill the viewport. Only the text has a safe inset. */
+ @Composable
+-internal fun PetalixCableGuide(
++internal fun PetalixGlassGuide(
+     ui: LiveTvUiState,
+     channels: List<LiveChannel>,
+     settings: LiveTvSettings,
+@@ -81,16 +67,11 @@ internal fun PetalixCableGuide(
+     cursor: Long,
+     row: Int,
+     categoriesOpen: Boolean,
+-    playlistNames: Map<String, String>,
+-    collapsedPlaylists: Set<String>,
+-    togglePlaylist: (String) -> Unit,
+     list: LazyListState,
+     gridFocus: FocusRequester,
+-    categoryFocus: FocusRequester,
+-    headerFocus: FocusRequester,
+     onGridFocus: (Boolean) -> Unit,
+     controls: CableGuideActions,
+-    header: @Composable () -> Unit
++    hero: @Composable (Modifier) -> Unit
+ ) {
+     val channel = channels.getOrNull(row)
+     val line = airtimes(channel, channel?.let { listings[it.key] }.orEmpty(), now, settings.epgPastHours)
+@@ -141,7 +122,7 @@ internal fun PetalixCableGuide(
+         }
+         if (!down) return false
+         when (key) {
+-            Key.DirectionUp -> if (row == 0) headerFocus.requestFocus() else controls.moveRow(-1)
++            Key.DirectionUp -> if (row > 0) controls.moveRow(-1) else Unit
+             Key.DirectionDown -> controls.moveRow(1)
+             Key.ChannelUp, Key.PageUp -> controls.moveRow(-8)
+             Key.ChannelDown, Key.PageDown -> controls.moveRow(8)
+@@ -158,229 +139,69 @@ internal fun PetalixCableGuide(
+         return true
+     }
+ 
+-    Column(Modifier.fillMaxSize().background(GuideInk)) {
+-        header()
+-        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+-            val rail = (maxWidth * 0.205f).coerceIn(125.dp, 248.dp)
+-            val timelineWidth = (maxWidth - rail).coerceAtLeast(1.dp)
+-            val scale = guideScale(settings)
+-            Column(Modifier.fillMaxSize()) {
+-                Row(Modifier.fillMaxWidth().height(28.dp).background(StationSurface),
+-                    verticalAlignment = Alignment.CenterVertically) {
+-                    LiveText(guideDayLabel(start, now), Modifier.width(rail).padding(start = 16.dp),
+-                        GuideSilver, 12.sp, FontWeight.SemiBold)
+-                    Box(Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
+-                        for (tick in 0 until (duration / PETALIX_HALF_HOUR).toInt()) {
+-                            val stamp = start + tick * PETALIX_HALF_HOUR
+-                            val offset = timelineWidth * ((stamp - start).toFloat() / duration)
+-                            LiveText(formatClock(stamp, settings.use24HourClock),
+-                                Modifier.align(Alignment.CenterStart).offset(x = offset).padding(start = 7.dp),
+-                                QuietText, 12.sp)
++    BoxWithConstraints(Modifier.fillMaxSize()) {
++        val heroHeight = when {
++            !settings.showProgramDetails && !settings.showPreview -> 30.dp
++            settings.smallHeader -> maxHeight * .32f
++            else -> maxHeight * .52f
++        }
++        Column(Modifier.fillMaxSize()) {
++            hero(Modifier.height(heroHeight))
++            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f).padding(start = 16.dp, end = 12.dp, bottom = 8.dp)) {
++                val labelWidth = (maxWidth * .21f).coerceIn(minOf(maxWidth, 94.dp), minOf(maxWidth, 245.dp))
++                val timelineWidth = (maxWidth - labelWidth).coerceAtLeast(1.dp)
++                Column(Modifier.fillMaxSize()) {
++                    Row(Modifier.fillMaxWidth().height(23.dp), verticalAlignment = Alignment.CenterVertically) {
++                        LiveText(guideDayLabel(start, now), Modifier.width(labelWidth).padding(start = 8.dp),
++                            Color.White, 13.sp, FontWeight.SemiBold)
++                        Box(Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
++                            for (tick in 0 until (duration / PETALIX_HALF_HOUR).toInt()) {
++                                val t = tick * PETALIX_HALF_HOUR
++                                LiveText(formatClock(start + t, settings.use24HourClock),
++                                    Modifier.align(Alignment.CenterStart).offset(x = timelineWidth * (t.toFloat() / duration)),
++                                    GlassMuted, 11.sp)
++                            }
+                         }
+                     }
+-                }
+-                Box(Modifier.fillMaxWidth().weight(1f).focusRequester(com.nuvio.tv.LocalContentFocusRequester.current).focusRequester(gridFocus)
+-                    .onFocusChanged { gridFocused = it.hasFocus; onGridFocus(it.hasFocus) }
+-                    .onPreviewKeyEvent(::guideKey).focusable()) {
+-                    if (channels.isEmpty()) {
+-                        val text = when {
+-                            !ui.guideReady -> "Loading your channels…"
+-                            !ui.hasSources -> "Add a playlist in Live TV settings"
+-                            ui.selectedGroupId == ChannelGroup.FAVORITES -> "Your favorite channels appear here"
+-                            ui.selectedGroupId == ChannelGroup.RECENT -> "Channels you watch appear here"
+-                            else -> "No channels in this category"
+-                        }
+-                        LiveText(text, Modifier.align(Alignment.Center), QuietText)
+-                    } else {
+-                        LazyColumn(state = list, modifier = Modifier.fillMaxSize()) {
+-                            itemsIndexed(channels, key = { _, ch -> ch.key }) { index, ch ->
+-                                val schedule = airtimes(ch, listings[ch.key].orEmpty(), now, settings.epgPastHours)
+-                                CableScheduleRow(ch, schedule, settings, marks, now, start, duration,
+-                                    rail, timelineWidth, scale, playingKey == ch.key,
+-                                    selectedAt = cursor.takeIf { row == index && gridFocused && !categoriesOpen },
+-                                    open = { entry, options -> controls.tune(index, entry, options) })
++                    BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)
++                        .focusRequester(com.nuvio.tv.LocalContentFocusRequester.current).focusRequester(gridFocus)
++                        .onFocusChanged { gridFocused = it.hasFocus; onGridFocus(it.hasFocus) }
++                        .onPreviewKeyEvent(::guideKey).focusable()) {
++                        if (channels.isEmpty()) {
++                            val text = when {
++                                !ui.guideReady -> "Loading your channels…"
++                                !ui.hasSources -> "Your playlist hasn’t loaded yet"
++                                ui.selectedGroupId == ChannelGroup.FAVORITES -> "Your favorite channels appear here"
++                                ui.selectedGroupId == ChannelGroup.RECENT -> "Channels you watch appear here"
++                                else -> "No channels in this category"
+                             }
+-                        }
+-                        if (settings.showNowLine && now in start until start + duration) {
+-                            Box(Modifier.offset(x = rail + timelineWidth * ((now - start).toFloat() / duration))
+-                                .fillMaxHeight().width(1.dp).background(GuideGold.copy(alpha = 0.64f)))
++                            LiveText(text, Modifier.align(Alignment.Center), GlassMuted)
++                        } else {
++                            val gap = 3.dp
++                            val count = ((maxHeight + gap) / (guideRowHeight(settings) + gap)).toInt().coerceAtLeast(1)
++                            val height = with(androidx.compose.ui.platform.LocalDensity.current) {
++                                guideRowPx(constraints.maxHeight, count, gap.roundToPx()).coerceAtLeast(1).toDp()
++                            }
++                            LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.fillMaxSize()) {
++                                itemsIndexed(channels, key = { _, ch -> ch.key }) { index, ch ->
++                                    val schedule = airtimes(ch, listings[ch.key].orEmpty(), now, settings.epgPastHours)
++                                    PetalixGlassRow(ch, schedule, settings, marks, now, start, duration, labelWidth, timelineWidth,
++                                        height, cursor.takeIf { row == index && gridFocused && !categoriesOpen }, playingKey == ch.key,
++                                        onSelect = { entry, options -> controls.tune(index, entry, options) })
++                                }
++                            }
++                            if (settings.showNowLine && now in start until start + duration)
++                                Box(Modifier.offset(x = labelWidth + timelineWidth * ((now - start).toFloat() / duration))
++                                    .fillMaxHeight().width(1.dp).background(Color(0xA6FFFFFF)))
+                         }
+                     }
+                 }
+             }
+-            if (categoriesOpen) CableCategories(ui.groups, ui.selectedGroupId, settings, categoryFocus,
+-                playlistNames, collapsedPlaylists, togglePlaylist, controls)
+         }
+     }
+ }
+ 
+ @OptIn(ExperimentalFoundationApi::class)
+-private fun Modifier.cableTarget(chosen: Boolean, click: () -> Unit, options: () -> Unit) =
++internal fun Modifier.cableTarget(chosen: Boolean, click: () -> Unit, options: () -> Unit) =
+     focusProperties { canFocus = false }.semantics { selected = chosen }
+         .combinedClickable(onClick = click, onLongClick = options)
+-
+-@Composable
+-private fun CableScheduleRow(
+-    channel: LiveChannel, line: PetalixAirtimes, settings: LiveTvSettings, marks: CableChannelMarks,
+-    now: Long, start: Long, duration: Long, rail: Dp, timelineWidth: Dp, scale: Float,
+-    playing: Boolean, selectedAt: Long?, open: (PetalixAiring, Boolean) -> Unit
+-) {
+-    val spans = remember(line, start, duration) { line.visible(start, start + duration) }
+-    val height = guideRowHeight(settings)
+-    val name = remember(channel.name) { petalixCleanChannelName(channel.name).ifBlank { channel.name } }
+-    Row(Modifier.fillMaxWidth().height(height).padding(bottom = 1.dp)) {
+-        val active = selectedAt != null
+-        Row(Modifier.width(rail).fillMaxHeight().padding(end = 2.dp)
+-            .background(if (active) GuideSilver else StationSurface)
+-            .cableTarget(active, { open(line.at(now), false) }, { open(line.at(now), true) }),
+-            verticalAlignment = Alignment.CenterVertically) {
+-            val ink = if (active) GuideInk else GuideSilver
+-            Box(Modifier.fillMaxHeight().width(3.dp).background(
+-                if (playing && settings.markPlayingChannel) GuideGold else Color.Transparent))
+-            Spacer(Modifier.width(10.dp))
+-            if (settings.showChannelNumbers) LiveText(channel.number.toString(), Modifier.padding(end = 6.dp),
+-                if (active) GuideInk else QuietText, (11 * scale).sp)
+-            if (settings.showChannelLogos && !channel.logo.isNullOrBlank()) {
+-                ChannelLogo(channel.logo, (height - 10.dp).coerceIn(18.dp, 39.dp))
+-                Spacer(Modifier.width(7.dp))
+-            }
+-            if (settings.showChannelNames || channel.logo.isNullOrBlank() || !settings.showChannelLogos) {
+-                LiveText(name, Modifier.weight(1f), ink, (14 * scale).sp,
+-                    if (active) FontWeight.Bold else FontWeight.Medium,
+-                    maxLines = if (settings.twoLineChannelNames) 2 else 1)
+-            }
+-            if (channel.key in marks.favorites) LiveText("★", Modifier.padding(horizontal = 3.dp),
+-                if (active) GuideInk else GuideGold, 11.sp)
+-            Spacer(Modifier.width(5.dp))
+-        }
+-        Box(Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
+-            for (span in spans) {
+-                val left = maxOf(span.start, start)
+-                val right = minOf(span.end, start + duration)
+-                val x = timelineWidth * ((left - start).toFloat() / duration)
+-                val w = timelineWidth * ((right - left).toFloat() / duration)
+-                val selected = selectedAt != null && span.contains(selectedAt)
+-                val live = span.contains(now)
+-                val program = span.program
+-                val marked = program?.let { titleMarks(it.title) }
+-                val recording = program != null && (program.startMs in marks.scheduled[channel.key].orEmpty() ||
+-                    marks.recording[channel.key]?.let { program.stopMs > it.first && program.startMs < (it.second ?: Long.MAX_VALUE) } == true)
+-                val label = when {
+-                    recording -> "● "
+-                    program != null && program.startMs in marks.reminders[channel.key].orEmpty() -> "• "
+-                    else -> ""
+-                }
+-                val fill = when {
+-                    selected && settings.solidHighlight -> GuideGold
+-                    selected -> SelectedSurface
+-                    live -> AiringSurface
+-                    else -> FutureSurface
+-                }
+-                val ink = if (selected && settings.solidHighlight) GuideInk else GuideSilver
+-                Box(Modifier.offset(x = x).width(w).fillMaxHeight().padding(end = 1.dp)
+-                    .background(fill).then(if (selected) Modifier.border(1.dp, GuideGold) else Modifier)
+-                    .clipToBounds().cableTarget(selected, { open(span, false) }, { open(span, true) })) {
+-                    if (w > 22.dp) Column(Modifier.align(Alignment.CenterStart).padding(horizontal = 8.dp)) {
+-                        val title = marked?.title?.takeUnless { it == NO_GUIDE_TITLE } ?: "No listing"
+-                        val episode = program?.episode?.takeIf { settings.showEpisodeNumbers && w > 145.dp }
+-                        LiveText(label + title + (episode?.let { "  ·  $it" } ?: ""),
+-                            color = if (program == null && !selected) QuietText else ink,
+-                            size = (14 * scale).sp, weight = if (selected) FontWeight.Bold else FontWeight.Normal,
+-                            marquee = selected)
+-                        if (settings.showProgramTimes && program != null && w > 65.dp)
+-                            LiveText(formatRange(program.startMs, program.stopMs, settings.use24HourClock),
+-                                color = if (selected) ink else QuietText, size = (11 * scale).sp)
+-                    }
+-                }
+-            }
+-        }
+-    }
+-}
+-
+-private data class CableCategory(val key: String, val title: String, val group: ChannelGroup?)
+-
+-@Composable
+-private fun CableCategories(
+-    groups: List<ChannelGroup>, selectedId: String, settings: LiveTvSettings, focus: FocusRequester,
+-    playlists: Map<String, String>, collapsed: Set<String>, togglePlaylist: (String) -> Unit,
+-    controls: CableGuideActions
+-) {
+-    val entries = remember(groups, playlists, collapsed, settings.groupPlaylistHeadings) {
+-        val categories = groups.filter { it.id != ChannelGroup.SEARCH }
+-        fun row(g: ChannelGroup) = CableCategory(g.id, g.title, g)
+-        if (!settings.groupPlaylistHeadings || categories.mapNotNull { it.sourceId }.distinct().size <= 1)
+-            categories.map(::row)
+-        else buildList {
+-            categories.filter { it.sourceId == null }.forEach { add(row(it)) }
+-            categories.filter { it.sourceId != null }.groupBy { it.sourceId!! }.forEach { (source, children) ->
+-                add(CableCategory("playlist:$source", playlists[source] ?: children.first().title, null))
+-                if (source !in collapsed) children.forEach { add(row(it)) }
+-            }
+-        }
+-    }
+-    val list = rememberLazyListState()
+-    var key by remember { mutableStateOf(selectedId) }
+-    val index = entries.indexOfFirst { it.key == key }.coerceAtLeast(0)
+-    var held by remember { mutableStateOf(false) }
+-    LaunchedEffect(Unit) { focus.requestFocus() }
+-    LaunchedEffect(index, entries.size) {
+-        if (entries.isEmpty()) return@LaunchedEffect
+-        val layout = list.layoutInfo
+-        if (layout.visibleItemsInfo.none { it.index == index && it.offset >= layout.viewportStartOffset &&
+-                it.offset + it.size <= layout.viewportEndOffset }) list.scrollToItem(index)
+-    }
+-    fun choose(item: CableCategory, options: Boolean) {
+-        val group = item.group
+-        if (group == null) togglePlaylist(item.key.removePrefix("playlist:"))
+-        else controls.pickCategory(group, options)
+-    }
+-    Column(Modifier.width(223.dp).fillMaxHeight().background(StationSurface).border(1.dp, GuideRule)
+-        .focusRequester(focus).onPreviewKeyEvent { e ->
+-            val native = e.nativeKeyEvent
+-            val down = e.type == KeyEventType.KeyDown
+-            when (e.key) {
+-                Key.DirectionUp, Key.DirectionDown -> {
+-                    if (down && entries.isNotEmpty()) key = entries[(index + if (e.key == Key.DirectionUp) -1 else 1).coerceIn(entries.indices)].key
+-                    true
+-                }
+-                Key.DirectionRight -> { if (e.type == KeyEventType.KeyUp) controls.closeCategories(); true }
+-                Key.DirectionLeft -> true
+-                Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+-                    if (down && native.repeatCount == 0) held = false
+-                    if (down && native.repeatCount > 0 && !held && native.eventTime - native.downTime >= LONG_PRESS_MS) {
+-                        held = true
+-                        entries.getOrNull(index)?.let { choose(it, true) }
+-                    }
+-                    if (!down && !held && !native.isCanceled) entries.getOrNull(index)?.let {
+-                        choose(it, native.eventTime - native.downTime >= LONG_PRESS_MS)
+-                    }
+-                    true
+-                }
+-                Key.Menu -> { if (down && native.repeatCount == 0) entries.getOrNull(index)?.let { choose(it, true) }; true }
+-                else -> false
+-            }
+-        }.focusable()) {
+-        LiveText("Categories", Modifier.fillMaxWidth().padding(start = 16.dp, top = 7.dp, bottom = 7.dp),
+-            GuideGold, 15.sp, FontWeight.Bold)
+-        LazyColumn(state = list, modifier = Modifier.fillMaxSize()) {
+-            itemsIndexed(entries, key = { _, e -> e.key }) { i, entry ->
+-                val focused = i == index
+-                Row(Modifier.fillMaxWidth().height(35.dp)
+-                    .background(if (focused) GuideGold else StationSurface)
+-                    .cableTarget(focused, { choose(entry, false) }, { choose(entry, true) })
+-                    .padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+-                    val ink = if (focused) GuideInk else GuideSilver
+-                    val prefix = when {
+-                        entry.group == null -> if (entry.key.removePrefix("playlist:") in collapsed) "▸  " else "▾  "
+-                        entry.group.locked -> "🔒 "
+-                        else -> ""
+-                    }
+-                    LiveText(prefix + entry.title, Modifier.weight(1f), ink, 14.sp,
+-                        weight = if (entry.key == selectedId) FontWeight.Bold else FontWeight.Normal)
+-                    if (settings.showGroupCounts && entry.group != null)
+-                        LiveText(entry.group.count.toString(), color = ink, size = 12.sp)
+-                }
+-            }
+-        }
+-    }
+-}
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideHero.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideHero.kt
+index 9ef90a8..9344627 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideHero.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideHero.kt
+@@ -1,210 +1,10 @@
+ package com.nuvio.tv.livetv.ui
+ 
+-import androidx.compose.foundation.Image
+-import androidx.compose.foundation.background
+-import androidx.compose.foundation.clickable
+-import androidx.compose.foundation.layout.*
+-import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.runtime.*
+-import androidx.compose.ui.Alignment
+-import androidx.compose.ui.Modifier
+-import androidx.compose.ui.draw.drawWithCache
+-import androidx.compose.ui.focus.FocusRequester
+-import androidx.compose.ui.focus.focusRequester
+-import androidx.compose.ui.focus.onFocusChanged
+-import androidx.compose.ui.graphics.Brush
++import androidx.compose.runtime.staticCompositionLocalOf
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.input.key.*
+-import androidx.compose.ui.layout.ContentScale
+-import androidx.compose.ui.layout.boundsInRoot
+-import androidx.compose.ui.layout.onGloballyPositioned
+-import androidx.compose.ui.platform.LocalConfiguration
+-import androidx.compose.ui.res.painterResource
+-import androidx.compose.ui.text.font.FontWeight
+-import androidx.compose.ui.unit.dp
+-import androidx.compose.ui.unit.sp
+-import coil3.compose.AsyncImage
+-import com.nuvio.tv.R
+-import com.nuvio.tv.livetv.model.EpgProgram
+-import com.nuvio.tv.livetv.model.LiveChannel
+-import com.nuvio.tv.livetv.model.LiveTvSettings
+ 
+ internal val LocalPetalixGuide = staticCompositionLocalOf { false }
+ internal val GuideInk = Color(0xFF101113)
+ internal val GuidePanel = Color(0xFF1C1D20)
+ internal val GuideGold = Color(0xFFEAC680)
+ internal val GuideSilver = Color(0xFFE7ECF5)
+-private val guideMuted = Color(0xFFC7C5BF)
+-
+-internal fun Modifier.petalixPreviewFade(base: Color): Modifier = drawWithCache {
+-    val clear = base.copy(alpha = 0f)
+-    val side = Brush.horizontalGradient(listOf(base, clear), endX = size.width * 0.25f)
+-    val bottom = Brush.verticalGradient(listOf(clear, base), startY = size.height * 0.72f)
+-    onDrawWithContent {
+-        drawContent()
+-        drawRect(side)
+-        drawRect(bottom)
+-    }
+-}
+-
+-@Composable
+-private fun GuideCommand(
+-    label: String,
+-    onClick: () -> Unit,
+-    onDown: () -> Unit,
+-    modifier: Modifier = Modifier
+-) {
+-    var focused by remember { mutableStateOf(false) }
+-    val shape = RoundedCornerShape(6.dp)
+-    Box(
+-        modifier.onFocusChanged { focused = it.isFocused }
+-            .onPreviewKeyEvent {
+-                if (it.type == KeyEventType.KeyDown && it.key == Key.DirectionDown) {
+-                    onDown()
+-                    true
+-                } else false
+-            }
+-            .background(if (focused) GuideSilver else Color.Transparent, shape)
+-            .clickable(onClick = onClick)
+-            .padding(horizontal = 9.dp, vertical = 5.dp),
+-        contentAlignment = Alignment.Center
+-    ) {
+-        LiveText(label, size = 13.sp, color = if (focused) GuideInk else GuideSilver, weight = FontWeight.Medium)
+-    }
+-}
+-
+-private fun categoryPhoto(title: String?): String? {
+-    val file = when (title?.trim()?.lowercase()) {
+-        "sports", "sports networks" -> "sports"
+-        "news", "local news" -> "news"
+-        "entertainment" -> "entertainment"
+-        "my locals", "locals" -> "locals"
+-        "24/7", "24/7 channels", "24/7 tv" -> "around-clock"
+-        "westerns" -> "westerns"
+-        else -> return null
+-    }
+-    return "file:///android_asset/petalix/home-art/live/$file.jpg"
+-}
+-
+-@Composable
+-private fun HeroBackdrop(image: String?, fallback: String?, base: Color, playing: Boolean) {
+-    var failed by remember(image) { mutableStateOf(false) }
+-    val model = if (failed) fallback else image ?: fallback
+-    if (model == null) return
+-    AsyncImage(model, null, Modifier.fillMaxSize().drawWithCache {
+-        val clear = base.copy(alpha = 0f)
+-        val veil = if (playing) Brush.horizontalGradient(
+-            0f to base.copy(alpha = 0.80f), 0.30f to base.copy(alpha = 0.55f), 0.51f to base, 1f to base)
+-            else Brush.horizontalGradient(0f to base.copy(alpha = 0.90f), 0.46f to base.copy(alpha = 0.67f), 0.82f to clear)
+-        val floor = Brush.verticalGradient(0f to clear, 0.64f to clear, 1f to base)
+-        onDrawWithContent { drawContent(); drawRect(veil); drawRect(floor) }
+-    }, alignment = Alignment.Center, contentScale = ContentScale.Crop,
+-        onError = { if (model != fallback) failed = true })
+-}
+-
+-@Composable
+-internal fun PetalixGuideHeader(
+-    channel: LiveChannel?,
+-    program: EpgProgram?,
+-    start: Long?,
+-    stop: Long?,
+-    poster: String?,
+-    playlist: String?,
+-    settings: LiveTvSettings,
+-    now: Long,
+-    group: String,
+-    playing: Boolean,
+-    onBounds: (androidx.compose.ui.geometry.Rect?) -> Unit,
+-    groupsOpen: Boolean,
+-    onMenu: () -> Unit,
+-    onDown: () -> Unit,
+-    settingsFocus: FocusRequester
+-) {
+-    val compact = settings.smallHeader
+-    val hidden = remember(settings.guideInfoHidden) { BarPart.parse(settings.guideInfoHidden) }
+-    val base = if (settings.guideBackdrop == "auto") GuideInk else backdropBase(resolveBackdrop(settings.guideBackdrop))
+-    Box(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 5.dp)) {
+-        Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
+-            Image(painterResource(R.drawable.petalix_guide_wordmark), "Petalix", Modifier.size(86.dp, 27.dp))
+-            Spacer(Modifier.width(9.dp))
+-            LiveText("Live TV", color = GuideGold, size = 14.sp, weight = FontWeight.Bold)
+-        }
+-        Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
+-            GuideCommand("Petalix menu", com.nuvio.tv.LocalOpenSidebar.current, onDown)
+-            GuideCommand("Guide options", onMenu, onDown, Modifier.focusRequester(settingsFocus))
+-            Spacer(Modifier.width(10.dp))
+-            LiveText(formatClock(now, settings.use24HourClock), size = 13.sp, color = GuideSilver)
+-        }
+-    }
+-    if (settings.showProgramDetails || settings.showPreview) {
+-        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+-        val height = if (compact) (screenHeight * 0.23f).coerceAtMost(142.dp)
+-            else (screenHeight * 0.33f).coerceAtMost(242.dp)
+-        Box(Modifier.fillMaxWidth().height(height)) {
+-            val hasVideo = playing && settings.showPreview
+-            val details = if (settings.showProgramDetails && channel != null) key(channel.key, program?.startMs) { rememberShowDetails(channel.key, program) } else null
+-            val about = if (settings.showProgramDetails && channel != null) key(channel.key, program?.startMs) { rememberChannelAbout(channel, details) } else null
+-            if (settings.showPosters && settings.showProgramDetails) {
+-                val image = about?.backdropUrl ?: details?.icon ?: poster
+-                HeroBackdrop(image, categoryPhoto(group) ?: categoryPhoto(channel?.group), base, hasVideo)
+-            }
+-            if (hasVideo) {
+-                Box(Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (settings.showProgramDetails) 0.49f else 0.76f)
+-                    .fillMaxHeight().onGloballyPositioned { onBounds(it.boundsInRoot()) })
+-                DisposableEffect(Unit) { onDispose { onBounds(null) } }
+-            } else if (settings.showPreview && !settings.showProgramDetails) {
+-                LiveText("Select a channel to preview", Modifier.align(Alignment.Center), guideMuted, 13.sp)
+-            }
+-            if (settings.showProgramDetails && channel != null) {
+-                val onNow = start != null && stop != null && now >= start && now < stop
+-                Column(
+-                    Modifier.fillMaxWidth(if (hasVideo || settings.showPosters) 0.54f else 0.86f)
+-                        .align(Alignment.CenterStart).padding(start = 54.dp, end = 10.dp),
+-                    verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp)
+-                ) {
+-                    if (GuideInfoPart.CHANNEL !in hidden || GuideInfoPart.TAGS !in hidden) {
+-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+-                            if (GuideInfoPart.CHANNEL !in hidden) {
+-                                if (settings.showChannelLogos && !compact && !channel.logo.isNullOrBlank()) ChannelLogo(channel.logo, 25.dp)
+-                                LiveText(buildString {
+-                                    if (settings.showChannelNumbers) append("${channel.number}  ")
+-                                    append(channel.name)
+-                                    playlist?.let { append("  ·  $it") }
+-                                }, Modifier.weight(1f, fill = false), guideMuted, 13.sp, FontWeight.Medium)
+-                            }
+-                            if (GuideInfoPart.TAGS !in hidden && onNow) LiveText("LIVE", color = GuideGold, size = 11.sp, weight = FontWeight.Bold)
+-                            if (GuideInfoPart.TAGS !in hidden && channel.catchup != null) LiveText("Catch-up", color = guideMuted, size = 11.sp)
+-                        }
+-                    }
+-                    if (GuideInfoPart.TITLE !in hidden) {
+-                        LiveText((program?.title ?: details?.title)?.let { titleMarks(it).title } ?: channel.name,
+-                            size = if (compact) 23.sp else 30.sp, color = Color.White, weight = FontWeight.Bold,
+-                            maxLines = if (compact) 1 else 2, lineHeight = if (compact) 25.sp else 33.sp)
+-                    }
+-                    val meta = buildList {
+-                        if (GuideInfoPart.TIME !in hidden && start != null && stop != null)
+-                            add(formatDayClock(start, now, settings.use24HourClock) + " – " + formatClock(stop, settings.use24HourClock))
+-                        if (GuideInfoPart.LEFT !in hidden && onNow && stop != null) add(minutesLeftLabel(stop, now))
+-                        if (settings.showEpisodeNumbers) details?.episode?.let { add(it) }
+-                        if (GuideInfoPart.CATEGORY !in hidden) details?.category?.let { add(it) }
+-                    }.joinToString("  ·  ")
+-                    if (meta.isNotEmpty()) LiveText(meta, color = guideMuted, size = 12.sp)
+-                    if (GuideInfoPart.PROGRESS !in hidden && onNow && start != null && stop != null) {
+-                        ProgressBar((now - start).toFloat() / (stop - start), Modifier.width(165.dp), GuideGold, GuidePanel)
+-                    }
+-                    if (GuideInfoPart.DESCRIPTION !in hidden) {
+-                        val description = details?.description?.takeIf { it.isNotBlank() } ?: about?.description
+-                        if (!description.isNullOrBlank()) LiveText(description, color = Color.White.copy(alpha = 0.84f), size = 13.sp,
+-                            maxLines = if (compact) 1 else 3, lineHeight = 18.sp)
+-                    }
+-                }
+-            }
+-        }
+-    }
+-    Row(Modifier.fillMaxWidth().padding(start = 54.dp, top = 2.dp),
+-        horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+-        LiveText("◂  $group", size = 14.sp, color = GuideSilver, weight = FontWeight.SemiBold)
+-        LiveText(if (groupsOpen) "Press Right for channels" else "Press Left for categories",
+-            size = 12.sp, color = guideMuted)
+-    }
+-}
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeCategories.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeCategories.kt
+index b89beae..37cea02 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeCategories.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeCategories.kt
+@@ -7,7 +7,6 @@ import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+-import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.PaddingValues
+ import androidx.compose.foundation.layout.fillMaxWidth
+@@ -87,17 +86,6 @@ internal fun PetalixHomeCategories() {
+     val actions = LocalLiveTvHomeActions.current
+     if (!actions.onHome) return
+     Column(Modifier.fillMaxWidth().padding(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+-        Row(Modifier.padding(horizontal = 52.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+-            for ((label, target) in listOf("Recently Watched" to "native:recent", "Favorites" to "native:favorites")) {
+-                var shortcutFocused by remember { mutableStateOf(false) }
+-                val shape = RoundedCornerShape(20.dp)
+-                Text(label, Modifier.onFocusChanged { shortcutFocused = it.isFocused }
+-                    .clip(shape).background(if (shortcutFocused) Color(0xFF27466C) else Color(0xCC101826))
+-                    .border(if (shortcutFocused) 2.dp else 1.dp, if (shortcutFocused) Color(0xFFF1CD7A) else Color(0xFF354152), shape)
+-                    .clickable { actions.openCategory(target) }.padding(horizontal = 18.dp, vertical = 10.dp),
+-                    color = Color.White, style = MaterialTheme.typography.labelLarge)
+-            }
+-        }
+         Text("Browse Live TV", Modifier.padding(start = 52.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+         LazyRow(
+             modifier = Modifier.onFocusChanged {
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixLocalsActivity.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixLocalsActivity.kt
+index d5a9c45..63fcda1 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixLocalsActivity.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixLocalsActivity.kt
+@@ -42,7 +42,8 @@ class PetalixLocalsActivity : ComponentActivity() {
+         val setup = intent.getBooleanExtra("setup", false)
+         setContent {
+             NuvioTheme {
+-                LocalsSetup(manager, setup) {
++                LocalsSetup(manager, setup) { saved ->
++                    if (saved) setResult(RESULT_OK)
+                     if (setup) {
+                         manager.dismissLocalsPrompt()
+                         startActivity(Intent(this, MainActivity::class.java).putExtra("skipLocalsOnce", true))
+@@ -56,7 +57,7 @@ class PetalixLocalsActivity : ComponentActivity() {
+ 
+ @OptIn(ExperimentalTvMaterial3Api::class)
+ @Composable
+-private fun LocalsSetup(manager: PetalixManagedCoordinator, setup: Boolean, onDone: () -> Unit) {
++private fun LocalsSetup(manager: PetalixManagedCoordinator, setup: Boolean, onDone: (Boolean) -> Unit) {
+     var zip by rememberSaveable { mutableStateOf(manager.localsZip) }
+     var result by remember { mutableStateOf<PetalixLocalStations.Result?>(null) }
+     var matchedZip by remember { mutableStateOf<String?>(null) }
+@@ -68,7 +69,7 @@ private fun LocalsSetup(manager: PetalixManagedCoordinator, setup: Boolean, onDo
+     val scope = rememberCoroutineScope()
+     val zipFocus = remember { FocusRequester() }
+     val colors = NuvioTheme.colors
+-    BackHandler { if (!saving) onDone() }
++    BackHandler { if (!saving) onDone(false) }
+     LaunchedEffect(Unit) { zipFocus.requestFocus() }
+ 
+     fun findStations() {
+@@ -182,7 +183,7 @@ private fun LocalsSetup(manager: PetalixManagedCoordinator, setup: Boolean, onDo
+                     scope.launch {
+                         try {
+                             manager.saveLocals(code, selected.toList())
+-                            onDone()
++                            onDone(true)
+                         } catch (e: CancellationException) {
+                             throw e
+                         } catch (e: Exception) {
+@@ -194,7 +195,7 @@ private fun LocalsSetup(manager: PetalixManagedCoordinator, setup: Boolean, onDo
+                 },
+                 enabled = !busy && matchedZip == zip && selected.isNotEmpty(),
+             ) { Text(if (saving) "Saving…" else "Use these channels") }
+-            Button(onClick = onDone, enabled = !saving) { Text(if (setup) "Choose later" else "Back") }
++            Button(onClick = { onDone(false) }, enabled = !saving) { Text(if (setup) "Choose later" else "Back") }
+             Text("Change this later in Settings → Live TV → Local channels.", color = colors.TextSecondary, fontSize = 12.sp)
+         }
+     }
+diff --git a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+index fdf36c0..bb60556 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+@@ -329,11 +329,11 @@ private fun PlaybackNavHost(
+                 runCatching { com.nuvio.tv.livetv.startup.LiveTvPreload.start(context) }
+             }
+             // Live TV fork: what the home screen's Live TV row opens.
+-            val openLiveTv = {
+-                navController.navigate(Screen.LiveTv.route) {
+-                    popUpTo(navController.graph.startDestinationId) { saveState = true }
+-                    launchSingleTop = true
+-                    restoreState = true
++            fun openLiveTv(category: String? = null, channelKey: String? = null) {
++                navController.navigate(Screen.LiveTv.route) { launchSingleTop = true }
++                navController.currentBackStackEntry?.savedStateHandle?.apply {
++                    set("petalixHomeCategory", category)
++                    set("petalixHomeChannel", channelKey)
+                 }
+             }
+             androidx.compose.runtime.CompositionLocalProvider(
+@@ -352,25 +352,17 @@ private fun PlaybackNavHost(
+                             navController.navigate(Screen.OnDemand.route) { launchSingleTop = true }
+                         }
+                         com.nuvio.tv.ui.screens.home.HomeTab.SPORTS -> navController.navigate(Screen.Sports.route) { launchSingleTop = true }
+-                        com.nuvio.tv.ui.screens.home.HomeTab.LIBRARY -> navController.navigate(Screen.Library.route) { launchSingleTop = true }
+                         com.nuvio.tv.ui.screens.home.HomeTab.SETTINGS -> navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+                     }
+                 },
+                 com.nuvio.tv.livetv.home.LocalLiveTvHomeActions provides com.nuvio.tv.livetv.home.LiveTvHomeActions(
+                     onHome = true,
+-                    openFullscreen = {
+-                        openLiveTv()
+-                        navController.navigate(Screen.LiveTvPlayer.route) { launchSingleTop = true }
+-                    },
+-                    openGuide = { openLiveTv() },
+-                    openCategory = { title ->
+-                        openLiveTv()
+-                        navController.currentBackStackEntry?.savedStateHandle?.set("petalixHomeCategory", title)
+-                    }
++                    openChannel = { openLiveTv(channelKey = it) },
++                    openCategory = { openLiveTv(category = it) }
+                 )
+             ) {
+             HomeScreen(
+-                onPetalixLiveTv = { navController.navigate(Screen.LiveTv.route) },
++                onPetalixLiveTv = { openLiveTv() },
+                 onPetalixVod = { navController.navigate(Screen.OnDemand.route) },
+                 onPetalixVodDetail = { id, type, addon, uid ->
+                     navController.navigate(Screen.Detail.createRoute(id, type, addon))
+@@ -422,8 +414,7 @@ private fun PlaybackNavHost(
+                     val shortcut = com.nuvio.tv.petalix.petalixHomeShortcut(folderId)
+                         ?.takeIf { collectionId == com.nuvio.tv.petalix.PETALIX_LIVE_SHORTCUT_COLLECTION }
+                     if (shortcut != null) {
+-                        openLiveTv()
+-                        navController.currentBackStackEntry?.savedStateHandle?.set("petalixHomeCategory", shortcut.title)
++                        openLiveTv(category = shortcut.title)
+                     } else navController.navigate(Screen.FolderDetail.createRoute(collectionId, folderId))
+                 }
+             )
+@@ -1518,16 +1509,18 @@ private fun PlaybackNavHost(
+         composable(Screen.LiveTv.route) { entry ->
+             val category by entry.savedStateHandle.getStateFlow<String?>("petalixHomeCategory", null).collectAsStateWithLifecycle()
+             val viewModel: com.nuvio.tv.livetv.ui.LiveTvViewModel = androidx.hilt.navigation.compose.hiltViewModel(entry)
+-            androidx.compose.runtime.LaunchedEffect(category) {
+-                val title = category ?: return@LaunchedEffect
+-                val groups = (viewModel.awaitGroups() ?: viewModel.uiState.value).groups
+-                val match = com.nuvio.tv.petalix.petalixNativeHomeGroup(title, groups)
+-                if (match != null) viewModel.selectGroup(match)
+-                entry.savedStateHandle["petalixHomeCategory"] = null
+-            }
+-            val homeRequested = androidx.compose.runtime.remember(entry) { entry.savedStateHandle.get<String>("petalixHomeCategory") != null }
++            val channel by entry.savedStateHandle.getStateFlow<String?>("petalixHomeChannel", null).collectAsStateWithLifecycle()
+             com.nuvio.tv.livetv.ui.PetalixLiveTvScreen(
+-                homeCategoryRequested = homeRequested,
++                homeCategory = category,
++                homeChannel = channel,
++                onHomeEntryHandled = {
++                    entry.savedStateHandle["petalixHomeCategory"] = null
++                    entry.savedStateHandle["petalixHomeChannel"] = null
++                },
++                onExitGuide = {
++                    if (!navController.popBackStack()) navController.navigate(Screen.Home.route) { launchSingleTop = true }
++                },
++                onOpenSportsHub = { navController.navigate(Screen.Sports.route) { launchSingleTop = true } },
+                 viewModel = viewModel,
+                 onOpenFullscreen = {
+                     navController.navigate(Screen.LiveTvPlayer.route) { launchSingleTop = true }
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt
+index 38c7607..de0245c 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt
+@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.sp
+ import androidx.tv.material3.Text
+ 
+ internal enum class HomeTab(val label: String) {
+-    HOME("Home"), SEARCH("Search"), LIVE("Live TV"), SPORTS("Sports"), LIBRARY("Library"), MOVIES("Movies"), SERIES("Series"), SETTINGS("Settings")
++    HOME("Home"), SEARCH("Search"), LIVE("Live TV"), SPORTS("Sports"), MOVIES("Movies"), SERIES("Series"), SETTINGS("Settings")
+ }
+ 
+ internal val LocalPetalixHomeTab = staticCompositionLocalOf<((HomeTab) -> Unit)?> { null }
