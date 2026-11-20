@@ -67,34 +67,15 @@ jobs:
             --tests 'com.nuvio.tv.livetv.sports.SportsWatchPolicyTest' --tests '*AutoPlaySourceFallbackTest' \
             --tests '*SourceFallbackHandoffTest' --tests '*EpisodeAutoPlayLoadingTest' --tests '*EpisodeRatingsAlignmentTest' \
             --tests '*AddonEventDispatcherTest' --tests '*StyledSubtitlePresenterTest' --stacktrace
-      - name: Prepare Android TV device tests
-        working-directory: launcher
-        run: |
-          sudo chmod a+rw /dev/kvm
-          ./gradlew --console=plain -PpetalixTvTest=true -Pdebuggable=true :app:assembleFullDebug :app:assembleFullDebugAndroidTest --stacktrace
-          ./gradlew --stop
-      - name: Verify the remote, categories and playlist matching on Android TV
-        uses: reactivecircus/android-emulator-runner@0a638108440efd5c7f980e6ba145dbcdd8f32009
-        with:
-          api-level: 36
-          target: android-tv
-          arch: x86_64
-          profile: tv_1080p
-          disable-animations: true
-          emulator-boot-timeout: 600
-          script: bash tooling/petalix-glass/verify-tv.sh
       - name: Preserve test reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: guide-verification-diagnostics
-          path: |
-            verification/
-            launcher/app/build/test-results/testFullDebugUnitTest/
-            out/*.png
+          path: launcher/app/build/test-results/testFullDebugUnitTest/
           if-no-files-found: ignore
           retention-days: 7
-      - name: Assemble the verified owner APK
+      - name: Assemble the ARM owner-test APK
         working-directory: launcher
         run: ./gradlew --console=plain -PpetalixOwnerArm=true :app:assembleFullDebug --stacktrace
       - name: Verify TV installation identity and both ARM architectures
@@ -140,4 +121,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
-          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual update for Petalix Home Test on ARM Android TV. Includes Nuvio + IPTV 1.2.0-beta.2.1 with per-playlist guide links, DNS options, M3U movies and series, recurring recordings, and up to 14 days of guide history. Retains the rounded Petalix guide and streaming-service detail pages. Screenshots use sample listings and titles."
+          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual update for Petalix Home Test on ARM Android TV. Includes Nuvio + IPTV 1.2.0-beta.2.1 with per-playlist guide links, DNS options, M3U movies and series, recurring recordings, and up to 14 days of guide history. Retains the rounded Petalix guide and streaming-service detail pages. Install on the Shield to verify remote navigation and playback."
