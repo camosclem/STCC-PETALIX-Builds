@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Merge a pinned upstream tree with the saved managed app source, then build without release keys."""
 import hashlib,json,os,pathlib,re,shutil,subprocess,sys,tarfile,tempfile,urllib.request,zipfile
-from runner import NATIVE_PANEL_RECIPES, ORIGIN, run
+from runner import NATIVE_PANEL_RECIPES, ORIGIN, glass_candidate, run, verify_glass_job
 BASE='39aa0cd17a417497d1e6a77479a12fa21bdc0f5c'
 SOURCES={'petalix':('Petalix-7.5-Controls-Source.zip','fb9383b8078cd82b9271c8ca0474329a032e6e055fc91f35300a47e50eb79a77'),'stcc':('STCC-7.5-Controls-Source.zip','af42529c12a412e7f47dee89b02cc43a5e80d880447c2071f3002eed0b82b3dd')}
 def download(url,path):
@@ -86,9 +86,18 @@ def prepare_native_panel(item,brand,work,cache):
         raise RuntimeError('Native customer build identity changed')
     run(['git','clone','--quiet','--depth','1','--branch',tag,'https://github.com/homelessbrian/NuvioPlusIPTV.git',work])
     import importlib.util
-    helper=pathlib.Path(__file__).resolve().parents[1]/'petalix-stock/prepare.py'
+    tooling = pathlib.Path('glass-source/tooling').resolve() if glass_candidate() else pathlib.Path(__file__).resolve().parents[1]
+    helper = tooling / 'petalix-stock/prepare.py'
     spec=importlib.util.spec_from_file_location('native_panel',helper);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-    module.prepare(work,item['versionCode'],production=True)
+    if glass_candidate():
+        verify_glass_job(item)
+        module.prepare(work, item['versionCode'], production=True, glass_guide=True)
+        spec = importlib.util.spec_from_file_location('glass_guide', tooling / 'petalix-glass/prepare.py')
+        guide = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(guide)
+        guide.prepare(work, panel=True)
+    else:
+        module.prepare(work,item['versionCode'],production=True)
     (work/'local.properties').write_text('sdk.dir='+os.environ.get('ANDROID_HOME',os.environ.get('ANDROID_SDK_ROOT',''))+'\n')
     (work/'gradlew').chmod(0o755)
     return '1.1.0-petalix.panel'+str(item['versionCode'])
@@ -204,6 +213,8 @@ def main():
     prepare(item,brand,work,cache)
     env=dict(os.environ,CI_USE_DEBUG_SIGNING='true',PETALIX_VOD_MANIFEST='')
     command=[work/'gradlew',':app:testFullReleaseUnitTest','--tests','com.nuvio.tv.petalix.*',*(['--tests','com.nuvio.tv.core.player.thumbnail.*'] if item.get('recipeRevision') in ['seek-service-templates-test-v1','seek-service-templates-branding-test-v2'] else []),':app:assembleFullRelease','-PlivetvTestBuild=true','--no-daemon','--max-workers=1','-Pkotlin.compiler.execution.strategy=in-process','-Dorg.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=768m','-x',':app:lintVitalAnalyzeFullRelease','-x',':app:lintVitalReportFullRelease','-x',':app:lintVitalFullRelease']
+    if glass_candidate():
+        command += ['-PpetalixOwnerArm=true']
     run(command,cwd=work,env=env)
     apks=list((work/'app/build/outputs/apk/full/release').glob('*.apk'))
     if len(apks)!=1:raise RuntimeError('Expected one universal release APK')

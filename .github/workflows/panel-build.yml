@@ -15,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      glass_candidate:
+        description: 'Prepare the new Petalix guide with the existing customer package and certificate. Requires a finished Petalix 13.2 build ID. Stages for review.'
+        required: false
+        default: false
+        type: boolean
       ui2_test:
         description: 'Manual only: build Petalix 2 UI using approved original package and signing via a panel-authorized rebuild ID. Does NOT deploy to customers.'
         required: false
@@ -48,6 +53,7 @@ jobs:
         env:
           REBUILD_BUILD_ID: ${{ inputs.rebuild_build }}
           PETALIX_UI2_TEST: ${{ inputs.ui2_test }}
+          PETALIX_GLASS_CANDIDATE: ${{ inputs.glass_candidate }}
         run: python3 tooling/android-build/runner.py claim
   sync-current:
     needs: claim
@@ -96,6 +102,19 @@ jobs:
           ref: 906bdb444b911b9f5eb105d4f9f9ae37839e1f2f
           path: ui2-sources
           persist-credentials: false
+      - name: Checkout the pinned Petalix guide candidate
+        if: ${{ inputs.glass_candidate && matrix.brand == 'petalix' }}
+        uses: actions/checkout@v4
+        with:
+          repository: camosclem/STCC-PETALIX-Builds
+          ref: 974cc0a53e15865473b4c6e905b64abf571f2de7
+          path: glass-source
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        if: ${{ inputs.glass_candidate && matrix.brand == 'petalix' }}
+        with:
+          go-version: '1.27.3'
+          cache: false
       - name: Android SDK
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
@@ -109,7 +128,11 @@ jobs:
         env:
           SERVICE_BRAND: ${{ matrix.brand }}
           PETALIX_UI2_TEST: ${{ inputs.ui2_test }}
+          PETALIX_GLASS_CANDIDATE: ${{ inputs.glass_candidate }}
         run: python3 tooling/android-build/build.py "$SERVICE_BRAND"
+      - name: Package OpenVPN corresponding source
+        if: ${{ inputs.glass_candidate && matrix.brand == 'petalix' }}
+        run: python3 android-work/vpn-android/ci/package-openvpn2-sources.py --output out/openvpn2-corresponding-source.tar.gz
       - uses: actions/upload-artifact@v4
         with:
           name: unsigned-${{ matrix.brand }}
@@ -131,6 +154,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PETALIX_UI2_TEST: ${{ inputs.ui2_test }}
       PETALIX_ONLY_TEST: ${{ inputs.petalix_only }}
+      PETALIX_GLASS_CANDIDATE: ${{ inputs.glass_candidate }}
     steps:
       - uses: actions/checkout@v4
         with:
