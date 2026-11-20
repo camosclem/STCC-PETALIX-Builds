@@ -4,3 +4,6 @@ The program grid, preview blending, hero, category rail, and OK behavior in this
 
 https://github.com/majorleeevil/imd-tv/tree/369d43e05ba9de7e5b61fb0621fb7f2bf7558da8
 https://github.com/camosclem/STCC-PETALIX-Builds/tree/dev/petalix-glass-13-2
+
+The Sports Hub videos, Multiview filters, player source fallback and episode ratings use work from Nuvio + IPTV 1.2.0-beta.2.1, commit f3fcb2aebd1b44a02f63f56715712fbdee11e5f6, including NuvioTV contributors. These changes are applied to the owner's Petalix source.
+https://github.com/homelessbrian/NuvioPlusIPTV/tree/f3fcb2aebd1b44a02f63f56715712fbdee11e5f6

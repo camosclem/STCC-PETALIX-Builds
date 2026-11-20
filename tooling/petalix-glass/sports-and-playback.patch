@@ -1,0 +1,3520 @@
+diff --git a/app/src/main/java/com/nuvio/tv/data/remote/api/SeriesGraphApi.kt b/app/src/main/java/com/nuvio/tv/data/remote/api/SeriesGraphApi.kt
+index ad26e29bb83aba840d0cc59ff582a60c29976e76..4f97ad0d3b1be09c53e8cee77bce800016deaa33 100644
+--- a/app/src/main/java/com/nuvio/tv/data/remote/api/SeriesGraphApi.kt
++++ b/app/src/main/java/com/nuvio/tv/data/remote/api/SeriesGraphApi.kt
+@@ -12,7 +12,8 @@ data class SeriesGraphEpisodeRatingDto(
+     @field:Json(name = "episode_number") val episodeNumber: Int? = null,
+     @field:Json(name = "vote_average") val voteAverage: Double? = null,
+     @field:Json(name = "name") val name: String? = null,
+-    @field:Json(name = "tconst") val tconst: String? = null
++    @field:Json(name = "tconst") val tconst: String? = null,
++    @field:Json(name = "air_date") val airDate: String? = null
+ )
+ 
+ @JsonClass(generateAdapter = true)
+diff --git a/app/src/main/java/com/nuvio/tv/data/repository/EpisodeRatingsAlignment.kt b/app/src/main/java/com/nuvio/tv/data/repository/EpisodeRatingsAlignment.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..a8d2291b753d97a7254ac824f6e92df6156f51d3
+--- /dev/null
++++ b/app/src/main/java/com/nuvio/tv/data/repository/EpisodeRatingsAlignment.kt
+@@ -0,0 +1,83 @@
++package com.nuvio.tv.data.repository
++
++import java.time.LocalDate
++
++internal data class AddonEpisodeAirDate(
++    val season: Int?,
++    val episode: Int?,
++    val released: String?
++)
++
++internal data class ExternalEpisodeRating(
++    val season: Int,
++    val episode: Int,
++    val airDate: String?,
++    val rating: Double?
++)
++
++private data class DatedEpisode(
++    val season: Int,
++    val episode: Int,
++    val day: Long?,
++    val rating: Double? = null
++)
++
++internal fun alignEpisodeRatings(
++    addonEpisodes: List<AddonEpisodeAirDate>,
++    externalEpisodes: List<ExternalEpisodeRating>,
++    today: Long = LocalDate.now().toEpochDay()
++): Map<Pair<Int, Int>, Double> {
++    val byNumber = externalEpisodes
++        .mapNotNull { episode -> episode.rating?.let { (episode.season to episode.episode) to it } }
++        .toMap()
++
++    val addonRegular = addonEpisodes
++        .mapNotNull { addon ->
++            val season = addon.season?.takeIf { it > 0 } ?: return@mapNotNull null
++            val episode = addon.episode ?: return@mapNotNull null
++            DatedEpisode(season, episode, parseAirDay(addon.released))
++        }
++        .distinctBy { it.season to it.episode }
++        .sortedWith(compareBy(DatedEpisode::season, DatedEpisode::episode))
++    val externalRegular = externalEpisodes
++        .filter { it.season > 0 }
++        .distinctBy { it.season to it.episode }
++        .sortedWith(compareBy(ExternalEpisodeRating::season, ExternalEpisodeRating::episode))
++        .map { DatedEpisode(it.season, it.episode, parseAirDay(it.airDate), it.rating) }
++
++    if (addonRegular.isEmpty() || externalRegular.isEmpty()) return byNumber
++    if (addonRegular.map { it.season }.toSet() == externalRegular.map { it.season }.toSet()) return byNumber
++
++    val addonAired = addonRegular.filter { it.day == null || it.day <= today }
++    val externalAired = externalRegular.filter { it.day == null || it.day <= today }
++    if (addonAired.size == externalAired.size) {
++        return buildAlignedRatings(byNumber, addonAired.zip(externalAired))
++    }
++
++    val addonByDay = addonRegular.filter { it.day != null }.groupBy { it.day!! }
++    val externalByDay = externalRegular.filter { it.day != null }.groupBy { it.day!! }
++    if (addonByDay.isEmpty() || externalByDay.isEmpty()) return byNumber
++
++    val matches = addonByDay.flatMap { (day, sameDayAddon) ->
++        val sameDayExternal = (externalByDay[day] ?: externalByDay[day - 1] ?: externalByDay[day + 1])
++            ?.takeIf { it.size == sameDayAddon.size }
++            ?: return@flatMap emptyList()
++        sameDayAddon.zip(sameDayExternal)
++    }
++    return buildAlignedRatings(byNumber, matches)
++}
++
++private fun buildAlignedRatings(
++    byNumber: Map<Pair<Int, Int>, Double>,
++    matches: List<Pair<DatedEpisode, DatedEpisode>>
++): Map<Pair<Int, Int>, Double> = buildMap {
++    byNumber.forEach { (key, rating) -> if (key.first == 0) put(key, rating) }
++    matches.forEach { (addon, external) ->
++        external.rating?.let { put(addon.season to addon.episode, it) }
++    }
++}
++
++private fun parseAirDay(value: String?): Long? {
++    val date = value?.trim()?.take(10)?.takeIf { it.length == 10 } ?: return null
++    return runCatching { LocalDate.parse(date).toEpochDay() }.getOrNull()
++}
+diff --git a/app/src/main/java/com/nuvio/tv/data/repository/ImdbEpisodeRatingsRepository.kt b/app/src/main/java/com/nuvio/tv/data/repository/ImdbEpisodeRatingsRepository.kt
+index cfd52b4a7b959293920dcaee7b47411c2641aa43..e830ba743332af55f5cb4533057dcb1b91a13d3a 100644
+--- a/app/src/main/java/com/nuvio/tv/data/repository/ImdbEpisodeRatingsRepository.kt
++++ b/app/src/main/java/com/nuvio/tv/data/repository/ImdbEpisodeRatingsRepository.kt
+@@ -19,27 +19,35 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
+     private val seriesGraphApi: SeriesGraphApi
+ ) {
+     private data class CacheEntry(
+-        val ratings: Map<Pair<Int, Int>, Double>,
++        val episodes: List<ExternalEpisodeRating>,
+         val expiresAtMs: Long
+     )
+ 
+     private val tag = "ImdbEpisodeRatingsRepo"
+     private val cacheTtlMs = 30L * 60L * 1000L
+     private val cache = ConcurrentHashMap<String, CacheEntry>()
+-    private val inFlight = mutableMapOf<String, kotlinx.coroutines.Deferred<Map<Pair<Int, Int>, Double>>>()
++    private val inFlight = mutableMapOf<String, kotlinx.coroutines.Deferred<List<ExternalEpisodeRating>>>()
+     private val inFlightMutex = Mutex()
+     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+ 
+-    suspend fun getEpisodeRatings(
++    internal suspend fun getEpisodeRatings(
+         imdbId: String?,
+-        tmdbId: Int?
++        tmdbId: Int?,
++        addonEpisodes: List<AddonEpisodeAirDate>
+     ): Map<Pair<Int, Int>, Double> {
++        return alignEpisodeRatings(addonEpisodes, getExternalEpisodes(imdbId, tmdbId))
++    }
++
++    private suspend fun getExternalEpisodes(
++        imdbId: String?,
++        tmdbId: Int?
++    ): List<ExternalEpisodeRating> {
+         val normalizedImdbId = imdbId
+             ?.trim()
+             ?.takeIf { it.startsWith("tt", ignoreCase = true) }
+             ?.substringBefore(':')
+         val normalizedTmdbId = tmdbId?.takeIf { it > 0 }
+-        if (normalizedImdbId == null && normalizedTmdbId == null) return emptyMap()
++        if (normalizedImdbId == null && normalizedTmdbId == null) return emptyList()
+ 
+         val cacheKey = when {
+             !normalizedImdbId.isNullOrBlank() -> "imdb:$normalizedImdbId"
+@@ -48,7 +56,7 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
+ 
+         val now = System.currentTimeMillis()
+         cache[cacheKey]?.let { cached ->
+-            if (cached.expiresAtMs > now) return cached.ratings
++            if (cached.expiresAtMs > now) return cached.episodes
+             cache.remove(cacheKey)
+         }
+ 
+@@ -60,7 +68,7 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
+                         tmdbId = normalizedTmdbId
+                     ).also { result ->
+                         cache[cacheKey] = CacheEntry(
+-                            ratings = result,
++                            episodes = result,
+                             expiresAtMs = System.currentTimeMillis() + cacheTtlMs
+                         )
+                     }
+@@ -80,10 +88,10 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
+     private suspend fun fetchEpisodeRatings(
+         imdbId: String?,
+         tmdbId: Int?
+-    ): Map<Pair<Int, Int>, Double> {
++    ): List<ExternalEpisodeRating> {
+         if (!imdbId.isNullOrBlank()) {
+             val primary = fetchFromImdbTapframe(imdbId)
+-            if (primary.isNotEmpty()) return primary
++            if (primary.any { it.rating != null }) return primary
+             Log.w(tag, "Primary episode ratings empty for imdbId=$imdbId, trying fallback.")
+         }
+ 
+@@ -91,46 +99,46 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
+             return fetchFromSeriesGraph(tmdbId)
+         }
+ 
+-        return emptyMap()
++        return emptyList()
+     }
+ 
+-    private suspend fun fetchFromImdbTapframe(imdbId: String): Map<Pair<Int, Int>, Double> {
++    private suspend fun fetchFromImdbTapframe(imdbId: String): List<ExternalEpisodeRating> {
+         return try {
+             val response = imdbTapframeApi.getSeasonRatings(imdbId)
+             if (!response.isSuccessful) {
+                 Log.w(tag, "Failed primary season ratings for imdbId=$imdbId (${response.code()})")
+-                return emptyMap()
++                return emptyList()
+             }
+-            toRatingsMap(response.body().orEmpty())
++            toEpisodeRatings(response.body().orEmpty())
+         } catch (e: Exception) {
+             Log.w(tag, "Error fetching primary season ratings for imdbId=$imdbId", e)
+-            emptyMap()
++            emptyList()
+         }
+     }
+ 
+-    private suspend fun fetchFromSeriesGraph(tmdbId: Int): Map<Pair<Int, Int>, Double> {
++    private suspend fun fetchFromSeriesGraph(tmdbId: Int): List<ExternalEpisodeRating> {
+         return try {
+             val response = seriesGraphApi.getSeasonRatings(tmdbId)
+             if (!response.isSuccessful) {
+                 Log.w(tag, "Failed fallback season ratings for tmdbId=$tmdbId (${response.code()})")
+-                return emptyMap()
++                return emptyList()
+             }
+-            toRatingsMap(response.body().orEmpty())
++            toEpisodeRatings(response.body().orEmpty())
+         } catch (e: Exception) {
+             Log.w(tag, "Error fetching fallback season ratings for tmdbId=$tmdbId", e)
+-            emptyMap()
++            emptyList()
+         }
+     }
+ 
+-    private fun toRatingsMap(payload: List<com.nuvio.tv.data.remote.api.SeriesGraphSeasonRatingsDto>): Map<Pair<Int, Int>, Double> {
+-        return buildMap {
+-            payload.forEach { season ->
+-                season.episodes.orEmpty().forEach { episode ->
+-                    val seasonNumber = episode.seasonNumber ?: return@forEach
+-                    val episodeNumber = episode.episodeNumber ?: return@forEach
+-                    val voteAverage = episode.voteAverage ?: return@forEach
+-                    put(seasonNumber to episodeNumber, voteAverage)
+-                }
++    private fun toEpisodeRatings(payload: List<com.nuvio.tv.data.remote.api.SeriesGraphSeasonRatingsDto>): List<ExternalEpisodeRating> {
++        return payload.flatMap { season ->
++            season.episodes.orEmpty().mapNotNull { episode ->
++                ExternalEpisodeRating(
++                    season = episode.seasonNumber ?: return@mapNotNull null,
++                    episode = episode.episodeNumber ?: return@mapNotNull null,
++                    airDate = episode.airDate,
++                    rating = episode.voteAverage
++                )
+             }
+         }
+     }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewDecoderReport.kt b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewDecoderReport.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..7a9f2defb148caaf268cba2567667272ad55a6db
+--- /dev/null
++++ b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewDecoderReport.kt
+@@ -0,0 +1,46 @@
++package com.nuvio.tv.livetv.multiview
++
++import androidx.media3.common.C
++import androidx.media3.common.Format
++import androidx.media3.exoplayer.ExoPlayer
++
++/** Start-up report wording for a Multiview pane's video decoder and picture colour format. */
++internal object MultiviewDecoderReport {
++    /** The players of the Multiview panes that exist right now (main thread only). */
++    val openPlayers = mutableSetOf<ExoPlayer>()
++
++    fun describe(f: Format?): String {
++        if (f == null) return "video format not known yet"
++        val codec = f.codecs ?: f.sampleMimeType?.substringAfter('/') ?: "unknown codec"
++        val size = if (f.width > 0 && f.height > 0) "${f.width}x${f.height}" else "size unknown"
++        val c = f.colorInfo
++        val colour = if (c == null) "colour not stated by the stream"
++        else "colour ${space(c.colorSpace)}, ${range(c.colorRange)} range, ${transfer(c.colorTransfer)}"
++        return "$codec $size, $colour"
++    }
++
++    private fun space(v: Int) = when (v) {
++        C.COLOR_SPACE_BT709 -> "BT.709"
++        C.COLOR_SPACE_BT601 -> "BT.601"
++        C.COLOR_SPACE_BT2020 -> "BT.2020"
++        Format.NO_VALUE -> "not stated"
++        else -> "space $v"
++    }
++
++    private fun range(v: Int) = when (v) {
++        C.COLOR_RANGE_LIMITED -> "limited"
++        C.COLOR_RANGE_FULL -> "full"
++        Format.NO_VALUE -> "unstated"
++        else -> "range $v"
++    }
++
++    private fun transfer(v: Int) = when (v) {
++        C.COLOR_TRANSFER_SDR -> "SDR"
++        C.COLOR_TRANSFER_ST2084 -> "HDR10/PQ"
++        C.COLOR_TRANSFER_HLG -> "HLG"
++        C.COLOR_TRANSFER_LINEAR -> "linear"
++        C.COLOR_TRANSFER_GAMMA_2_2 -> "gamma 2.2"
++        Format.NO_VALUE -> "transfer not stated"
++        else -> "transfer $v"
++    }
++}
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewDesign.kt b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewDesign.kt
+index ebe0454d871d4d0ddd927b1a031d41aeaa0b8e13..04d4484eff7936a0e397811edf6ce36ad637e128 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewDesign.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewDesign.kt
+@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
+ import androidx.compose.animation.core.tween
+ import androidx.compose.foundation.Canvas
+ import androidx.compose.foundation.background
++import com.nuvio.tv.livetv.ui.drawThemeGlow
+ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+@@ -37,7 +38,6 @@ import androidx.compose.ui.focus.onFocusChanged
+ import androidx.compose.ui.geometry.CornerRadius
+ import androidx.compose.ui.geometry.Offset
+ import androidx.compose.ui.geometry.Size
+-import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.RectangleShape
+ import androidx.compose.ui.graphics.Shape
+@@ -77,17 +77,12 @@ internal val MultiviewPanelShape = RoundedCornerShape(22.dp)
+ private val LabelChip = Color(0xB80D0D0F)
+ internal val MultiviewNeutralTag = Color.White.copy(alpha = 0.14f)
+ 
+-/** The Guide's soft glow at the top of the screen (the theme's raised colour fading into its background). */
++/** The same soft glow in the theme colour as the top of the Guide and Sports. */
+ @Composable
+ internal fun Modifier.multiviewBackdrop(): Modifier {
+-    val glow = NuvioTheme.colors.BackgroundElevated
+-    return this.drawBehind {
+-        drawRect(Brush.radialGradient(
+-            colors = listOf(glow, glow.copy(alpha = 0f)),
+-            center = Offset(size.width / 2f, 0f),
+-            radius = size.width * 0.75f
+-        ))
+-    }
++    val accent = NuvioTheme.colors.Secondary
++    val top = NuvioTheme.colors.BackgroundElevated
++    return this.drawBehind { drawThemeGlow(accent, top, size.width, 220.dp.toPx()) }
+ }
+ 
+ /** The floating glass card the pickers and the top bar sit in: as dark as the play bar ("Bar darkness"). */
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPicker.kt b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPicker.kt
+index d4888bfb79d3274a291273ee224b3496c1ffccfa..4f4690289316a4ea015537ac1d9ee841cc442b5f 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPicker.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPicker.kt
+@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.LazyRow
+ import androidx.compose.foundation.lazy.itemsIndexed
+ import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.foundation.shape.RoundedCornerShape
+@@ -64,6 +65,7 @@ import com.nuvio.tv.livetv.model.EpgProgram
+ import com.nuvio.tv.livetv.model.LiveChannel
+ import com.nuvio.tv.livetv.sports.ChannelMatch
+ import com.nuvio.tv.livetv.sports.SportsBadge
++import com.nuvio.tv.livetv.sports.SportsWatchFilter
+ import com.nuvio.tv.livetv.sports.SportsWatchGame
+ import com.nuvio.tv.livetv.sports.SportsWatchRow
+ import com.nuvio.tv.livetv.sports.StripGameCard
+@@ -73,6 +75,7 @@ import com.nuvio.tv.livetv.ui.LiveTextField
+ import com.nuvio.tv.livetv.ui.LocalLiveSolidHighlight
+ import com.nuvio.tv.livetv.ui.liveCellColors
+ import com.nuvio.tv.ui.theme.NuvioTheme
++import com.nuvio.tv.livetv.ui.LONG_PRESS_MS
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.ensureActive
+@@ -152,6 +155,11 @@ internal fun MultiviewChannelPicker(
+     sportsMode: Boolean,
+     onSportsMode: (Boolean) -> Unit,
+     rows: List<SportsWatchRow>,
++    /** Chips over the games: My Sports, All Events, Live Now and each sport on now. */
++    filters: List<SportsWatchFilter>,
++    /** The chip the list is showing now (null: a Sports page filter the chips don't offer). */
++    filterKey: String?,
++    onFilter: (String) -> Unit,
+     /** The games are still being fetched and matched to channels (the first time Sports is used). */
+     loadingGames: Boolean,
+     selectedEventId: String?,
+@@ -240,6 +248,9 @@ internal fun MultiviewChannelPicker(
+     val hasChannel = selectedPane?.channelKey != null
+     val failed = selectedPane?.error != null
+     val showActions = searching || !sportsMode || hasChannel || failed
++    // The filter chips sit under the buttons while the games list is showing.
++    val filterFocus = remember { FocusRequester() }
++    var filterJump by remember { mutableStateOf(false) }
+ 
+     // Sports: the games under their section titles, a cursor over the games, and one game's streams.
+     val items = remember(rows) {
+@@ -264,6 +275,7 @@ internal fun MultiviewChannelPicker(
+     var optionsGame by remember { mutableStateOf<SportsWatchGame?>(null) }
+     var optionIndex by remember { mutableIntStateOf(0) }
+     val okHeld = remember { booleanArrayOf(false) }
++    val holdJob = remember { arrayOfNulls<kotlinx.coroutines.Job>(1) }
+ 
+     // What's on now, read only for the rows on screen (and a few below), once scrolling pauses.
+     val shows = remember { mutableStateMapOf<String, EpgProgram>() }
+@@ -309,6 +321,13 @@ internal fun MultiviewChannelPicker(
+         searchState.scrollToItem(0)
+     }
+     LaunchedEffect(items) {
++        if (filterJump) {
++            // A new filter: the list starts at the top.
++            filterJump = false
++            gameCursor = 0
++            sportsState.scrollToItem(0)
++            return@LaunchedEffect
++        }
+         if (gameAt.isEmpty()) return@LaunchedEffect
+         if (!gamePlaced) {
+             gamePlaced = true
+@@ -334,8 +353,27 @@ internal fun MultiviewChannelPicker(
+         runCatching { listFocus.requestFocus() }
+     }
+ 
++    val filtersShown = sportsMode && !searching && optionsGame == null && streamsGame == null && filters.isNotEmpty()
+     fun upFromList() {
+-        runCatching { (if (searching) fieldFocus else if (showActions) actionFocus else tabFocus).requestFocus() }
++        runCatching {
++            (if (searching) fieldFocus else if (filtersShown) filterFocus else if (showActions) actionFocus else tabFocus).requestFocus()
++        }
++    }
++    fun pickFilter(key: String) {
++        if (key == filterKey) {
++            runCatching { listFocus.requestFocus() }
++            return
++        }
++        filterJump = true
++        gameCursor = 0
++        onFilter(key)
++        scope.launch {
++            sportsState.scrollToItem(0)
++            // The new list normally arrives well within this; a later update mustn't jump to the top.
++            delay(3_000L)
++            filterJump = false
++        }
++        runCatching { listFocus.requestFocus() }
+     }
+     fun openSearch() {
+         searching = true
+@@ -424,6 +462,7 @@ internal fun MultiviewChannelPicker(
+                                         val target = when {
+                                             searching -> fieldFocus
+                                             showActions -> actionFocus
++                                            filtersShown -> filterFocus
+                                             else -> listFocus
+                                         }
+                                         if (!runCatching { target.requestFocus() }.isSuccess) runCatching { listFocus.requestFocus() }
+@@ -476,7 +515,9 @@ internal fun MultiviewChannelPicker(
+                             Modifier.fillMaxWidth()
+                                 .onPreviewKeyEvent { event ->
+                                     if (event.key == Key.DirectionDown) {
+-                                        if (event.type == KeyEventType.KeyDown) runCatching { listFocus.requestFocus() }
++                                        if (event.type == KeyEventType.KeyDown) {
++                                            runCatching { (if (filtersShown) filterFocus else listFocus).requestFocus() }
++                                        }
+                                         true
+                                     } else false
+                                 },
+@@ -499,6 +540,44 @@ internal fun MultiviewChannelPicker(
+                             if (failed) MultiviewChip("Retry", icon = Icons.Default.Refresh, onClick = onRetry)
+                         }
+                     }
++                    if (filtersShown) {
++                        // Up goes back to the buttons (or the tabs), Down to the games; Left/Right move along.
++                        val chipKey = filterKey?.takeIf { k -> filters.any { it.key == k } } ?: filters.first().key
++                        val chipState = rememberLazyListState()
++                        LaunchedEffect(chipKey, filters) {
++                            val at = filters.indexOfFirst { it.key == chipKey }
++                            if (at > 0) chipState.scrollToItem((at - 1).coerceAtLeast(0))
++                        }
++                        LazyRow(
++                            Modifier.fillMaxWidth()
++                                .onPreviewKeyEvent { event ->
++                                    when (event.key) {
++                                        Key.DirectionDown -> {
++                                            if (event.type == KeyEventType.KeyDown) runCatching { listFocus.requestFocus() }
++                                            true
++                                        }
++                                        Key.DirectionUp -> {
++                                            if (event.type == KeyEventType.KeyDown) {
++                                                runCatching { (if (showActions) actionFocus else tabFocus).requestFocus() }
++                                            }
++                                            true
++                                        }
++                                        else -> false
++                                    }
++                                },
++                            state = chipState,
++                            horizontalArrangement = Arrangement.spacedBy(6.dp),
++                            contentPadding = PaddingValues(horizontal = 2.dp)
++                        ) {
++                            itemsIndexed(filters, key = { _, f -> f.key }) { _, f ->
++                                MultiviewChip(
++                                    "${f.icon}  ${f.label}",
++                                    if (f.key == chipKey) Modifier.focusRequester(filterFocus) else Modifier,
++                                    selected = f.key == filterKey
++                                ) { pickFilter(f.key) }
++                            }
++                        }
++                    }
+                 }
+                 Box(
+                     Modifier.weight(1f).fillMaxWidth()
+@@ -511,13 +590,14 @@ internal fun MultiviewChannelPicker(
+                                     event.key == Key.DirectionDown -> { if (optionIndex < 1) optionIndex++ }
+                                     event.key == Key.DirectionUp -> { if (optionIndex > 0) optionIndex-- else upFromList() }
+                                     event.key == Key.DirectionLeft -> optionsGame = null
+-                                    ok -> optionsGame?.let { g -> if (optionIndex == 0) { optionsGame = null; openStreams(g) } else onGameInfo(g) }
++                                    // The OK that opened this menu may still be held: its repeats don't choose.
++                                    ok && event.nativeKeyEvent.repeatCount == 0 -> optionsGame?.let { g -> if (optionIndex == 0) { optionsGame = null; openStreams(g) } else onGameInfo(g) }
+                                 }
+                                 sportsMode && streamsGame != null -> if (down) when {
+                                     event.key == Key.DirectionDown -> { if (streamIndex < streams.lastIndex) streamIndex++ }
+                                     event.key == Key.DirectionUp -> { if (streamIndex > 0) streamIndex-- else upFromList() }
+                                     event.key == Key.DirectionLeft -> streamsGame = null
+-                                    ok -> streams.getOrNull(streamIndex)?.let { m ->
++                                    ok && event.nativeKeyEvent.repeatCount == 0 -> streams.getOrNull(streamIndex)?.let { m ->
+                                         streamsGame?.let { g -> onStream(g, m.channel.key); onClose() }
+                                     }
+                                 }
+@@ -525,21 +605,35 @@ internal fun MultiviewChannelPicker(
+                                     val game = (items.getOrNull(gameAt.getOrNull(gameCursor) ?: -1) as? PanelItem.Game)?.game
+                                     when {
+                                         ok -> {
+-                                            // Hold OK (the key repeats): more options for the game; a quick press plays it.
++                                            // Hold OK: more options for the game; a quick press plays it. Timed, not
++                                            // only by key repeats: some remotes (HDMI-CEC) send none while OK is held.
++                                            fun openOptions() {
++                                                okHeld[0] = false
++                                                holdJob[0]?.cancel()
++                                                game?.let { optionsGame = it; optionIndex = 0 }
++                                            }
+                                             if (down) {
+-                                                if (event.nativeKeyEvent.repeatCount == 0) okHeld[0] = true
+-                                                else if (okHeld[0]) {
+-                                                    okHeld[0] = false
+-                                                    game?.let { optionsGame = it; optionIndex = 0 }
+-                                                }
++                                                if (event.nativeKeyEvent.repeatCount == 0) {
++                                                    okHeld[0] = true
++                                                    holdJob[0]?.cancel()
++                                                    holdJob[0] = scope.launch {
++                                                        delay(LONG_PRESS_MS)
++                                                        if (okHeld[0]) openOptions()
++                                                    }
++                                                } else if (okHeld[0]) openOptions()
+                                             } else if (okHeld[0]) {
+                                                 okHeld[0] = false
++                                                holdJob[0]?.cancel()
+                                                 game?.let(::playGame)
+                                             }
+                                         }
+                                         !down -> Unit
+                                         event.key == Key.DirectionDown -> { if (gameCursor < gameAt.lastIndex) gameCursor++ }
+                                         event.key == Key.DirectionUp -> { if (gameCursor > 0) gameCursor-- else upFromList() }
++                                        // Left: back to the top of the list, then up to the tabs.
++                                        event.key == Key.DirectionLeft -> if (event.nativeKeyEvent.repeatCount == 0) {
++                                            if (gameCursor > 0) gameCursor = 0 else upFromList()
++                                        }
+                                     }
+                                 }
+                                 !down -> Unit
+@@ -554,11 +648,18 @@ internal fun MultiviewChannelPicker(
+                                         event.key == Key.DirectionDown -> { if (index < tree.lastIndex) index++ }
+                                         event.key == Key.DirectionUp -> { if (index > 0) index-- else upFromList() }
+                                         // Left folds a playlist or group shut; on a channel it goes back to its group.
+-                                        event.key == Key.DirectionLeft -> when (item) {
+-                                            is TreeItem.Head -> if (!item.collapsed) toggleList(item)
+-                                            is TreeItem.Group -> if (item.isOpen) toggleGroup(item)
+-                                            is TreeItem.Channel -> tree.indexOfLast { it is TreeItem.Group && it.isOpen }.takeIf { it >= 0 }?.let { index = it }
+-                                            null -> Unit
++                                        // With nothing to fold: back to the top of the list, then up to the tabs.
++                                        event.key == Key.DirectionLeft -> {
++                                            val folded = when (item) {
++                                                is TreeItem.Head -> if (!item.collapsed) { toggleList(item); true } else false
++                                                is TreeItem.Group -> if (item.isOpen) { toggleGroup(item); true } else false
++                                                is TreeItem.Channel -> tree.subList(0, index.coerceIn(0, tree.size)).indexOfLast { it is TreeItem.Group && it.isOpen }
++                                                    .takeIf { it >= 0 }?.let { index = it; true } ?: false
++                                                null -> false
++                                            }
++                                            if (!folded && event.nativeKeyEvent.repeatCount == 0) {
++                                                if (index > 0) index = 0 else upFromList()
++                                            }
+                                         }
+                                         event.key == Key.DirectionRight -> when (item) {
+                                             is TreeItem.Head -> if (item.collapsed) toggleList(item)
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPlaybackSession.kt b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPlaybackSession.kt
+index 361d138504b1e57b9139d6c161748176ac63667f..1322f420f88bab19f483947a66784df55862db5c 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPlaybackSession.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPlaybackSession.kt
+@@ -217,6 +217,10 @@ class MultiviewPlaybackSession(
+     }
+ }
+ 
++/** How many Multiview panes currently have a video decoder (for the report's decoder lines). */
++@OptIn(UnstableApi::class)
++private fun decodersOpen(): Int = MultiviewDecoderReport.openPlayers.count { it.videoDecoderCounters != null }
++
+ @OptIn(UnstableApi::class)
+ private class AndroidMultiviewPanePlayer(
+     context: Context,
+@@ -359,6 +363,32 @@ private class AndroidMultiviewPanePlayer(
+         return true
+     }
+ 
++    /** Channels whose decoder line is already in the report, so a reconnect doesn't repeat it. */
++    private val decoderReported = mutableSetOf<String>()
++
++    /**
++     * Which video decoder the box gave this pane and the picture's colour format, once per
++     * channel, so a pane whose picture looks wrong (e.g. tinted) can be told apart from one that's fine.
++     */
++    private val decoderReport = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
++        override fun onVideoDecoderInitialized(
++            eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
++            decoderName: String,
++            initializedTimestampMs: Long,
++            initializationDurationMs: Long,
++        ) {
++            if (released) return
++            val ch = channel ?: return
++            val f = player.videoFormat
++            val key = "${ch.key}|$decoderName|${f?.sampleMimeType}|${f?.width}x${f?.height}|${f?.colorInfo}"
++            if (!decoderReported.add(key)) return
++            LiveTvLoadReport.add(
++                "Multiview: ${ch.name} video decoder $decoderName (${decodersOpen()} Multiview decoders open); " +
++                    MultiviewDecoderReport.describe(f)
++            )
++        }
++    }
++
+     private val renderers = object : DefaultRenderersFactory(context) {
+         override fun buildAudioSink(
+             context: Context,
+@@ -406,6 +436,8 @@ private class AndroidMultiviewPanePlayer(
+                 )
+                 .build()
+             addListener(listener)
++            addAnalyticsListener(decoderReport)
++            MultiviewDecoderReport.openPlayers += this
+         }
+ 
+     override val playback: MultiviewPanePlayback
+@@ -498,6 +530,8 @@ private class AndroidMultiviewPanePlayer(
+     override fun release() {
+         if (released) return
+         released = true
++        player.removeAnalyticsListener(decoderReport)
++        MultiviewDecoderReport.openPlayers -= player
+         generation++
+         reconnectJob?.cancel()
+         scope.cancel()
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewScreen.kt
+index 6226b46c1b2aeaa77a5a76a32ffcac52b0d350c7..9f0a040fa2863c596572e827ba0ef6a70683d6ae 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewScreen.kt
+@@ -76,6 +76,7 @@ import com.nuvio.tv.livetv.sports.SportsWatchLaunch
+ import com.nuvio.tv.livetv.sports.SportsWatchViewModel
+ import com.nuvio.tv.livetv.sports.sportsFrame
+ import com.nuvio.tv.livetv.ui.ChannelLogo
++import com.nuvio.tv.livetv.ui.guideBackdrop
+ import com.nuvio.tv.livetv.ui.KeepScreenAwake
+ import com.nuvio.tv.livetv.ui.LiveText
+ import com.nuvio.tv.livetv.ui.LiveTextField
+@@ -118,6 +119,8 @@ fun MultiviewScreen(
+     val sportsAllowed = sports?.allowedChannels?.collectAsStateWithLifecycle()?.value ?: emptyList()
+     val games = sports?.games?.collectAsStateWithLifecycle()?.value ?: emptyList()
+     val sportsRows = sports?.rows?.collectAsStateWithLifecycle()?.value ?: emptyList()
++    val sportsFilters = sports?.filters?.collectAsStateWithLifecycle()?.value ?: emptyList()
++    val sportsFilterKey = sports?.filterKey?.collectAsStateWithLifecycle()?.value
+     // The first time Sports is used, its games take a while: "Loading games" until they arrive (or 30 s pass).
+     val sportsBusy = sports?.busy?.collectAsStateWithLifecycle()?.value ?: false
+     var sportsSawBusy by remember { mutableStateOf(false) }
+@@ -187,6 +190,7 @@ fun MultiviewScreen(
+     val paneFocus = remember { List(4) { FocusRequester() } }
+     val editFocus = remember { FocusRequester() }
+     val panelBackground by viewModel.panelBackground.collectAsStateWithLifecycle()
++    val backdrop by viewModel.backdrop.collectAsStateWithLifecycle()
+     val use24h by viewModel.use24HourClock.collectAsStateWithLifecycle()
+     // A minute clock for the panes' "on now" and progress (read from the stored guide, four channels at most).
+     val clock by produceState(System.currentTimeMillis()) {
+@@ -380,6 +384,13 @@ fun MultiviewScreen(
+         (pane ?: state.focusedPane).let { paneFocus[it.coerceIn(0, state.layout.paneCount - 1)].requestFocus() }
+     }
+     LaunchedEffect(editorOpen) { if (!editorOpen) returnGame = null }
++    // A picker that closed on OK (a channel picked while OK is held): the rest of that press would reach
++    // the pane underneath and count as "Hold OK: full screen". It is swallowed until OK is let go; a
++    // pause in the key repeats means OK was already let go elsewhere, so a new press goes through.
++    val okLeftover = remember { longArrayOf(-1L) }
++    LaunchedEffect(editorOpen, layoutOpen) {
++        if (!editorOpen && !layoutOpen) okLeftover[0] = android.os.SystemClock.uptimeMillis()
++    }
+     // The pane that has just become full screen can only take the highlight once the screen has updated.
+     LaunchedEffect(fullPane) { if (!editorOpen && !layoutOpen) fullPane?.let { paneFocus[it].requestFocus() } }
+     fun paneClick(paneId: Int) {
+@@ -407,7 +418,17 @@ fun MultiviewScreen(
+     }
+ 
+     Box(
+-        Modifier.fillMaxSize().background(NuvioTheme.colors.Background).multiviewBackdrop().onPreviewKeyEvent { event ->
++        Modifier.fillMaxSize().guideBackdrop(backdrop).multiviewBackdrop().onPreviewKeyEvent { event ->
++            if (okLeftover[0] >= 0 && (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)) {
++                val native = event.nativeKeyEvent
++                val newPress = event.type == KeyEventType.KeyDown && native.repeatCount == 0 &&
++                    native.eventTime - okLeftover[0] > OK_LEFTOVER_GAP_MS
++                if (newPress) okLeftover[0] = -1L
++                else {
++                    okLeftover[0] = if (event.type == KeyEventType.KeyUp) -1L else native.eventTime
++                    return@onPreviewKeyEvent true
++                }
++            }
+             val arrow = event.key == Key.DirectionLeft || event.key == Key.DirectionRight ||
+                 event.key == Key.DirectionUp || event.key == Key.DirectionDown
+             // With the overlays hidden, the first arrow only brings them back: it must not also move
+@@ -597,6 +618,9 @@ fun MultiviewScreen(
+                 sportsMode = on
+             },
+             rows = sportsRows,
++            filters = sportsFilters,
++            filterKey = sportsFilterKey,
++            onFilter = { key -> sports?.pickFilter(key) },
+             loadingGames = loadingGames,
+             selectedEventId = paneEvents[pane]
+                 ?: games.firstOrNull { game -> game.channels.any { it.channel.key == state.panes.getOrNull(pane)?.channelKey } }?.event?.id,
+@@ -678,3 +702,6 @@ internal object MultiviewReturn {
+         return s?.takeIf { it.sports == sports && it.profile == profile }
+     }
+ }
++
++/** Key repeats come about every 50 ms; a longer pause after a picker closed means OK was let go. */
++private const val OK_LEFTOVER_GAP_MS = 300L
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewViewModel.kt b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewViewModel.kt
+index 63747646a5fd089ed702a75da304f5aa0969d69f..c4ed6dadf452398f7a5f6039efd7bb16945476b1 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewViewModel.kt
+@@ -57,6 +57,11 @@ class MultiviewViewModel @Inject constructor(
+         channelStore.displayChannels, preferences.userState, preferences.settings,
+     ).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+ 
++    /** The guide's chosen backdrop (Settings → Live TV), so Multiview matches the Guide and Sports. */
++    val backdrop: StateFlow<String> = preferences.settings.map { it.guideBackdrop }
++        .distinctUntilChanged()
++        .stateIn(viewModelScope, SharingStarted.Eagerly, "auto")
++
+     /** The play bar's darkness ("Bar darkness"), which every panel over the video follows. */
+     val panelBackground: StateFlow<String> = preferences.settings.map { it.panelBackground }
+         .stateIn(viewModelScope, SharingStarted.Eagerly, "darker")
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/player/LiveTvPlaybackController.kt b/app/src/main/java/com/nuvio/tv/livetv/player/LiveTvPlaybackController.kt
+index 92110bbeec0bc36750494f756264b2b6794e737c..5d6b1e5cabef2cf54b9cdc6cd30cbd9e56da1b91 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/player/LiveTvPlaybackController.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/player/LiveTvPlaybackController.kt
+@@ -330,10 +330,35 @@ class LiveTvPlaybackController @Inject constructor(
+         return OwnTimeline(p.currentPosition.coerceIn(0L, d), d, p.isCurrentMediaItemDynamic)
+     }
+ 
++    /** The stream playing now has shown itself as live at some point (a live game, not a replay). */
++    @Volatile private var sawLive = false
++
++    private val _videoFinished = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
++    /** A replay or highlight from Sports played to its end (full screen goes back where it was opened). */
++    val videoFinished: kotlinx.coroutines.flow.SharedFlow<Unit> = _videoFinished
++
++    /**
++     * True when what just ended is a sports addon replay or an official highlight that played
++     * through: a fixed length, and never live. A live game that drops (even one whose provider
++     * closes its list) keeps retrying as before.
++     */
++    private fun clipFinished(): Boolean {
++        val p = _player ?: return false
++        val ch = currentChannel ?: return false
++        if (ch.sourceId != com.nuvio.tv.livetv.sports.SportsVideos.SOURCE_ID &&
++            ch.sourceId != com.nuvio.tv.livetv.sports.SportsAddonSource.SOURCE_ID) return false
++        if (sawLive || p.isCurrentMediaItemDynamic) return false
++        val d = p.duration
++        return d != C.TIME_UNSET && d > 0
++    }
++
+     private fun updateOwnTimeline() {
+         val p = _player
+         val ch = currentChannel
+-        _ownTimeline.value = p != null && ch?.sourceId == com.nuvio.tv.livetv.sports.SportsAddonSource.SOURCE_ID &&
++        if (p != null && p.isCurrentMediaItemDynamic) sawLive = true
++        _ownTimeline.value = p != null &&
++            (ch?.sourceId == com.nuvio.tv.livetv.sports.SportsAddonSource.SOURCE_ID ||
++                ch?.sourceId == com.nuvio.tv.livetv.sports.SportsVideos.SOURCE_ID) &&
+             _state.value.catchupTitle == null && _shiftStartedAt.value == null && _recordingPlayback.value == null &&
+             p.isCurrentMediaItemSeekable && p.duration != C.TIME_UNSET &&
+             // Live: only with a real rewind window (a short one would run out while paused, so
+@@ -801,6 +826,7 @@ class LiveTvPlaybackController @Inject constructor(
+         wallCheckedFor = null
+         if (previousChannelKey != channel.key) {
+             neverStartedCount = 0
++            sawLive = false
+             audioHandled = false
+             audioPrefPending = true
+             captionsHandled = false
+@@ -1075,6 +1101,7 @@ class LiveTvPlaybackController @Inject constructor(
+         LiveWatching.sourceId = null
+         currentUrl = null
+         _ownTimeline.value = false
++        sawLive = false
+         _state.value = LivePlaybackState()
+     }
+ 
+@@ -1188,7 +1215,7 @@ class LiveTvPlaybackController @Inject constructor(
+                 "; reloading · ${redact(currentUrl ?: ch.url)}"
+         )
+         val url = currentUrl ?: ch.url
+-        val resumeAt = if (archive) pos else C_TIME_UNSET
++        val resumeAt = if (archive) pos else ownReplayResumeAt(p)
+         if (activeStalkerRef != null) {
+             restartStalker(resumeAt)
+             return
+@@ -1894,6 +1921,13 @@ class LiveTvPlaybackController @Inject constructor(
+                 return
+             }
+             if (playbackState == Player.STATE_ENDED && _state.value.catchupTitle == null) {
++                // A replay or highlight from Sports that played to its end: done, not a dropout.
++                if (clipFinished()) {
++                    com.nuvio.tv.livetv.model.LiveTvLoadReport.add("Video ${currentChannel?.name} finished")
++                    _videoFinished.tryEmit(Unit)
++                    stop()
++                    return
++                }
+                 // A live stream should never end; treat it as a dropped connection.
+                 scheduleReconnect("Stream ended")
+             }
+@@ -2223,19 +2257,40 @@ class LiveTvPlaybackController @Inject constructor(
+             }
+             val url = currentUrl ?: return@launch
+             val p = _player ?: return@launch
++            val resumeAt = ownReplayResumeAt(p)
+             p.setMediaSource(buildMediaSource(url, ch.headers, isLive = _state.value.catchupTitle == null))
+             p.prepare()
++            if (resumeAt > 0) p.seekTo(resumeAt)
+             p.playWhenReady = true
+         }
+     }
+ 
+-    private fun buildMediaSource(url: String, headers: Map<String, String>, isLive: Boolean): androidx.media3.exoplayer.source.MediaSource =
+-        com.nuvio.tv.livetv.multiview.LiveTvMediaSourceBuilder(
++    private fun buildMediaSource(url: String, headers: Map<String, String>, isLive: Boolean): androidx.media3.exoplayer.source.MediaSource {
++        // A YouTube highlight from Sports: its picture and sound are two files, played together
++        // the way trailers are (read in pieces, as YouTube slows down whole-file downloads).
++        if (currentChannel?.sourceId == com.nuvio.tv.livetv.sports.SportsVideos.SOURCE_ID) {
++            com.nuvio.tv.livetv.sports.SportsVideos.soundFor(url)?.let { sound ->
++                val factory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(com.nuvio.tv.data.trailer.YoutubeChunkedDataSourceFactory())
++                return androidx.media3.exoplayer.source.MergingMediaSource(
++                    factory.createMediaSource(MediaItem.fromUri(url)),
++                    factory.createMediaSource(MediaItem.fromUri(sound))
++                )
++            }
++        }
++        return com.nuvio.tv.livetv.multiview.LiveTvMediaSourceBuilder(
+             drm = currentChannel?.drm,
+             forcedMime = forcedMime,
+             bufferSize = bufferSize,
+             stalkerPolicy = stalkerMediaPolicy,
+         ).build(url, headers, isLive)
++    }
++
++    /**
++     * Where a replay with its own timeline (an addon replay, a highlight) had got to, so reloading
++     * it after a freeze or an error carries on there instead of starting over. Unset otherwise.
++     */
++    private fun ownReplayResumeAt(p: ExoPlayer): Long =
++        if (_ownTimeline.value && !p.isCurrentMediaItemDynamic) p.currentPosition.coerceAtLeast(0L) else C_TIME_UNSET
+ 
+     /**
+      * Lets go of the player (and its hold on the audio output) right away. Called when Nuvio's
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsCatalog.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsCatalog.kt
+index 1d659567b41651471d612c12d7000f7ccfd08add..ca8a823073c36db8e40d78c2d53810c06f106eae 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsCatalog.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsCatalog.kt
+@@ -208,6 +208,7 @@ object SportsCatalog {
+         soc("fifa.worldq.caf", "World Cup Qualifying (Africa)", "WCQ AF", listOf("World Cup Qualifier", "World Cup Qualifying"), color = 0xFF006233, national = true),
+         soc("fifa.worldq.ofc", "World Cup Qualifying (Oceania)", "WCQ OC", listOf("World Cup Qualifier", "World Cup Qualifying"), color = 0xFF1B4F72, national = true),
+         soc("caf.nations", "Africa Cup of Nations", "AFCON", listOf("Africa Cup of Nations", "AFCON"), color = 0xFF006233, national = true),
++        soc("caf.nations_qual", "AFCON Qualifying", "AFCON Q", listOf("AFCON Qualifier", "AFCON Qualifying", "Africa Cup of Nations Qualifier", "Africa Cup of Nations Qualifying"), color = 0xFF006233, national = true),
+         soc("afc.asian.cup", "AFC Asian Cup", "ASIAN", listOf("Asian Cup"), color = 0xFF1A3C6E, national = true),
+         soc("fifa.olympics", "Olympic Football", "OLY", listOf("Olympic Football", "Olympics Football"), color = 0xFF0081C8),
+         soc("club.friendly", "Club Friendlies", "FRIENDLY", listOf("Club Friendly", "Pre-Season Friendly", "Friendly"), color = 0xFF33415C),
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt
+index 5ffcf5d44c2890502db3d24d511010f2f0d1f2e3..db6bd2baeb4cb04ebdd12ef50014681ec9649607 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt
+@@ -96,6 +96,26 @@ internal object SportsLook {
+     val ScoreStyle = TextStyle(fontFeatureSettings = "tnum", fontWeight = FontWeight.Black)
+ }
+ 
++/**
++ * One set of gaps for every Sports page, so the rows at the top and the lists under them are
++ * spaced the same way everywhere. Each row of buttons at the top keeps [RowPad] above and below
++ * itself, so [RowGap] between two of them shows as an even 12dp.
++ */
++internal object SportsSpace {
++    /** The height of the buttons and tabs in the rows at the top of a page. */
++    val Control = 32.dp
++    /** Above and below a row of buttons at the top (room for the highlight). */
++    val RowPad = 2.dp
++    /** Between two rows at the top of a page (12dp once each row's [RowPad] is added). */
++    val RowGap = 8.dp
++    /** Between cards, across and down. */
++    val Card = 10.dp
++    /** Above a section's heading in a list ("LIVE NOW", "COMING UP"): 20dp with the card gap. */
++    val SectionTop = 10.dp
++    /** Kept clear above the hint line at the bottom of a page. */
++    val Bottom = 30.dp
++}
++
+ /** A team colour made dark enough for white text on top of it. */
+ internal fun bandColor(c: Color): Color = lerp(c, SportsLook.Ink, if (c.luminance() > 0.5f) 0.5f else if (c.luminance() > 0.25f) 0.25f else 0.08f)
+ 
+@@ -598,9 +618,10 @@ internal fun DayTab(text: String, selected: Boolean, modifier: Modifier = Modifi
+     var focused by remember { mutableStateOf(false) }
+     val accent = NuvioTheme.colors.Secondary
+     val shape = RoundedCornerShape(50)
+-    LiveText(
+-        text,
+-        modifier = modifier
++    // The same height as the buttons in the top bar, so the rows line up evenly.
++    Box(
++        modifier
++            .height(SportsSpace.Control)
+             .clip(shape)
+             .background(if (selected) accent.copy(alpha = 0.14f) else Color.Transparent)
+             .border(
+@@ -610,10 +631,15 @@ internal fun DayTab(text: String, selected: Boolean, modifier: Modifier = Modifi
+             )
+             .onFocusChanged { focused = it.isFocused }
+             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+-            .padding(horizontal = 12.dp, vertical = 5.dp),
+-        color = if (selected) Color.White else SportsLook.Dim,
+-        size = 12.sp, weight = FontWeight.Bold
+-    )
++            .padding(horizontal = 12.dp),
++        contentAlignment = Alignment.Center
++    ) {
++        LiveText(
++            text,
++            color = if (selected) Color.White else SportsLook.Dim,
++            size = 12.sp, weight = FontWeight.Bold
++        )
++    }
+ }
+ 
+ /**
+@@ -626,8 +652,8 @@ internal fun FilterIcon(icon: String, label: String, selected: Boolean, modifier
+     val shape = RoundedCornerShape(50)
+     Row(
+         modifier
+-            .height(32.dp)
+-            .widthIn(min = 32.dp)
++            .height(SportsSpace.Control)
++            .widthIn(min = SportsSpace.Control)
+             .clip(shape)
+             .background(
+                 when {
+@@ -653,8 +679,15 @@ internal fun FilterIcon(icon: String, label: String, selected: Boolean, modifier
+ 
+ /** A section's heading: "● LIVE NOW", "COMING UP", with the count on the right. */
+ @Composable
+-internal fun SectionHeader(title: String, live: Boolean = false, count: Int? = null, modifier: Modifier = Modifier) {
+-    Row(modifier.fillMaxWidth().padding(top = 12.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
++internal fun SectionHeader(
++    title: String,
++    live: Boolean = false,
++    count: Int? = null,
++    modifier: Modifier = Modifier,
++    /** In a list that already spaces its items: 0, so the heading sits one card gap above its cards. */
++    bottom: Dp = 6.dp
++) {
++    Row(modifier.fillMaxWidth().padding(top = SportsSpace.SectionTop, bottom = bottom), verticalAlignment = Alignment.CenterVertically) {
+         if (live) {
+             Box(Modifier.size(8.dp).clip(CircleShape).background(SportsLook.Live))
+             Spacer(Modifier.width(7.dp))
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsFeeds.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsFeeds.kt
+index b968b2e4555fb93ab5e779fd3679958c5808d345..d1dcbcdabde8452955f9adefdc3a0449831f71d8 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsFeeds.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsFeeds.kt
+@@ -133,6 +133,9 @@ internal class SportsFeeds {
+ 
+     fun tsdbGameRaw(tsdbEventId: String): String = get(DATA_URL + "sportsdb/games/$tsdbEventId.json")
+ 
++    /** Any of our own data files by its full address (see [DATA_URL]). */
++    fun dataRaw(url: String): String = get(url)
++
+     // ------------------------------------------------------------------ the shared ESPN schedule cache
+ 
+     /**
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt
+index c09082087c32b900e416456edf37ab169dea7a3b..ff62a618950418cb9a77d8339275288b3d62883a 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt
+@@ -245,11 +245,11 @@ internal fun LeagueNetworksPage(
+     val list: @Composable (Modifier) -> Unit = { m ->
+         LazyColumn(
+             m.fillMaxWidth().keepFocusWhileHeld(horizontal = false),
+-            verticalArrangement = Arrangement.spacedBy(10.dp)
++            verticalArrangement = Arrangement.spacedBy(SportsSpace.Card)
+         ) {
+             val bySport = tiles.groupBy { it.network.sport }
+             bySport.forEach { (sport, all) ->
+-                item(key = "h|$sport") { SectionHeader(sport) }
++                item(key = "h|$sport") { SectionHeader(sport, bottom = 0.dp) }
+                 val sorted = all.sortedBy { it.lead == null }
+                 if (sorted.size > 1 && sorted.all { it.lead == null }) {
+                     // Nothing found for this sport: one tile, then pick which network to set by hand.
+@@ -265,7 +265,7 @@ internal fun LeagueNetworksPage(
+                 } else {
+                     sorted.chunked(columns).forEach { row ->
+                         item(key = "r|" + row.first().network.id) {
+-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
++                            Row(horizontalArrangement = Arrangement.spacedBy(SportsSpace.Card)) {
+                                 row.forEach { t ->
+                                     val lead = t.lead
+                                     val info: Pair<String, Boolean> =
+@@ -294,8 +294,9 @@ internal fun LeagueNetworksPage(
+     // The top bar across the page (like My Sports), then the list with the video window beside it.
+     Box(Modifier.fillMaxSize()) {
+         if (videoOn) {
+-            Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 28.dp, top = 20.dp, bottom = 26.dp)) {
++            Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 28.dp, top = 20.dp, bottom = SportsSpace.Bottom)) {
+                 topBar()
++                Spacer(Modifier.height(SportsSpace.RowGap))
+                 Row(Modifier.weight(1f).fillMaxWidth()) {
+                     Column(Modifier.width(470.dp).fillMaxHeight()) {
+                         LiveText(
+@@ -318,8 +319,9 @@ internal fun LeagueNetworksPage(
+                 }
+             }
+         } else {
+-            Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 36.dp, top = 20.dp, bottom = 26.dp)) {
++            Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 36.dp, top = 20.dp, bottom = SportsSpace.Bottom)) {
+                 topBar()
++                Spacer(Modifier.height(SportsSpace.RowGap))
+                 LiveText(
+                     "Each league's own channel, found in your playlists by name.",
+                     color = SportsLook.Dim, size = 12.sp, maxLines = 2, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsMyTeams.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsMyTeams.kt
+index cd4769f7d806119c02b072e38d067ce121689d09..d4b3174258916f2614be133d44a83787e112ca34 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsMyTeams.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsMyTeams.kt
+@@ -195,9 +195,10 @@ internal fun MyTeamsRows(
+     }
+ 
+     // Stops above the hint line at the bottom, so it never sits over a row.
+-    Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 28.dp, top = 20.dp, bottom = 24.dp)) {
++    Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 28.dp, top = 20.dp, bottom = SportsSpace.Bottom)) {
+         header()
+-        Spacer(Modifier.height(10.dp))
++        // 12dp under the top bar, the same as every Sports page (the bar keeps 2dp of its own).
++        Spacer(Modifier.height(SportsSpace.RowGap + SportsSpace.RowPad))
+         Row(Modifier.fillMaxWidth().height(168.dp)) {
+             if (loading) {
+                 Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+@@ -277,7 +278,7 @@ internal fun MyTeamsRows(
+                                             idx?.let { requesterFor(keyAt(it)) } ?: FocusRequester.Default
+                                         }
+                                         .focusGroup(),
+-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
++                                    horizontalArrangement = Arrangement.spacedBy(SportsSpace.Card),
+                                     contentPadding = PaddingValues(start = 6.dp, end = 640.dp, top = 3.dp, bottom = 6.dp)
+                                 ) {
+                                     itemsIndexed(row.events, key = { _, ev -> ev.id }) { i, ev ->
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsRepository.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsRepository.kt
+index 87f75e8583b88faa93d1e236c75f2bd9090079e3..c9dfb9010c29826a14d656d732f28e93c40459f7 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsRepository.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsRepository.kt
+@@ -59,10 +59,13 @@ class SportsRepository @Inject constructor(
+     private val channelStore: LiveTvChannelStore,
+     private val guideDb: EpgDatabase,
+     private val playback: LiveTvPlaybackController,
+-    private val addonSource: SportsAddonSource
++    private val addonSource: SportsAddonSource,
++    youTube: com.nuvio.tv.data.trailer.InAppYouTubeExtractor
+ ) {
+     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+     private val feeds = SportsFeeds()
++    // Official highlights and condensed games (ESPN, NHL, MLB, YouTube via TheSportsDB).
++    private val videos = SportsVideos({ feeds.dataRaw(it) }, youTube)
+     // In the app's cache (see SportsDiskCache); made again if "Clear cache" emptied it meanwhile.
+     private val sportsDir = SportsDiskCache.directory(context.filesDir, context.cacheDir)
+     private val dir: File get() = sportsDir.apply { mkdirs() }
+@@ -398,6 +401,7 @@ class SportsRepository @Inject constructor(
+      */
+     fun openGame(ev: SportsEvent) {
+         addonJobs.remove(ev.id)?.cancel()
++        if (ev.state == GameState.POST) lookForVideos(ev)
+         if (ev.state == GameState.POST) {
+             // Already being looked for since the card was highlighted: carry on with that.
+             synchronized(warmLock) {
+@@ -452,11 +456,48 @@ class SportsRepository @Inject constructor(
+             warmJob = scope.launch {
+                 delay(WARM_DELAY_MS)
+                 warmAsking = true
++                lookForVideos(ev)
+                 lookInAddons(ev)
+             }
+         }
+     }
+ 
++    // ---- official videos (see SportsVideos)
++
++    private val _videos = MutableStateFlow<Map<String, List<ChannelMatch>>>(emptyMap())
++    /** Finished games: event id -> their official highlights, recaps and condensed games. */
++    val videoMatches: StateFlow<Map<String, List<ChannelMatch>>> = _videos.asStateFlow()
++    private val videoAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
++    private val videoJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
++
++    /** A finished game's official videos, looked for once (again after a while: they keep coming for a few hours). */
++    private fun lookForVideos(ev: SportsEvent) {
++        if (ev.state != GameState.POST) return
++        val at = videoAt[ev.id]
++        val have = _videos.value[ev.id]
++        val fresh = if (have.isNullOrEmpty()) VIDEO_EMPTY_FRESH_MS else VIDEO_FRESH_MS
++        if (at != null && System.currentTimeMillis() - at < fresh) return
++        if (videoJobs[ev.id]?.isActive == true) return
++        videoJobs[ev.id] = scope.launch {
++            try {
++                val espn = runCatching { summaryFor(ev)?.videos }.getOrNull().orEmpty()
++                val found = videos.find(ev, espn).map { SportsVideos.match(it) }
++                _videos.update { it + (ev.id to found) }
++                videoAt[ev.id] = System.currentTimeMillis()
++            } catch (e: kotlinx.coroutines.CancellationException) {
++                throw e
++            } catch (_: Throwable) {
++                _videos.update { if (it.containsKey(ev.id)) it else it + (ev.id to emptyList()) }
++            } finally {
++                videoJobs.remove(ev.id)
++            }
++        }
++    }
++
++    /** A picked video ready to play (NHL's and YouTube's links are worked out now); null: it can't be. */
++    suspend fun playableVideo(ch: LiveChannel): LiveChannel? =
++        if (SportsVideos.needsResolving(ch)) videos.playable(ch) else ch
++
+     /** One look through your sports addons for [ev], shown add-on by add-on as each answers; true when something was found. */
+     private suspend fun lookInAddons(ev: SportsEvent): Boolean {
+         fun show(found: SportsAddonSource.Found, done: Boolean) {
+@@ -2330,7 +2371,11 @@ class SportsRepository @Inject constructor(
+     }
+ 
+     /** A game's summary as last asked: when, the score then, its scoring plays and the rest. */
+-    private class GameSummary(val at: Long, val sig: String, val plays: List<ScoringPlay>, val extras: GameExtras)
++    private class GameSummary(
++        val at: Long, val sig: String, val plays: List<ScoringPlay>, val extras: GameExtras,
++        /** The game's videos in ESPN's summary (highlights, big plays). */
++        val videos: List<SportsVideos.Video> = emptyList()
++    )
+     // The 50 games last opened; older ones are asked again if opened later.
+     private val summaryCache = object : LinkedHashMap<String, GameSummary>(64, 0.75f, true) {
+         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, GameSummary>?) = size > SUMMARY_CACHE_SIZE
+@@ -2371,7 +2416,8 @@ class SportsRepository @Inject constructor(
+         }.getOrNull() ?: return@withContext cached
+         val plays = if (ev.state == GameState.PRE) emptyList() else runCatching { SportsFeeds.parseSummary(root) }.getOrDefault(emptyList())
+         val extras = runCatching { SportsExtras.parse(root, ev, league.sport) }.getOrDefault(GameExtras())
+-        GameSummary(System.currentTimeMillis(), sig, plays, extras).also { synchronized(summaryCache) { summaryCache[ev.id] = it } }
++        val clips = if (tsdbId != null || ev.state == GameState.PRE) emptyList() else runCatching { SportsVideos.espn(root) }.getOrDefault(emptyList())
++        GameSummary(System.currentTimeMillis(), sig, plays, extras, clips).also { synchronized(summaryCache) { summaryCache[ev.id] = it } }
+     }
+ 
+     /** The game's scoring plays (touchdowns, goals…), when ESPN has them. */
+@@ -2633,6 +2679,10 @@ class SportsRepository @Inject constructor(
+         private const val WARM_DELAY_MS = 600L
+         /** Replays found this recently aren't asked for again when the game is opened. */
+         private const val VOD_FRESH_MS = 10 * 60_000L
++        /** Official videos found: asked again after half an hour (more get added for a few hours). */
++        private const val VIDEO_FRESH_MS = 30 * 60_000L
++        /** None found yet: asked again after five minutes. */
++        private const val VIDEO_EMPTY_FRESH_MS = 5 * 60_000L
+         /** Racing series with a drivers' table on ESPN. */
+         private val RACING_TABLES = setOf("racing/f1", "racing/nascar-premier", "racing/nascar-secondary", "racing/nascar-truck", "racing/irl")
+         /** Club competitions with a table of their own (the league phase), shown with your team's league. */
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+index 7677c799fe47088cf16647ef9fdc977fa1b1f5b4..a62e8e85ad921903a901ebbeebf48592d8baa874 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+@@ -81,6 +81,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
+ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.flow.collect
+ import kotlinx.coroutines.launch
++import com.nuvio.tv.livetv.ui.leftJumpsToTop
+ import androidx.compose.ui.input.key.Key
+ import androidx.compose.ui.input.key.KeyEventType
+ import androidx.compose.ui.input.key.key
+@@ -129,6 +130,10 @@ object SportsLaunch {
+         if (System.currentTimeMillis() - returnSetAt > 5_000) returnTo = null
+     }
+     fun takeFocusEvent(): String? = focusEvent.also { focusEvent = null }
++    /** The replay or highlight last played from a game page: the highlight goes back on it. */
++    @Volatile private var lastReplay: String? = null
++    fun watchedReplay(channelKey: String) { lastReplay = channelKey }
++    fun takeLastReplay(): String? = lastReplay.also { lastReplay = null }
+ 
+     @Volatile private var catchup: Catchup? = null
+     fun catchup(c: Catchup) { catchup = c }
+@@ -223,6 +228,11 @@ fun SportsScreen(
+     // The card last highlighted (not page state: moving the highlight mustn't redraw the page).
+     val rowFocus = remember { arrayOfNulls<String>(1) }
+     var rowsReturning by remember { mutableStateOf(false) }
++    // Left from the page's left edge: up to the top bar's first button (see leftJumpsToTop).
++    val sportsFirstChip = remember { FocusRequester() }
++    var topBarFocused by remember { mutableStateOf(false) }
++    val scope = androidx.compose.runtime.rememberCoroutineScope()
++    val openSidebar = com.nuvio.tv.LocalOpenSidebar.current
+ 
+     // ---- the video window: the shared player, shown where the page puts its slot
+     val videoOn = settings.videoWindow && hasChannels
+@@ -376,7 +386,7 @@ fun SportsScreen(
+                 videoSlot = videoSlot,
+                 viewModel = viewModel,
+                 onChoose = { m -> choose(opened, m) },
+-                onPlayReplay = { m -> SportsLaunch.openedFromSports(opened.id); viewModel.watch(m); onOpenLive() },
++                onPlayReplay = { m -> viewModel.playReplay(m) { SportsLaunch.openedFromSports(opened.id); SportsLaunch.watchedReplay(m.channel.key); onOpenLive() } },
+                 onFromStart = { m -> fromStart(opened, m) },
+                 onFix = { fixFor = opened },
+                 onTable = { tableReq = TableRequest(opened.leagueId, opened.sides.map { it.team.id }.toSet()) },
+@@ -395,7 +405,22 @@ fun SportsScreen(
+                     }
+                 }
+             )
+-            else -> SportsHub(
++            else -> Box(
++                Modifier.fillMaxSize().leftJumpsToTop(
++                    atTop = { topBarFocused },
++                    toTop = {
++                        // Back up to the top bar (its first button, so one more Left opens Nuvio's menu).
++                        scope.launch {
++                            runCatching { listState.scrollToItem(0) }
++                            runCatching { rowsState.scrollToItem(0) }
++                            repeat(2) { androidx.compose.runtime.withFrameNanos { } }
++                            if (runCatching { sportsFirstChip.requestFocus() }.isFailure) openSidebar()
++                        }
++                    }
++                )
++            ) { SportsHub(
++                firstChip = sportsFirstChip,
++                onTopBarFocus = { topBarFocused = it },
+                 events = events,
+                 known = known,
+                 rowsState = rowsState,
+@@ -433,7 +458,7 @@ fun SportsScreen(
+                 onPick = { picker = true },
+                 onOpenMultiview = { onOpenMultiview(playingKey) },
+                 onWatchChannel = { ch -> SportsLaunch.openedFromSports(); viewModel.watchChannel(ch); onOpenLive() }
+-            )
++            ) }
+         }
+         // The picture, on top of the page where its slot is (one view for every page, so it
+         // never restarts), then the rounded corners and the "nothing playing" note over it.
+@@ -515,6 +540,9 @@ private fun SportsHub(
+     onRowFocus: (String) -> Unit,
+     rowsReturning: Boolean,
+     onRowsReturned: () -> Unit,
++    /** The top bar's first button (Left from the page's left edge comes up to it). */
++    firstChip: FocusRequester,
++    onTopBarFocus: (Boolean) -> Unit,
+     matches: Map<String, List<ChannelMatch>>,
+     follows: SportsFollows,
+     settings: SportsSettings,
+@@ -624,7 +652,6 @@ private fun SportsHub(
+     }
+ 
+     val firstContent = remember { FocusRequester() }
+-    val firstChip = remember { FocusRequester() }
+     var focusedOnce by remember { mutableStateOf(false) }
+     val hasContent = sections.live.isNotEmpty() || sections.upcoming.isNotEmpty() || sections.finished.isNotEmpty() || sections.weekLong.isNotEmpty()
+     LaunchedEffect(hasContent, day, effectiveChip, pageReady) {
+@@ -674,7 +701,7 @@ private fun SportsHub(
+     val dayBar: @Composable (Modifier) -> Unit = { dm ->
+         val lv = leagueView?.let { SportsCatalog.league(it) }
+         if (lv != null) {
+-            LiveText("${lv.name} · the next 7 days", color = SportsLook.Dim, size = 12.sp, weight = FontWeight.Bold, modifier = dm)
++            LiveText("${lv.name} · the next 7 days", color = SportsLook.Dim, size = 12.sp, weight = FontWeight.Bold, modifier = dm.padding(start = 4.dp, top = SportsSpace.RowPad, bottom = SportsSpace.RowPad))
+         } else {
+             // A week back to a week ahead; opens on Yesterday and Today, and scrolls.
+             val dayFmt = remember { SimpleDateFormat("EEE d", Locale.getDefault()) }
+@@ -689,7 +716,7 @@ private fun SportsHub(
+                 state = tabsState,
+                 horizontalArrangement = Arrangement.spacedBy(4.dp),
+                 verticalAlignment = Alignment.CenterVertically,
+-                contentPadding = PaddingValues(end = 12.dp)
++                contentPadding = PaddingValues(end = 12.dp, top = SportsSpace.RowPad, bottom = SportsSpace.RowPad)
+             ) {
+                 items((-SportsRepository.DAYS_BACK..SportsRepository.DAYS_AHEAD).toList(), key = { it }) { offset ->
+                     val label = when (offset) {
+@@ -706,11 +733,12 @@ private fun SportsHub(
+     }
+     val sportBar: @Composable () -> Unit = {
+         if (effectiveChip == CHIP_ALL && leagueView == null && allSports.size > 1) {
++            Spacer(Modifier.height(SportsSpace.RowGap))
+             LazyRow(
+                 Modifier.fillMaxWidth().keepFocusWhileHeld(vertical = false),
+                 horizontalArrangement = Arrangement.spacedBy(7.dp),
+                 verticalAlignment = Alignment.CenterVertically,
+-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
++                contentPadding = PaddingValues(horizontal = 4.dp, vertical = SportsSpace.RowPad)
+             ) {
+                 item(key = "sport_all") { FilterIcon("▦", "All", allSport == null, withLabel = true) { onAllSportPick(null); contentJump++ } }
+                 items(allSports, key = { "sport_" + it.name }) { sp ->
+@@ -720,7 +748,7 @@ private fun SportsHub(
+         }
+     }
+     val filters: @Composable (Modifier) -> Unit = { m ->
+-        LazyRow(m.keepFocusWhileHeld(vertical = false), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)) {
++        LazyRow(m.keepFocusWhileHeld(vertical = false).onFocusChanged { onTopBarFocus(it.hasFocus) }, horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically, contentPadding = PaddingValues(horizontal = 4.dp, vertical = SportsSpace.RowPad)) {
+             val upTo: Modifier = Modifier
+             item(key = CHIP_MINE) { FilterIcon("★", "My Sports", effectiveChip == CHIP_MINE, Modifier.focusRequester(firstChip).then(upTo), withLabel = true) { pickChip(CHIP_MINE) } }
+             // Everything on, day by day (live games first), with how many are on now.
+@@ -874,20 +902,22 @@ private fun SportsHub(
+     if (videoOn) {
+         // The same top bar as every Sports page, then the list with the video window beside it.
+         // Stops above the hint line at the bottom, so no game sits behind it.
+-        Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 28.dp, top = 20.dp, bottom = 26.dp)) {
++        Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 28.dp, top = 20.dp, bottom = SportsSpace.Bottom)) {
+             Row(verticalAlignment = Alignment.CenterVertically) {
+                 LiveText("Sports", size = 26.sp, weight = FontWeight.Black)
+                 Spacer(Modifier.width(14.dp))
+                 filters(Modifier.weight(1f))
+             }
++            Spacer(Modifier.height(SportsSpace.RowGap))
+             Row(Modifier.weight(1f).fillMaxWidth()) {
+                 Column(Modifier.width(LIST_WIDTH).fillMaxHeight()) {
+                     dayBar(Modifier.fillMaxWidth())
+                     sportBar()
++                    Spacer(Modifier.height(SportsSpace.RowGap))
+                     list(Modifier.weight(1f))
+                 }
+                 Spacer(Modifier.width(18.dp))
+-                Column(Modifier.weight(1f).fillMaxHeight().padding(top = 4.dp)) {
++                Column(Modifier.weight(1f).fillMaxHeight().padding(top = SportsSpace.RowPad)) {
+                     videoSlot(Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+                     Spacer(Modifier.height(10.dp))
+                     NowPlayingPanel(events, matches, settings, now, use24h, playingKey, viewModel)
+@@ -895,15 +925,16 @@ private fun SportsHub(
+             }
+         }
+     } else {
+-        Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 36.dp, top = 20.dp, bottom = 26.dp)) {
++        Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 36.dp, top = 20.dp, bottom = SportsSpace.Bottom)) {
+             Row(verticalAlignment = Alignment.CenterVertically) {
+                 LiveText("Sports", size = 26.sp, weight = FontWeight.Black)
+                 Spacer(Modifier.width(14.dp))
+                 filters(Modifier.weight(1f))
+             }
++            Spacer(Modifier.height(SportsSpace.RowGap))
+             dayBar(Modifier.fillMaxWidth())
+             sportBar()
+-            Spacer(Modifier.height(4.dp))
++            Spacer(Modifier.height(SportsSpace.RowGap))
+             list(Modifier.weight(1f))
+         }
+     }
+@@ -960,8 +991,8 @@ private fun GameList(
+         // instead of jumping up to the day tabs.
+         modifier = modifier.keepFocusWhileHeld(neverRight = true),
+         // Room for the highlight's glow and bigger size at the edges.
+-        contentPadding = PaddingValues(start = 8.dp, end = 10.dp, top = 2.dp, bottom = 12.dp),
+-        verticalArrangement = Arrangement.spacedBy(8.dp)
++        contentPadding = PaddingValues(start = 8.dp, end = 10.dp, top = SportsSpace.RowPad, bottom = 12.dp),
++        verticalArrangement = Arrangement.spacedBy(SportsSpace.Card)
+     ) {
+         if (leaguesLine != null) item(key = "leagues_bar") {
+             LeaguesBar(leaguesLine, if (leaguesBarReq != null) Modifier.focusRequester(leaguesBarReq) else Modifier, onClick = onChooseLeagues)
+@@ -973,7 +1004,7 @@ private fun GameList(
+             )
+         }
+         if (loading) {
+-            item(key = "ph_label") { SectionHeader("LIVE NOW", live = true) }
++            item(key = "ph_label") { SectionHeader("LIVE NOW", live = true, bottom = 0.dp) }
+             items(3, key = { "ph_$it" }) { PlaceholderCard() }
+             return@LazyColumn
+         }
+@@ -983,7 +1014,7 @@ private fun GameList(
+             list.chunked(columns).forEachIndexed { ri, row ->
+                 val rowFirst = if (ri == 0) firstMod() else Modifier
+                 item(key = prefix + row.first().id) {
+-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
++                    Row(horizontalArrangement = Arrangement.spacedBy(SportsSpace.Card)) {
+                         row.forEachIndexed { i, ev ->
+                             GameCard(
+                                 ev = ev,
+@@ -1003,7 +1034,7 @@ private fun GameList(
+             }
+         }
+         if (sections.live.isNotEmpty()) {
+-            item(key = "live_label") { SectionHeader("LIVE NOW", live = true, count = sections.live.size) }
++            item(key = "live_label") { SectionHeader("LIVE NOW", live = true, count = sections.live.size, bottom = 0.dp) }
+             cardRows("live_", sections.live)
+         }
+         if (sections.upcoming.isNotEmpty()) {
+@@ -1012,11 +1043,11 @@ private fun GameList(
+                 if (byDate) sections.upcoming.groupBy { dayWord(it.startMs, now) }.toList()
+                 else listOf((if (day == 0) "COMING UP" else if (day > 0) "SCHEDULE" else "DIDN'T START") to sections.upcoming)
+             groups.forEach { (label, groupList) ->
+-            item(key = "up_label_$label") { SectionHeader(label.uppercase(), count = groupList.size) }
++            item(key = "up_label_$label") { SectionHeader(label.uppercase(), count = groupList.size, bottom = 0.dp) }
+             groupList.chunked(columns).forEachIndexed { ri, row ->
+                 val rowFirst = if (ri == 0) firstMod() else Modifier
+                 item(key = "up_" + row.first().id) {
+-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
++                    Row(horizontalArrangement = Arrangement.spacedBy(SportsSpace.Card)) {
+                         row.forEachIndexed { i, ev ->
+                             val ms = matches[ev.id].orEmpty()
+                             UpcomingRow(
+@@ -1038,11 +1069,11 @@ private fun GameList(
+             }
+         }
+         if (sections.weekLong.isNotEmpty()) {
+-            item(key = "week_label") { SectionHeader("THIS WEEK", count = sections.weekLong.size) }
++            item(key = "week_label") { SectionHeader("THIS WEEK", count = sections.weekLong.size, bottom = 0.dp) }
+             cardRows("week_", sections.weekLong)
+         }
+         if (sections.finished.isNotEmpty()) {
+-            item(key = "done_label") { SectionHeader(if (day < 0 || byDate) "RESULTS" else "FINISHED", count = sections.finished.size) }
++            item(key = "done_label") { SectionHeader(if (day < 0 || byDate) "RESULTS" else "FINISHED", count = sections.finished.size, bottom = 0.dp) }
+             cardRows("done_", sections.finished)
+         }
+         val hasContent = sections.live.isNotEmpty() || sections.upcoming.isNotEmpty() || sections.finished.isNotEmpty() || sections.weekLong.isNotEmpty()
+@@ -1064,7 +1095,8 @@ private fun LeaguesBar(line: String, modifier: Modifier = Modifier, onClick: ()
+             .border(if (focused) NuvioTheme.focusRing.border(2.dp) else androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), SportsLook.SmallShape)
+             .onFocusChanged { focused = it.isFocused }
+             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+-            .padding(horizontal = 14.dp, vertical = 8.dp),
++            .height(SportsSpace.Control)
++            .padding(horizontal = 14.dp),
+         verticalAlignment = Alignment.CenterVertically
+     ) {
+         LiveText(line, color = SportsLook.Dim, size = 12.sp, weight = FontWeight.Bold, modifier = Modifier.weight(1f))
+@@ -1348,14 +1380,26 @@ private fun GamePage(
+         onDispose { viewModel.repo.closeGame(ev.id) }
+     }
+     val vodLooked = viewModel.repo.vodMatches.collectAsStateWithLifecycle().value[ev.id]
+-    val replays = vodLooked.orEmpty()
++    // Official highlights and condensed games (ESPN, NHL, MLB, YouTube) go in the same list.
++    val official = viewModel.repo.videoMatches.collectAsStateWithLifecycle().value[ev.id]
++    val replays = remember(vodLooked, official) { SportsVideos.merge(vodLooked.orEmpty(), official.orEmpty()) }
+     val vodAddons = viewModel.repo.vodAddons.collectAsStateWithLifecycle().value[ev.id]
+     // A finished game: once replays turn up, put the highlight on the first one (once per visit).
+     val firstReplay = remember(ev.id) { FocusRequester() }
++    // Back from watching one of them (or it finished): the highlight goes back on that one.
++    val backReplayKey = remember(ev.id) { SportsLaunch.takeLastReplay() }
++    val backReplay = remember(ev.id) { FocusRequester() }
++    val replayList = rememberLazyListState()
+     var replayFocused by remember(ev.id) { mutableStateOf(false) }
+     LaunchedEffect(ev.id, replays.isNotEmpty()) {
+         if (ev.state == GameState.POST && replays.isNotEmpty() && !replayFocused) {
+             delay(150)
++            val back = replays.indexOfFirst { it.channel.key == backReplayKey }
++            if (back > 0) {
++                runCatching { replayList.scrollToItem(back) }
++                delay(50)
++                if (runCatching { backReplay.requestFocus() }.isSuccess) { replayFocused = true; return@LaunchedEffect }
++            }
+             if (runCatching { firstReplay.requestFocus() }.isSuccess) replayFocused = true
+         }
+     }
+@@ -1420,26 +1464,30 @@ private fun GamePage(
+             onDismiss = { pickRegion = false }
+         )
+     }
+-    // Finished games: replays and highlights come only from sports addons, so this list goes first
+-    // and says where they come from when there are none.
++    // Finished games: replays from your sports addons and the leagues' own highlights, so this
++    // list goes first and says where they come from when there are none.
+     val replaysBlock: @Composable () -> Unit = {
+         SectionHeader("REPLAYS & HIGHLIGHTS")
+         when {
+             replays.isNotEmpty() -> LazyColumn(
+                 Modifier.heightIn(max = 126.dp).keepFocusWhileHeld(horizontal = false),
++                state = replayList,
+                 verticalArrangement = Arrangement.spacedBy(4.dp),
+                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)
+             ) {
+                 itemsIndexed(replays, key = { _, m -> m.channel.key }) { i, m ->
+-                    ChannelLine(m.channel, m.how, modifier = if (i == 0) Modifier.focusRequester(firstReplay) else Modifier,
++                    ChannelLine(m.channel, m.how, modifier = when {
++                        i == 0 -> Modifier.focusRequester(firstReplay)
++                        m.channel.key == backReplayKey -> Modifier.focusRequester(backReplay)
++                        else -> Modifier
++                    },
+                         onClick = { onPlayReplay(m) })
+                 }
+             }
+-            vodLooked == null -> LiveText("Looking in your sports add-ons…", color = SportsLook.Dim, size = 12.sp,
++            vodLooked == null || official == null -> LiveText("Looking for replays and highlights…", color = SportsLook.Dim, size = 12.sp,
+                 modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
+             vodAddons != null && vodAddons.isEmpty() -> LiveText(
+-                "Replays and highlights come from sports add-ons that offer them (HighFly Premium, StremVerse…). " +
+-                    "None of your add-ons do yet: install one in Add-ons and they'll show here.",
++                "Highlights will appear here when the league posts them. Your configured sports add-ons can also provide full replays.",
+                 color = SportsLook.Dim, size = 12.sp, maxLines = 4, modifier = Modifier.padding(start = 6.dp, bottom = 4.dp)
+             )
+             else -> LiveText(
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsStandings.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsStandings.kt
+index 56a1b9b25c4abfa5c40fd9871db6d484dcf053cf..e6d3038789106ad389162b8886c8b783857bcf51 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsStandings.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsStandings.kt
+@@ -214,15 +214,20 @@ data class Standings(
+                 }.distinctBy { it.key }.take(7)
+                 if (own.size >= 2) filled = own
+             }
+-            return Standings(league.id, season, kind, filled, groups, "ESPN", now)
++            return withQualifying(Standings(league.id, season, kind, filled, groups, "ESPN", now))
+         }
+ 
+         private fun c(key: String, label: String) = StandingsColumn(key, label)
+ 
+         private fun parseEntries(entries: List<JSONObject>, kind: StandingsKind): List<StandingsRow> {
+             val rows = entries.mapNotNull { e -> runCatching { parseEntry(e, kind) }.getOrNull() }
+-            // In table order: the feed's own rank, else as it gives them (US divisions are in order).
+-            val ranked = if (rows.all { it.pos > 0 }) rows.sortedBy { it.pos } else rows
++            // In table order: the feed's own rank; else the playoff seed (US divisions: ESPN's own
++            // order isn't reliable, e.g. NBA divisions come worst first); else as the feed gives them.
++            val ranked = when {
++                rows.all { it.pos > 0 } -> rows.sortedBy { it.pos }
++                rows.isNotEmpty() && rows.all { it.seed != null } -> rows.sortedBy { it.seed }
++                else -> rows
++            }
+             val withPos = ranked.mapIndexed { i, r -> if (r.pos > 0) r else r.copy(pos = i + 1) }
+             if (kind != StandingsKind.RACING || withPos.isEmpty()) return withPos
+             // Racing: points behind the leader.
+@@ -325,6 +330,56 @@ data class Standings(
+             return Standings(league.id, root.str("season"), StandingsKind.TABLE, columns, listOf(StandingsGroup(league.name, null, sorted)), "TheSportsDB", now)
+         }
+ 
++        // ------------------------------------------------------------------ AFCON qualifying
++
++        private const val AFCON_QUAL = "soccer/caf.nations_qual"
++        /** AFCON 2027's hosts: in the finals whatever happens. Update when the next finals' qualifiers start. */
++        private val AFCON_HOSTS = setOf("kenya", "tanzania", "uganda")
++        private val ZONE_QUALIFIED = StandingsZone("Qualified for the finals", 0xFF2E9E5B)
++        private val ZONE_HOSTS = StandingsZone("Qualified as hosts", 0xFFD4A017)
++        private val ZONE_IN_PLACE = StandingsZone("In a qualifying place", 0xFF5FA8E6)
++        private val ZONE_OUT = StandingsZone("Can't qualify", 0xFF6B7280)
++
++        /**
++         * AFCON qualifying groups: who has made it, who is only in a qualifying place for now, and
++         * who can no longer get there. The top two go through, except in a group with a host,
++         * where the host is in anyway and only the best of the others goes through. "Made it"
++         * means no team below can still reach (or tie) their points; level on points is never
++         * counted as safe, since the tiebreaks can go either way. Other leagues are left as they are.
++         */
++        fun withQualifying(s: Standings): Standings {
++            if (s.leagueId != AFCON_QUAL || s.kind != StandingsKind.TABLE) return s
++            return s.copy(groups = s.groups.map { g -> g.copy(rows = afconGroup(g.rows)) })
++        }
++
++        private fun afconGroup(rows: List<StandingsRow>): List<StandingsRow> {
++            if (rows.size < 2) return rows
++            fun isHost(r: StandingsRow) = r.name.trim().lowercase() in AFCON_HOSTS || r.shortName.trim().lowercase() in AFCON_HOSTS
++            val places = if (rows.any { isHost(it) }) 1 else 2
++            // Everyone plays everyone home and away.
++            val games = 2 * (rows.size - 1)
++            fun pts(r: StandingsRow) = r.values["points"]?.trim()?.toIntOrNull() ?: 0
++            fun left(r: StandingsRow) = (games - (r.values["gamesPlayed"]?.trim()?.toIntOrNull() ?: 0)).coerceAtLeast(0)
++            fun most(r: StandingsRow) = pts(r) + 3 * left(r)
++            val rest = rows.filterNot { isHost(it) }.sortedBy { it.pos }
++            val finished = rest.all { left(it) == 0 }
++            return rows.map { r ->
++                val zone = if (isHost(r)) ZONE_HOSTS else {
++                    val others = rest.filter { it.id != r.id }
++                    val inPlace = rest.indexOfFirst { it.id == r.id } in 0 until places
++                    val made = if (finished) inPlace else others.count { most(it) >= pts(r) } < places
++                    val out = if (finished) !inPlace else others.count { pts(it) > most(r) } >= places
++                    when {
++                        made -> ZONE_QUALIFIED
++                        out -> ZONE_OUT
++                        inPlace -> ZONE_IN_PLACE
++                        else -> null
++                    }
++                }
++                r.copy(zone = zone, clincher = null, clincherText = null)
++            }
++        }
++
+         // ------------------------------------------------------------------ form and place changes
+ 
+         /** Last five results (oldest first) for each team, from finished games we know of. */
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsTables.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsTables.kt
+index 0bd306378e28fcfab0bbc440540584d29383d196..3c4d33782b56a35572c72647df6a8dcf377b482e 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsTables.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsTables.kt
+@@ -184,7 +184,7 @@ internal fun TablesPage(
+                     .focusRestorer { leagueId?.let { leagueReq(it) } ?: FocusRequester.Default }
+                     .keepFocusWhileHeld(vertical = false),
+                 horizontalArrangement = Arrangement.spacedBy(7.dp),
+-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
++                contentPadding = PaddingValues(horizontal = 4.dp, vertical = SportsSpace.RowPad)
+             ) {
+                 items(shown, key = { it.id }) { l ->
+                     LeagueButton(l, selected = l.id == leagueId, modifier = Modifier.focusRequester(leagueReq(l.id))) { picked = l.id }
+@@ -224,9 +224,9 @@ internal fun TablesPage(
+     // beside it.
+     Box(Modifier.fillMaxSize()) {
+         if (videoOn) {
+-            Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 28.dp, top = 20.dp, bottom = 26.dp)) {
++            Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 28.dp, top = 20.dp, bottom = SportsSpace.Bottom)) {
+                 header()
+-                Spacer(Modifier.height(8.dp))
++                Spacer(Modifier.height(SportsSpace.RowGap))
+                 Row(Modifier.weight(1f).fillMaxWidth()) {
+                     content(Modifier.width(470.dp).fillMaxHeight())
+                     Spacer(Modifier.width(18.dp))
+@@ -244,9 +244,9 @@ internal fun TablesPage(
+                 }
+             }
+         } else {
+-            Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 36.dp, top = 20.dp, bottom = 26.dp)) {
++            Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 36.dp, top = 20.dp, bottom = SportsSpace.Bottom)) {
+                 header()
+-                Spacer(Modifier.height(8.dp))
++                Spacer(Modifier.height(SportsSpace.RowGap))
+                 Row(Modifier.weight(1f).fillMaxWidth()) {
+                     content(Modifier.weight(1f).fillMaxHeight())
+                     if (table != null && !settings.hideScores) {
+@@ -272,7 +272,7 @@ private fun LeagueButton(league: League, selected: Boolean, modifier: Modifier =
+     val shape = RoundedCornerShape(50)
+     Row(
+         modifier
+-            .height(34.dp)
++            .height(SportsSpace.Control)
+             .clip(shape)
+             .background(if (selected) accent.copy(alpha = 0.14f) else SportsLook.Card)
+             .border(if (focused) NuvioTheme.focusRing.border(1.5.dp) else androidx.compose.foundation.BorderStroke(1.5.dp, if (selected) accent else SportsLook.Border), shape)
+@@ -333,9 +333,9 @@ private fun TableView(
+     Column(modifier) {
+         if (table.hasDivisions) {
+             LazyRow(
+-                Modifier.fillMaxWidth().padding(top = 6.dp).keepFocusWhileHeld(vertical = false),
++                Modifier.fillMaxWidth().padding(top = SportsSpace.RowGap).keepFocusWhileHeld(vertical = false),
+                 horizontalArrangement = Arrangement.spacedBy(6.dp),
+-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 3.dp)
++                contentPadding = PaddingValues(horizontal = 4.dp, vertical = SportsSpace.RowPad)
+             ) {
+                 items(StandingsView.entries.toList(), key = { "v" + it.name }) { v ->
+                     DayTab(
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsVideos.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsVideos.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..723d18bcf99b01b980cffbd5a75d8a052486b202
+--- /dev/null
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsVideos.kt
+@@ -0,0 +1,427 @@
++package com.nuvio.tv.livetv.sports
++
++import com.nuvio.tv.core.build.AppFeaturePolicy
++import com.nuvio.tv.core.player.TrailerVideoPolicy
++import com.nuvio.tv.data.trailer.InAppYouTubeExtractor
++import com.nuvio.tv.livetv.data.ForkHttp
++import com.nuvio.tv.livetv.model.LiveChannel
++import kotlinx.coroutines.CancellationException
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.async
++import kotlinx.coroutines.coroutineScope
++import kotlinx.coroutines.withContext
++import okhttp3.OkHttpClient
++import okhttp3.Request
++import org.json.JSONArray
++import org.json.JSONObject
++import java.text.SimpleDateFormat
++import java.util.Locale
++import java.util.TimeZone
++import java.util.concurrent.TimeUnit
++
++/**
++ * A finished game's official videos, beside the replays from your sports addons:
++ *  - ESPN: the game's highlights and its big plays (NBA, NFL, NHL, college…), from the game
++ *    summary the game page already reads.
++ *  - NHL: the condensed game (about 10 minutes), the 5-minute recap and every goal.
++ *  - MLB: the condensed game, the recap and the game's highlights.
++ *  - YouTube highlights TheSportsDB lists for the game (mostly official league and club
++ *    channels), played with the same in-app YouTube player as trailers.
++ *
++ * ESPN's and MLB's videos are plain links. NHL's and YouTube's are worked out only when one
++ * is picked (their links expire), see [playable].
++ */
++internal class SportsVideos(
++    /** Reads one of our own data files (TheSportsDB's highlights list). */
++    private val dataGet: (String) -> String,
++    private val youTube: InAppYouTubeExtractor
++) {
++    enum class Kind(val label: String) {
++        CONDENSED("Condensed game"), RECAP("Recap"), HIGHLIGHTS("Highlights"), PLAY("Play")
++    }
++
++    class Video(
++        val id: String,
++        val title: String,
++        val kind: Kind,
++        val from: String,
++        val seconds: Int?,
++        val url: String
++    )
++
++    private val http: OkHttpClient = ForkHttp.builder()
++        .connectTimeout(12, TimeUnit.SECONDS)
++        .readTimeout(20, TimeUnit.SECONDS)
++        .callTimeout(40, TimeUnit.SECONDS)
++        .followRedirects(true)
++        .build()
++
++    private fun get(url: String, headers: Map<String, String> = emptyMap()): String {
++        val b = Request.Builder().url(url)
++            .header("Accept", "application/json")
++            .header("User-Agent", UA)
++        headers.forEach { (k, v) -> b.header(k, v) }
++        http.newCall(b.build()).execute().use { r ->
++            if (!r.isSuccessful) throw HttpError(r.code)
++            return r.body?.string() ?: throw java.io.IOException("empty answer")
++        }
++    }
++
++    private class HttpError(val code: Int) : java.io.IOException("HTTP $code")
++
++    /**
++     * Everything official for [ev] (a finished game), best first: condensed games, recaps, the
++     * game's highlights, then single plays. [espn] is what the game's ESPN summary listed.
++     */
++    suspend fun find(ev: SportsEvent, espn: List<Video>): List<Video> = withContext(Dispatchers.IO) {
++        coroutineScope {
++            val nhl = async { if (ev.leagueId == NHL_LEAGUE) safe { nhl(ev) } else emptyList() }
++            val mlb = async { if (ev.leagueId == MLB_LEAGUE) safe { mlb(ev) } else emptyList() }
++            val yt = async { if (AppFeaturePolicy.inAppTrailerPlaybackEnabled) safe { youTubeFor(ev) } else emptyList() }
++            val league = nhl.await() + mlb.await()
++            // NHL lists every goal and so does ESPN: one set of them is plenty.
++            val espnKept = if (league.any { it.kind == Kind.PLAY }) espn.filter { it.kind != Kind.PLAY } else espn
++            val all = league + espnKept + yt.await()
++            all.distinctBy { it.url }
++                .sortedWith(compareBy<Video> { it.kind.ordinal }.thenBy { FROM_ORDER.indexOf(it.from).let { i -> if (i < 0) 99 else i } })
++                .let { list ->
++                    // A game can have dozens of single plays: the first ones are enough.
++                    val plays = list.filter { it.kind == Kind.PLAY }.take(MAX_PLAYS)
++                    list.filter { it.kind != Kind.PLAY } + plays
++                }
++        }
++    }
++
++    private suspend fun <T> safe(block: suspend () -> List<T>): List<T> = try {
++        block()
++    } catch (e: CancellationException) {
++        throw e
++    } catch (_: Throwable) {
++        emptyList()
++    }
++
++    // ------------------------------------------------------------------ NHL
++
++    private fun nhl(ev: SportsEvent): List<Video> {
++        val game = sequenceOf(0, -1).mapNotNull { shift ->
++            val root = JSONObject(get(NHL_API + "score/" + easternDay(ev.startMs, shift)))
++            val games = root.optJSONArray("games") ?: return@mapNotNull null
++            (0 until games.length()).mapNotNull { games.optJSONObject(it) }.firstOrNull { g ->
++                val start = parseIso(g.optString("startTimeUTC"))
++                (start == null || kotlin.math.abs(start - ev.startMs) < SAME_GAME_MS) &&
++                    sameTeam(ev.away, g.optJSONObject("awayTeam")?.optJSONObject("name")?.optString("default"), g.optJSONObject("awayTeam")?.optString("abbrev")) &&
++                    sameTeam(ev.home, g.optJSONObject("homeTeam")?.optJSONObject("name")?.optString("default"), g.optJSONObject("homeTeam")?.optString("abbrev"))
++            }
++        }.firstOrNull() ?: return emptyList()
++        val title = gameTitle(ev)
++        val out = ArrayList<Video>()
++        fun add(path: String?, kind: Kind, name: String, seconds: Int?) {
++            val id = path?.let { BRIGHTCOVE_ID.find(it)?.groupValues?.get(1) } ?: return
++            out += Video("nhl:$id", name, kind, "NHL", seconds, "$BRIGHTCOVE_SCHEME$id")
++        }
++        add(game.optString("condensedGame").takeIf { it.isNotBlank() }, Kind.CONDENSED, "$title · Condensed game", null)
++        add(game.optString("threeMinRecap").takeIf { it.isNotBlank() }, Kind.RECAP, "$title · Recap", null)
++        val goals = game.optJSONArray("goals") ?: JSONArray()
++        for (i in 0 until goals.length()) {
++            val g = goals.optJSONObject(i) ?: continue
++            val clip = g.optLong("highlightClip").takeIf { it > 0 } ?: continue
++            val who = g.optJSONObject("name")?.optString("default").orEmpty()
++            val period = g.optJSONObject("periodDescriptor")?.let { p ->
++                when (p.optString("periodType")) {
++                    "OT" -> "OT"
++                    "SO" -> "Shootout"
++                    else -> "P" + p.optInt("number")
++                }
++            }.orEmpty()
++            val name = listOf("Goal", who.takeIf { it.isNotBlank() }?.let { "$it (${g.optString("teamAbbrev")})" }, "$period ${g.optString("timeInPeriod")}".trim())
++                .filterNotNull().filter { it.isNotBlank() }.joinToString(" · ")
++            out += Video("nhl:$clip", name, Kind.PLAY, "NHL", null, "$BRIGHTCOVE_SCHEME$clip")
++        }
++        return out
++    }
++
++    // ------------------------------------------------------------------ MLB
++
++    private fun mlb(ev: SportsEvent): List<Video> {
++        val pk = sequenceOf(0, -1).mapNotNull { shift ->
++            val root = JSONObject(get(MLB_API + "schedule?sportId=1&date=" + easternDay(ev.startMs, shift)))
++            val dates = root.optJSONArray("dates") ?: return@mapNotNull null
++            val games = (0 until dates.length()).flatMap { d ->
++                val a = dates.optJSONObject(d)?.optJSONArray("games") ?: JSONArray()
++                (0 until a.length()).mapNotNull { a.optJSONObject(it) }
++            }
++            games.firstOrNull { g ->
++                val start = parseIso(g.optString("gameDate"))
++                val teams = g.optJSONObject("teams")
++                (start == null || kotlin.math.abs(start - ev.startMs) < SAME_GAME_MS) &&
++                    sameTeam(ev.away, teams?.optJSONObject("away")?.optJSONObject("team")?.optString("name"), null) &&
++                    sameTeam(ev.home, teams?.optJSONObject("home")?.optJSONObject("team")?.optString("name"), null)
++            }?.optLong("gamePk")?.takeIf { it > 0 }
++        }.firstOrNull() ?: return emptyList()
++        val root = JSONObject(get(MLB_API + "game/$pk/content"))
++        val items = root.optJSONObject("highlights")?.optJSONObject("highlights")?.optJSONArray("items") ?: return emptyList()
++        val out = ArrayList<Video>()
++        for (i in 0 until items.length()) {
++            val item = items.optJSONObject(i) ?: continue
++            val title = item.optString("title").ifBlank { item.optString("headline") }.trim()
++            if (title.isBlank()) continue
++            val keys = item.optJSONArray("keywordsAll")?.let { k -> (0 until k.length()).map { n -> k.optJSONObject(n)?.optString("value").orEmpty().lowercase() } }.orEmpty()
++            val kind = when {
++                keys.any { k -> "condensed" in k } || title.startsWith("Condensed Game", true) -> Kind.CONDENSED
++                keys.any { k -> k == "game-recap" || k == "mlbcom_game_recap" } -> Kind.RECAP
++                else -> Kind.PLAY
++            }
++            val url = mlbPlayback(item.optJSONArray("playbacks")) ?: continue
++            out += Video("mlb:" + item.optString("id", url), title, kind, "MLB", parseClock(item.optString("duration")), url)
++        }
++        return out
++    }
++
++    /** MLB's adaptive copy (every quality) when there is one, else its best plain file. */
++    private fun mlbPlayback(a: JSONArray?): String? {
++        a ?: return null
++        val list = (0 until a.length()).mapNotNull { a.optJSONObject(it) }
++        val urls = list.map { it.optString("name") to it.optString("url") }.filter { it.second.startsWith("https://") }
++        return urls.firstOrNull { it.second.contains(".m3u8") }?.second
++            ?: urls.firstOrNull { it.first.equals("mp4Avc", true) }?.second
++            ?: urls.firstOrNull { it.second.contains(".mp4") }?.second
++    }
++
++    // ------------------------------------------------------------------ YouTube (TheSportsDB)
++
++    @Volatile private var ytList: Pair<Long, JSONObject>? = null
++
++    private fun youTubeFor(ev: SportsEvent): List<Video> {
++        val cached = ytList
++        val root = if (cached != null && System.currentTimeMillis() - cached.first < YT_LIST_TTL) cached.second
++        else JSONObject(dataGet(SportsFeeds.DATA_URL + "sportsdb/highlights.json")).also { ytList = System.currentTimeMillis() to it }
++        val days = root.optJSONObject("days") ?: return emptyList()
++        val tsdbId = if (ev.id.startsWith("tsdb:")) ev.id.substringAfterLast(':') else null
++        val out = ArrayList<Video>()
++        for (shift in listOf(0, -1, 1)) {
++            val rows = days.optJSONArray(utcDay(ev.startMs, shift)) ?: continue
++            for (i in 0 until rows.length()) {
++                val r = rows.optJSONObject(i) ?: continue
++                val video = r.optString("video")
++                if (youTubeId(video) == null) continue
++                val name = r.optString("event")
++                val same = (tsdbId != null && r.optString("id") == tsdbId) || titleFits(ev, name)
++                if (!same) continue
++                out += Video("yt:" + youTubeId(video), "${name.ifBlank { gameTitle(ev) }} · Highlights", Kind.HIGHLIGHTS, "YouTube", null, video)
++            }
++            if (out.isNotEmpty()) break
++        }
++        return out
++    }
++
++    /** A TheSportsDB event name ("Arsenal vs Chelsea") is this game: both teams in it, or most of an event's words. */
++    private fun titleFits(ev: SportsEvent, name: String): Boolean {
++        val n = norm(name)
++        if (n.isEmpty()) return false
++        val a = ev.away
++        val h = ev.home
++        if (a != null && h != null) return teamIn(a, n) && teamIn(h, n)
++        val words = ev.title.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.length >= 3 && it !in STOP_WORDS }
++        if (words.isEmpty()) return false
++        return words.count { norm(it) in n } * 10 >= words.size * 7
++    }
++
++    private fun teamIn(s: Side, n: String): Boolean {
++        val t = s.team
++        return listOfNotNull(t.fullName, t.name, t.location?.let { it + t.name }, t.location?.takeIf { it.length >= 5 })
++            .map(::norm).filter { it.length >= 3 }.any { it in n }
++    }
++
++    // ------------------------------------------------------------------ ESPN
++
++    /** Opening a picked video: NHL's and YouTube's links are worked out now. Null: it can't be played. */
++    suspend fun playable(ch: LiveChannel): LiveChannel? = withContext(Dispatchers.IO) {
++        val url = ch.url
++        val real = try {
++            when {
++                url.startsWith(BRIGHTCOVE_SCHEME) -> brightcove(url.removePrefix(BRIGHTCOVE_SCHEME))
++                // The picture and the sound as two whole files, like trailers: skipping around
++                // works in them. YouTube's streamed (HLS) version got stuck loading after a skip.
++                youTubeId(url) != null -> youTube.extractPlaybackSource(url, TrailerVideoPolicy.MAX_TRAILER_HEIGHT_WITHOUT_4K)?.let { s ->
++                    s.audioUrl?.takeIf { it.isNotBlank() }?.let { rememberSound(s.videoUrl, it) }
++                    s.videoUrl
++                }
++                else -> url
++            }
++        } catch (e: CancellationException) {
++            throw e
++        } catch (_: Throwable) {
++            null
++        }
++        real?.takeIf { it.isNotBlank() }?.let { ch.copy(url = it) }
++    }
++
++    @Volatile private var policyKey: String = NHL_POLICY_KEY
++
++    private fun brightcove(id: String): String? {
++        fun ask(): String = get(
++            "https://edge.api.brightcove.com/playback/v1/accounts/$NHL_ACCOUNT/videos/$id",
++            mapOf("Accept" to "application/json;pk=$policyKey")
++        )
++        val raw = try {
++            ask()
++        } catch (e: HttpError) {
++            if (e.code != 401 && e.code != 403) throw e
++            // The key changed: read the current one from NHL's own player, then once more.
++            val js = get("https://players.brightcove.net/$NHL_ACCOUNT/${NHL_PLAYER}_default/index.min.js")
++            policyKey = POLICY_KEY.find(js)?.groupValues?.get(1) ?: throw e
++            ask()
++        }
++        val sources = JSONObject(raw).optJSONArray("sources") ?: return null
++        val list = (0 until sources.length()).mapNotNull { sources.optJSONObject(it) }
++            .filter { it.optString("src").startsWith("https://") && it.optJSONObject("key_systems") == null }
++        return list.firstOrNull { it.optString("type").contains("mpegurl", true) }?.optString("src")
++            ?: list.filter { it.optString("container").equals("MP4", true) }.maxByOrNull { it.optInt("height") }?.optString("src")
++    }
++
++    companion object {
++        const val SOURCE_ID = "sports:video"
++        private const val NHL_LEAGUE = "hockey/nhl"
++        private const val MLB_LEAGUE = "baseball/mlb"
++        private const val NHL_API = "https://api-web.nhle.com/v1/"
++        private const val MLB_API = "https://statsapi.mlb.com/api/v1/"
++        private const val NHL_ACCOUNT = "6415718365001"
++        private const val NHL_PLAYER = "D3UCGynRWU"
++        /** The key NHL.com's own player uses to ask for its videos (re-read from the player if refused). */
++        private const val NHL_POLICY_KEY = "BCpkADawqM3l37Vq8trLJ95vVwxubXYZXYglAopEZXQTHTWX3YdalyF9xmkuknxjBgiMYwt8VZ_OZ1jAjYxz_yzuNh_cjC3uOaMspVTD-hZfNUHtNnBnhVD0Gmsih8TBF8QlQFXiCQM3W_u4ydJ1qK2Rx8ZutCUg3PHb7Q"
++        private const val BRIGHTCOVE_SCHEME = "nhlvideo:"
++        private val BRIGHTCOVE_ID = Regex("-(\\d{10,})$")
++        private val POLICY_KEY = Regex("policyKey:\"([^\"]+)\"")
++        private const val SAME_GAME_MS = 5 * 3600_000L
++        private const val YT_LIST_TTL = 10 * 60_000L
++        private const val MAX_PLAYS = 30
++        private val FROM_ORDER = listOf("NHL", "MLB", "ESPN", "YouTube")
++        private val STOP_WORDS = setOf("the", "and", "vs", "grand", "prix", "round", "final", "race", "fight", "night", "card", "main")
++        private const val UA = "Mozilla/5.0 (Linux; Android 12; TV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
++
++        /** Sound files for picked YouTube videos, by their picture file (links expire: kept in memory only). */
++        private val sounds = object : LinkedHashMap<String, String>(8, 0.75f, true) {
++            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean = size > 20
++        }
++
++        private fun rememberSound(videoUrl: String, audioUrl: String) = synchronized(sounds) { sounds[videoUrl] = audioUrl }
++
++        /** The separate sound file that goes with this picture file (a YouTube video), or null. */
++        fun soundFor(videoUrl: String): String? = synchronized(sounds) { sounds[videoUrl] }
++
++        /** A picked video needs working out before it plays (see [playable]). */
++        fun needsResolving(ch: LiveChannel): Boolean =
++            ch.sourceId == SOURCE_ID && (ch.url.startsWith(BRIGHTCOVE_SCHEME) || youTubeId(ch.url) != null)
++
++        /** The videos in ESPN's game summary ("videos"): the game's highlights first, then its plays. */
++        fun espn(root: JSONObject): List<Video> {
++            val a = root.optJSONArray("videos") ?: return emptyList()
++            val out = ArrayList<Video>()
++            for (i in 0 until a.length()) {
++                val v = a.optJSONObject(i) ?: continue
++                val title = v.optString("headline").trim()
++                if (title.isBlank()) continue
++                val src = v.optJSONObject("links")?.optJSONObject("source")
++                val url = src?.optJSONObject("HLS")?.optString("href")?.takeIf { it.startsWith("https://") }
++                    ?: src?.optJSONObject("HD")?.optString("href")?.takeIf { it.startsWith("https://") }
++                    ?: src?.optString("href")?.takeIf { it.startsWith("https://") }
++                    ?: continue
++                val coverage = v.optJSONObject("tracking")?.optString("coverageType").orEmpty()
++                val kind = when {
++                    title.contains("condensed", true) -> Kind.CONDENSED
++                    title.contains("recap", true) -> Kind.RECAP
++                    coverage.contains("Game Highlight", true) || title.contains("Game Highlights", true) -> Kind.HIGHLIGHTS
++                    else -> Kind.PLAY
++                }
++                out += Video("espn:" + v.optString("id", url), title, kind, "ESPN", v.optInt("duration").takeIf { it > 0 }, url)
++            }
++            return out
++        }
++
++        /** The list line for [v] (shown with the other replays). */
++        fun match(v: Video): ChannelMatch = ChannelMatch(
++            channel = LiveChannel(
++                key = "video:" + v.id,
++                sourceId = SOURCE_ID,
++                sourceName = v.from,
++                name = v.title,
++                tvgId = null,
++                tvgName = null,
++                logo = null,
++                groupId = SOURCE_ID,
++                group = v.from,
++                number = 0,
++                url = v.url
++            ),
++            score = SportsAddonSource.ADDON_SCORE,
++            how = listOfNotNull(v.kind.label, v.from, v.seconds?.let(::clock)).joinToString(" · "),
++            program = null,
++            quality = null,
++            catchup = false
++        )
++
++        /**
++         * The game's replays list: your addons' full games first, then condensed games (official
++         * ones before addons'), recaps, highlights, and single plays last.
++         */
++        fun merge(addon: List<ChannelMatch>, official: List<ChannelMatch>): List<ChannelMatch> {
++            fun rank(m: ChannelMatch): Int {
++                val how = m.how
++                val isOfficial = m.channel.sourceId == SOURCE_ID
++                return when {
++                    !isOfficial && (how.startsWith("Full game") || how.startsWith("Replay")) -> 0
++                    how.startsWith(Kind.CONDENSED.label) -> 1
++                    !isOfficial && how.startsWith("Condensed") -> 2
++                    how.startsWith(Kind.RECAP.label) -> 3
++                    isOfficial && how.startsWith(Kind.HIGHLIGHTS.label) -> 4
++                    !isOfficial -> 5
++                    else -> 6
++                }
++            }
++            return (addon + official).withIndex().sortedWith(compareBy({ rank(it.value) }, { it.index })).map { it.value }
++        }
++
++        internal fun youTubeId(url: String): String? =
++            Regex("(?:youtube\\.com/(?:watch\\?(?:.*&)?v=|embed/|shorts/)|youtu\\.be/)([A-Za-z0-9_-]{11})").find(url)?.groupValues?.get(1)
++
++        private fun clock(seconds: Int): String = "%d:%02d".format(seconds / 60, seconds % 60)
++
++        private fun parseClock(s: String): Int? {
++            val p = s.split(":").mapNotNull { it.trim().toIntOrNull() }
++            if (p.isEmpty()) return null
++            return p.fold(0) { acc, n -> acc * 60 + n }.takeIf { it > 0 }
++        }
++
++        private fun norm(s: String): String = s.lowercase().filter { it.isLetterOrDigit() }
++
++        private fun sameTeam(side: Side?, name: String?, abbr: String?): Boolean {
++            val t = side?.team ?: return false
++            val n = norm(name.orEmpty())
++            if (abbr != null && abbr.equals(t.abbr, true)) return true
++            if (n.isEmpty()) return false
++            return listOf(t.name, t.fullName).map(::norm).any { it.isNotEmpty() && (it == n || it.endsWith(n) || n.endsWith(it)) }
++        }
++
++        private fun gameTitle(ev: SportsEvent): String {
++            val a = ev.away?.team
++            val h = ev.home?.team
++            return if (a != null && h != null) "${a.abbr} at ${h.abbr}" else ev.title
++        }
++
++        private fun easternDay(ms: Long, shiftDays: Int): String = day(ms, shiftDays, "America/New_York")
++        private fun utcDay(ms: Long, shiftDays: Int): String = day(ms, shiftDays, "UTC")
++
++        private fun day(ms: Long, shiftDays: Int, zone: String): String =
++            SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = TimeZone.getTimeZone(zone) }
++                .format(java.util.Date(ms + shiftDays * 86_400_000L))
++
++        private fun parseIso(s: String?): Long? {
++            if (s.isNullOrBlank()) return null
++            return runCatching {
++                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.parse(s)?.time
++            }.getOrNull() ?: runCatching {
++                SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.parse(s)?.time
++            }.getOrNull()
++        }
++    }
++}
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsViewModel.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsViewModel.kt
+index 8d727e3b212d5e8b145a0a6fbb0ae35a0e868103..bd315199d38a8b832c57ec1a6776a386f75876b1 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsViewModel.kt
+@@ -97,6 +97,31 @@ class SportsViewModel @Inject constructor(
+         playback.play(m.channel)
+     }
+ 
++    private var videoJob: kotlinx.coroutines.Job? = null
++
++    /**
++     * A replay or highlights video picked on a finished game: played full screen ([onReady] opens
++     * Live TV). NHL's and YouTube's videos are worked out first (a moment).
++     */
++    fun playReplay(m: ChannelMatch, onReady: () -> Unit) {
++        videoJob?.cancel()
++        if (!SportsVideos.needsResolving(m.channel)) {
++            watch(m)
++            onReady()
++            return
++        }
++        videoJob = viewModelScope.launch {
++            com.nuvio.tv.livetv.record.LiveTvNotice.show("Opening the video…")
++            val ch = runCatching { repo.playableVideo(m.channel) }.getOrNull()
++            if (ch == null) {
++                com.nuvio.tv.livetv.record.LiveTvNotice.show("That video can't be played right now. Try another one.")
++                return@launch
++            }
++            playback.play(ch)
++            onReady()
++        }
++    }
++
+     // ---- the video window (the same player as Live TV's preview and full screen)
+ 
+     /** The channel playing now (null: nothing), for the PLAYING tags and the window. */
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsWatchPolicy.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsWatchPolicy.kt
+index e70f9bda9c2b00a0e57747e87fdacd71f1ffc435..50160ff3de1c466b81f50b23973fac5d76d4d4ad 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsWatchPolicy.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsWatchPolicy.kt
+@@ -12,6 +12,9 @@ internal data class SportsWatchGame(val event: SportsEvent, val channels: List<C
+ /** The Sports page's row/section order, with only games that can be watched now or shortly. */
+ internal data class SportsWatchRow(val key: String, val title: String, val games: List<SportsWatchGame>)
+ 
++/** A filter chip over Multiview's Sports list: My Sports, All Events, Live Now, or one sport. */
++internal data class SportsWatchFilter(val key: String, val icon: String, val label: String)
++
+ internal data class SportsWatchRules(
+     val user: LiveUserState,
+     val live: LiveTvSettings,
+@@ -65,6 +68,40 @@ internal object SportsWatchPolicy {
+         selection?.takeIf { it.profileId == profile }?.query
+             ?: SportsPageQuery(0, if (follows.isEmpty) CHIP_ALL else CHIP_MINE, null, null)
+ 
++    const val FILTER_MINE = "mine"
++    const val FILTER_ALL = "all"
++    const val FILTER_LIVE = "live"
++    private const val FILTER_SPORT = "sport:"
++
++    /** My Sports (when something is followed), All Events, Live Now, then each sport with a game on now or soon. */
++    fun filters(games: List<SportsWatchGame>, follows: SportsFollows, settings: SportsSettings): List<SportsWatchFilter> {
++        val order = SportsCatalog.sportsOrder(settings)
++        val sports = games.mapNotNull { SportsCatalog.league(it.event.leagueId)?.sport }.distinct()
++            .sortedBy { order.indexOf(it).let { i -> if (i < 0) 99 else i } }
++        return buildList {
++            if (!follows.isEmpty) add(SportsWatchFilter(FILTER_MINE, "★", "My Sports"))
++            add(SportsWatchFilter(FILTER_ALL, "▦", "All Events"))
++            add(SportsWatchFilter(FILTER_LIVE, "●", "Live Now"))
++            sports.forEach { add(SportsWatchFilter(FILTER_SPORT + it.name, it.icon, it.label)) }
++        }
++    }
++
++    /** Which chip the current page selection is (null: one the chips don't offer, like a league). */
++    fun filterKey(query: SportsPageQuery): String? = when {
++        query.chip == CHIP_MINE && query.rowsSport == null -> FILTER_MINE
++        query.chip == CHIP_LIVE -> FILTER_LIVE
++        query.chip == CHIP_ALL -> query.allSportPick?.let { FILTER_SPORT + it } ?: FILTER_ALL
++        else -> null
++    }
++
++    /** The page selection a chip stands for (today, so the list is what's on now). */
++    fun filterQuery(key: String): SportsPageQuery = when {
++        key == FILTER_MINE -> SportsPageQuery(0, CHIP_MINE, null, null)
++        key == FILTER_LIVE -> SportsPageQuery(0, CHIP_LIVE, null, null)
++        key.startsWith(FILTER_SPORT) -> SportsPageQuery(0, CHIP_ALL, key.removePrefix(FILTER_SPORT), null)
++        else -> SportsPageQuery(0, CHIP_ALL, null, null)
++    }
++
+     fun allowedChannels(
+         playlistChannels: List<LiveChannel>,
+         matches: Map<String, List<ChannelMatch>>,
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsWatchViewModel.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsWatchViewModel.kt
+index 0ce7e998b5a8cc4ed978524c44fee1e43c0355bc..ca05fec204dc13e6b28a8ff3b5eec805d379aa67 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsWatchViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsWatchViewModel.kt
+@@ -31,7 +31,7 @@ class SportsWatchViewModel @Inject constructor(
+     preferences: LiveTvPreferences,
+     addons: AddonRepository,
+     private val profiles: ProfileManager,
+-    selection: SportsWatchSelection,
++    private val selection: SportsWatchSelection,
+ ) : ViewModel() {
+     val settings = repo.settings
+     val currentProfile: StateFlow<Int> = profiles.activeProfileId
+@@ -120,6 +120,21 @@ class SportsWatchViewModel @Inject constructor(
+         }
+     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+ 
++    /** Multiview's filter chips, from the games that are on now or about to start. */
++    internal val filters: StateFlow<List<SportsWatchFilter>> = combine(games, repo.follows, settings) { list, follows, sports ->
++        SportsWatchPolicy.filters(list, follows, sports)
++    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
++
++    /** The chip that matches what the list shows now (the Sports page's filter, or the last chip picked). */
++    internal val filterKey: StateFlow<String?> = combine(selection.current, currentProfile, repo.follows) { selected, profile, follows ->
++        SportsWatchPolicy.filterKey(SportsWatchPolicy.pageQuery(selected, profile, follows))
++    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
++
++    /** Picking a chip: the list follows it until a filter is chosen on the Sports page again. */
++    internal fun pickFilter(key: String) {
++        if (profileStillCurrent()) selection.select(SportsWatchPolicy.filterQuery(key))
++    }
++
+     /** Resolve the requested broadcast at the press, or Sports' best allowed source when omitted. */
+     fun resolve(eventId: String, channelKey: String? = null): ChannelMatch? {
+         if (!profileStillCurrent()) return null
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/thumbs/LiveTvSeekThumbs.kt b/app/src/main/java/com/nuvio/tv/livetv/thumbs/LiveTvSeekThumbs.kt
+index 48fa2f0fb0797ca82407ade8beb529f95ffc67ab..c8cfb0f7a46bade14c9f59a0e782fcca64d4c726 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/thumbs/LiveTvSeekThumbs.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/thumbs/LiveTvSeekThumbs.kt
+@@ -140,6 +140,10 @@ private fun update(
+             when {
+                 !url.startsWith("http://", true) && !url.startsWith("https://", true) ->
+                     SeekThumbs.unsupported(owner, "No thumbnails for this kind of link")
++                // YouTube slows down whole-file reads, and reading it for thumbnails took the
++                // speed the video itself needed.
++                url.substringAfter("://").substringBefore('/').endsWith("googlevideo.com", true) ->
++                    SeekThumbs.unsupported(owner, "No thumbnails for YouTube videos")
+                 isHlsLink(url) && seen.durationMs > 0L -> SeekThumbs.open(
+                     context, owner,
+                     SeekThumbs.Source.Hls(url, c.playingChannel?.headers.orEmpty(), "sports-hls|$file|${url.hashCode()}|${seen.durationMs / 1000}"),
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LeftToTop.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LeftToTop.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..8d447a82160d150ff3967ca3979f482a484759a6
+--- /dev/null
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LeftToTop.kt
+@@ -0,0 +1,40 @@
++package com.nuvio.tv.livetv.ui
++
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.remember
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.focus.FocusDirection
++import androidx.compose.ui.input.key.Key
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.key
++import androidx.compose.ui.input.key.onKeyEvent
++import androidx.compose.ui.input.key.type
++import androidx.compose.ui.platform.LocalFocusManager
++
++/**
++ * Left at the left edge of a long list (where Left would otherwise open Nuvio's menu): back up
++ * to the top first, like TiviMate's channel list. Pressed again from up there, Left opens
++ * Nuvio's menu as before. [atTop]: the highlight is already up there (Left goes on to the
++ * menu). [toTop]: move the highlight up there.
++ *
++ * Only Left that nothing else used gets here (a card further left in a row, a list's own Left
++ * handling all come first), so nothing that Left already does changes. Holding Left after the
++ * jump doesn't carry on into the menu: that takes a fresh press.
++ */
++@Composable
++internal fun Modifier.leftJumpsToTop(atTop: () -> Boolean, toTop: () -> Unit): Modifier {
++    val focusManager = LocalFocusManager.current
++    // The press that made the jump (its repeats while held are swallowed).
++    val jumpPress = remember { longArrayOf(-1L) }
++    return this.onKeyEvent { e ->
++        if (e.key != Key.DirectionLeft) return@onKeyEvent false
++        val down = e.nativeKeyEvent.downTime
++        if (e.type != KeyEventType.KeyDown) return@onKeyEvent down == jumpPress[0]
++        if (down == jumpPress[0]) return@onKeyEvent true
++        when {
++            focusManager.moveFocus(FocusDirection.Left) -> true
++            atTop() -> false
++            else -> { jumpPress[0] = down; toTop(); true }
++        }
++    }
++}
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
+index be94828bafaf91e9eb863795433fb60f8664f16e..e9ccbbebe0bc8352494e23088492f5d55a0b6a31 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
+@@ -118,6 +118,8 @@ fun LiveTvPlayerScreen(
+     val view = LocalView.current
+ 
+     if (!embedded) PauseLiveTvInBackground(viewModel.playback)
++    // A replay or highlight from Sports that played to its end: back where it was opened.
++    LaunchedEffect(Unit) { viewModel.playback.videoFinished.collect { onBack() } }
+     // Seek thumbnails for recordings and sports addon replays (off unless turned on in Settings).
+     com.nuvio.tv.livetv.thumbs.LiveTvSeekThumbsHook(viewModel)
+ 
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/detail/MetaDetailsViewModel.kt b/app/src/main/java/com/nuvio/tv/ui/screens/detail/MetaDetailsViewModel.kt
+index 8333dc3215f502da7e3987d1cc79f28ed47e0a27..3b5a647ca68279547547008343d355a5db13a20a 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/detail/MetaDetailsViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/detail/MetaDetailsViewModel.kt
+@@ -17,6 +17,7 @@ import com.nuvio.tv.data.local.PlayerSettingsDataStore
+ import com.nuvio.tv.data.local.TraktAuthDataStore
+ import com.nuvio.tv.data.local.TraktSettingsDataStore
+ import com.nuvio.tv.data.local.TmdbSettingsDataStore
++import com.nuvio.tv.data.repository.AddonEpisodeAirDate
+ import com.nuvio.tv.data.repository.ImdbEpisodeRatingsRepository
+ import com.nuvio.tv.data.repository.MDBListRepository
+ import com.nuvio.tv.data.repository.TraktCommentsService
+@@ -1539,7 +1540,8 @@ class MetaDetailsViewModel @Inject constructor(
+ 
+                 val ratings = imdbEpisodeRatingsRepository.getEpisodeRatings(
+                     imdbId = imdbId,
+-                    tmdbId = tmdbId
++                    tmdbId = tmdbId,
++                    addonEpisodes = meta.videos.map { AddonEpisodeAirDate(it.season, it.episode, it.released) }
+                 )
+ 
+                 _uiState.update { state ->
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/HomeViewModelContinueWatching.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/HomeViewModelContinueWatching.kt
+index 25fab01570a02fce56b78d59b6c780dec2223691..f5d368d8fc041a78db31228a51f7319a7c4d4e29 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/HomeViewModelContinueWatching.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/HomeViewModelContinueWatching.kt
+@@ -8,6 +8,7 @@ import com.nuvio.tv.core.player.PlayerSessionTracker
+ import com.nuvio.tv.core.util.isEpisodeReleaseAired
+ import com.nuvio.tv.core.util.parseEpisodeReleaseInstant
+ import com.nuvio.tv.core.util.selectEpisodeReleaseValue
++import com.nuvio.tv.data.repository.AddonEpisodeAirDate
+ import com.nuvio.tv.domain.model.ContinueWatchingSortMode
+ import com.nuvio.tv.domain.model.ContentType
+ import com.nuvio.tv.domain.model.Meta
+@@ -2039,7 +2040,7 @@ private suspend fun HomeViewModel.enrichInProgressItem(
+             val tmdbIdInt = tmdbIdStr?.toIntOrNull()
+             if (imdbId != null || tmdbIdInt != null) {
+                 runCatching {
+-                    imdbEpisodeRatingsRepository.getEpisodeRatings(imdbId, tmdbIdInt)
++                    imdbEpisodeRatingsRepository.getEpisodeRatings(imdbId, tmdbIdInt, meta.videos.map { AddonEpisodeAirDate(it.season, it.episode, it.released) })
+                 }.getOrNull()?.get(item.progress.season!! to item.progress.episode!!)?.toFloat()
+             } else null
+         }
+@@ -2143,7 +2144,7 @@ private suspend fun HomeViewModel.enrichNextUpItem(
+             val tmdbIdInt = tmdbIdStr?.toIntOrNull()
+             if (imdbId != null || tmdbIdInt != null) {
+                 runCatching {
+-                    imdbEpisodeRatingsRepository.getEpisodeRatings(imdbId, tmdbIdInt)
++                    imdbEpisodeRatingsRepository.getEpisodeRatings(imdbId, tmdbIdInt, meta.videos.map { AddonEpisodeAirDate(it.season, it.episode, it.released) })
+                 }.getOrNull()?.get(s to e)?.toFloat()
+             } else null
+         }
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/player/AutoPlaySourceFallback.kt b/app/src/main/java/com/nuvio/tv/ui/screens/player/AutoPlaySourceFallback.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..cd85566505787620d854c75486f718b721d6c30a
+--- /dev/null
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/player/AutoPlaySourceFallback.kt
+@@ -0,0 +1,58 @@
++package com.nuvio.tv.ui.screens.player
++
++import com.nuvio.tv.domain.model.Stream
++
++/** What resolving one auto-play stream gave. */
++internal sealed interface AutoPlayResolveAttempt<out T, out F> {
++    /** The stream is ready to play. */
++    data class Resolved<T>(val value: T) : AutoPlayResolveAttempt<T, Nothing>
++
++    /** The stream cannot be played, in a way the next source may get past. */
++    data class Failed<F>(val failure: F) : AutoPlayResolveAttempt<Nothing, F>
++
++    /** The stream cannot be played and the failure was shown already, which ends the auto-play. */
++    data object Ended : AutoPlayResolveAttempt<Nothing, Nothing>
++}
++
++internal data class AutoPlayFallbackRun<T, F>(
++    /** What the stream that resolved gave, or null when none did. */
++    val resolved: T?,
++    /** The failure of the last stream tried, to show when none resolved; null once it was shown. */
++    val failure: F?,
++    /** Every stream tried, the one that resolved included, by its fallback key. */
++    val triedKeys: Set<String>,
++    /** How many further streams were tried after the first one. */
++    val attempts: Int
++)
++
++/**
++ * Resolves [first] and, while a stream fails in a way the next source may get past, the stream
++ * [nextCandidate] picks next, up to [maxSources] further ones.
++ */
++internal suspend fun <T : Any, F : Any> resolveWithSourceFallback(
++    first: Stream,
++    maxSources: Int,
++    resolve: suspend (Stream) -> AutoPlayResolveAttempt<T, F>,
++    nextCandidate: (failed: Stream, triedKeys: Set<String>) -> Stream?
++): AutoPlayFallbackRun<T, F> {
++    val triedKeys = mutableSetOf<String>()
++    var attempts = 0
++    var candidate = first
++    while (true) {
++        val attempt = resolve(candidate)
++        triedKeys += candidate.sourceFallbackKey()
++        val failure = when (attempt) {
++            is AutoPlayResolveAttempt.Resolved -> {
++                return AutoPlayFallbackRun(attempt.value, failure = null, triedKeys, attempts)
++            }
++            AutoPlayResolveAttempt.Ended -> {
++                return AutoPlayFallbackRun(resolved = null, failure = null, triedKeys, attempts)
++            }
++            is AutoPlayResolveAttempt.Failed -> attempt.failure
++        }
++        val next = if (attempts < maxSources) nextCandidate(candidate, triedKeys) else null
++        if (next == null) return AutoPlayFallbackRun(resolved = null, failure, triedKeys, attempts)
++        attempts++
++        candidate = next
++    }
++}
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeController.kt b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeController.kt
+index 251c39cce5ef6c805bdefe50d4e53698f305d655..eac75b58dfc07b0bfb3859edd27b90c69785cdc2 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeController.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeController.kt
+@@ -266,8 +266,12 @@ class PlayerRuntimeController(
+     internal var autoSelectedSourceUrl: String? = currentStreamUrl.takeIf {
+         navigationArgs.autoPlayNav && it.isNotBlank() && !it.startsWith("torrent://")
+     }
+-    internal var sourceFallbackAttempts = 0
+-    internal val sourceFallbackTriedKeys = mutableSetOf<String>()
++
++    /** The sources the stream screen tried before this one, so the fallback goes on from them. */
++    private val sourcesTriedBeforePlayback = SourceFallbackHandoff.take(initialStreamUrl, currentStreamUrl)
++        ?.takeIf { autoSelectedSourceUrl != null }
++    internal var sourceFallbackAttempts = sourcesTriedBeforePlayback?.attempts ?: 0
++    internal val sourceFallbackTriedKeys = sourcesTriedBeforePlayback?.keys.orEmpty().toMutableSet()
+     internal var sourceFallbackJob: Job? = null
+     internal var sourceStartupTimeoutJob: Job? = null
+ 
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerInitialization.kt b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerInitialization.kt
+index 36f79447af3ac696f3b8a876223715208786fa13..d5f9399142e7ca6c7be0a5e69dafc0f03d0d82ee 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerInitialization.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerInitialization.kt
+@@ -2232,6 +2232,7 @@ internal fun PlayerRuntimeController.resetLoadingOverlayForNewStream() {
+     _uiState.update { state ->
+         state.copy(
+             showLoadingOverlay = state.loadingOverlayEnabled,
++            isEpisodeAutoPlaySearching = false,
+             showControls = false,
+             loadingMessage = preparingMessage,
+             loadingIssueReportVisible = false,
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerSourceFallback.kt b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerSourceFallback.kt
+index bce394f2c8c2cd452b4dacdb05e76ddd25434443..d073c52e5b96e2b65cca5a34df46e8e11701f3c1 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerSourceFallback.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerSourceFallback.kt
+@@ -37,6 +37,24 @@ internal fun PlayerRuntimeController.scheduleSourceStartupTimeout() {
+     }
+ }
+ 
++/**
++ * Starts the fallback over for a stream that replaced the playing one in place, such as the next
++ * episode. Only a stream auto source selection picked falls back, [autoSelection] then holds the
++ * sources tried before it, and the count belongs to the episode the sources were tried for.
++ */
++internal fun PlayerRuntimeController.restartSourceFallback(
++    playbackUrl: String,
++    autoSelection: SourceFallbackHandoff.TriedSources?
++) {
++    sourceFallbackJob?.cancel()
++    autoSelectedSourceUrl = playbackUrl.takeIf { url ->
++        autoSelection != null && url.isNotBlank() && !url.startsWith("torrent://")
++    }
++    sourceFallbackAttempts = autoSelection?.attempts ?: 0
++    sourceFallbackTriedKeys.clear()
++    autoSelection?.let { tried -> sourceFallbackTriedKeys += tried.keys }
++}
++
+ /** Shows [errorMessage] as the playback error unless the next matching source is tried instead. */
+ internal fun PlayerRuntimeController.showErrorUnlessSourceFallback(errorMessage: String) {
+     if (tryFallbackToNextSourceAfterError(errorMessage)) return
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerStreams.kt b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerStreams.kt
+index 57efacc4c3ac0891d0e23a8743bb06f251f165fe..04789404e5bbec52f37324546ff239ebafdb0289 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerStreams.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerStreams.kt
+@@ -856,7 +856,9 @@ private fun PlayerRuntimeController.openExternalStreamInBrowser(
+     if (externalUrl.isNullOrBlank()) {
+         _uiState.update {
+             if (fromEpisodePanel) {
+-                it.copy(episodeStreamsError = context.getString(com.nuvio.tv.R.string.player_stream_error_invalid_external_url))
++                it.finishEpisodeAutoPlaySearch(showStreamPicker = true).copy(
++                    episodeStreamsError = context.getString(com.nuvio.tv.R.string.player_stream_error_invalid_external_url)
++                )
+             } else {
+                 it.copy(sourceStreamsError = context.getString(com.nuvio.tv.R.string.player_stream_error_invalid_external_url))
+             }
+@@ -877,6 +879,7 @@ private fun PlayerRuntimeController.openExternalStreamInBrowser(
+                     showEpisodesPanel = false,
+                     showEpisodeStreams = false,
+                     isLoadingEpisodeStreams = false,
++                    isEpisodeAutoPlaySearching = false,
+                     episodeStreamsError = null
+                 )
+             } else {
+@@ -890,7 +893,9 @@ private fun PlayerRuntimeController.openExternalStreamInBrowser(
+     }.onFailure { error ->
+         _uiState.update {
+             if (fromEpisodePanel) {
+-                it.copy(episodeStreamsError = error.message ?: context.getString(com.nuvio.tv.R.string.player_stream_error_open_external_link_failed))
++                it.finishEpisodeAutoPlaySearch(showStreamPicker = true).copy(
++                    episodeStreamsError = error.message ?: context.getString(com.nuvio.tv.R.string.player_stream_error_open_external_link_failed)
++                )
+             } else {
+                 it.copy(sourceStreamsError = error.message ?: context.getString(com.nuvio.tv.R.string.player_stream_error_open_external_link_failed))
+             }
+@@ -1001,6 +1006,7 @@ internal fun PlayerRuntimeController.switchToSourceStream(
+     nextEpisodeAutoPlayJob?.cancel()
+     nextEpisodeAutoPlayJob = null
+ 
++    val resumePositionMs = currentPlaybackPositionMs()?.coerceAtLeast(0L) ?: 0L
+     flushPlaybackSnapshotForSwitchOrExit()
+ 
+     val newHeaders = PlayerMediaSourceFactory.sanitizeHeaders(
+@@ -1054,6 +1060,10 @@ internal fun PlayerRuntimeController.switchToSourceStream(
+             isTorrentStream = false
+         )
+     }
++    if (resumePositionMs > 0L) {
++        pendingResumeProgress = null
++        _uiState.update { it.copy(pendingSeekPosition = resumePositionMs) }
++    }
+     clearChapterSkipState()
+     recomputeMergedSkipIntervals()
+     showStreamSourceIndicator(stream)
+@@ -1120,12 +1130,17 @@ internal fun PlayerRuntimeController.dismissEpisodesPanel() {
+     episodeStreamsScope?.cancel()
+     episodeStreamsScope = null
+     episodeStreamsJob = null
++    if (_uiState.value.isEpisodeAutoPlaySearching) {
++        debridResolveJob?.cancel()
++        debridResolveJob = null
++    }
+     streamRepository.setLocalPluginSearchPaused(true)
+     _uiState.update {
+         it.copy(
+             showEpisodesPanel = false,
+             showEpisodeStreams = false,
+-            isLoadingEpisodeStreams = false
++            isLoadingEpisodeStreams = false,
++            isEpisodeAutoPlaySearching = false
+         )
+     }
+     scheduleHideControls()
+@@ -1208,13 +1223,24 @@ private fun PlayerRuntimeController.switchToTorrentEpisodeStream(
+     forcedTargetVideo: Video?,
+     isAutoPlay: Boolean
+ ) {
+-    val infoHash = stream.getEffectiveInfoHash() ?: return
++    val infoHash = stream.getEffectiveInfoHash()
++    if (infoHash == null) {
++        _uiState.update {
++            it.finishEpisodeAutoPlaySearch(showStreamPicker = true).copy(
++                isLoadingEpisodeStreams = false,
++                episodeStreamsError = context.getString(com.nuvio.tv.R.string.player_stream_error_invalid_url)
++            )
++        }
++        return
++    }
+     consecutiveAutoPlayCount = nextConsecutiveAutoPlayCount(
+         currentCount = consecutiveAutoPlayCount,
+         isAutoPlay = isAutoPlay
+     )
+     stopTorrentStream()
+     switchToEpisodeStreamCommon(stream, forcedTargetVideo, showSourceIndicator = !isAutoPlay)
++    // A torrent source never falls back, so the episode starts with nothing to fall back from.
++    restartSourceFallback(playbackUrl = "", autoSelection = null)
+     launchTorrentSourceStream(stream, infoHash, loadSavedProgress = true)
+     persistTorrentStreamForReuse(stream)
+     persistStreamRouteState(stream, isTorrent = true)
+@@ -1310,6 +1336,11 @@ internal fun PlayerRuntimeController.loadStreamsForEpisode(
+     episodeStreamsScope?.cancel()
+     episodeStreamsScope = null
+     episodeStreamsJob = null
++    if (_uiState.value.isEpisodeAutoPlaySearching) {
++        debridResolveJob?.cancel()
++        debridResolveJob = null
++    }
++    _uiState.update { it.finishEpisodeAutoPlaySearch() }
+     val newScope = kotlinx.coroutines.CoroutineScope(scope.coroutineContext + kotlinx.coroutines.SupervisorJob())
+     episodeStreamsScope = newScope
+     episodeStreamsJob = newScope.launch {
+@@ -1319,6 +1350,7 @@ internal fun PlayerRuntimeController.loadStreamsForEpisode(
+             else -> playerSettingsDataStore.playerSettings.first()
+         }
+         val autoPlaySettings = playerSettings?.takeIf { it.streamAutoPlayMode != StreamAutoPlayMode.MANUAL }
++        _uiState.update { it.copy(isEpisodeAutoPlaySearching = autoPlaySettings != null) }
+         val state = _uiState.value
+         val hasCachedPayload = state.episodeAllStreams.isNotEmpty() || state.episodeStreamsError != null
+         if (!forceRefresh && requestKey == episodeStreamsCacheRequestKey && hasCachedPayload) {
+@@ -1332,7 +1364,8 @@ internal fun PlayerRuntimeController.loadStreamsForEpisode(
+                     switchToEpisodeStream(
+                         stream = selectedStream,
+                         forcedTargetVideo = video,
+-                        isAutoPlay = true
++                        isAutoPlay = true,
++                        autoSelection = SourceFallbackHandoff.TriedSources.None
+                     )
+                     return@launch
+                 }
+@@ -1341,6 +1374,7 @@ internal fun PlayerRuntimeController.loadStreamsForEpisode(
+                 it.copy(
+                     showEpisodeStreams = true,
+                     isLoadingEpisodeStreams = false,
++                    isEpisodeAutoPlaySearching = false,
+                     episodeStreamsForVideoId = video.id,
+                     episodeStreamsSeason = video.season,
+                     episodeStreamsEpisode = video.episode,
+@@ -1462,11 +1496,12 @@ internal fun PlayerRuntimeController.loadStreamsForEpisode(
+                 switchToEpisodeStream(
+                     stream = selectedStream,
+                     forcedTargetVideo = video,
+-                    isAutoPlay = true
++                    isAutoPlay = true,
++                    autoSelection = SourceFallbackHandoff.TriedSources.None
+                 )
+             } else {
+                 _uiState.update {
+-                    it.copy(
++                    it.finishEpisodeAutoPlaySearch(showStreamPicker = true).copy(
+                         showEpisodeStreams = true,
+                         isLoadingEpisodeStreams = false
+                     )
+@@ -1587,10 +1622,15 @@ internal fun PlayerRuntimeController.reloadEpisodeStreams() {
+     }
+ }
+ 
++/**
++ * @param autoSelection non-null when auto source selection picked [stream]: the sources it tried
++ * before it, so the fallback to the next matching source goes on from them.
++ */
+ internal fun PlayerRuntimeController.switchToEpisodeStream(
+     stream: Stream,
+     forcedTargetVideo: Video? = null,
+-    isAutoPlay: Boolean = false
++    isAutoPlay: Boolean = false,
++    autoSelection: SourceFallbackHandoff.TriedSources? = null
+ ) {
+     if (openExternalStreamInBrowser(stream = stream, fromEpisodePanel = true)) {
+         return
+@@ -1603,9 +1643,11 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
+             val prepared = prepareServerStream(stream)
+             debridResolveJob = null
+             if (prepared != null) {
+-                switchToEpisodeStream(prepared, forcedTargetVideo, isAutoPlay)
++                switchToEpisodeStream(prepared, forcedTargetVideo, isAutoPlay, autoSelection)
+             } else {
+-                _uiState.update { it.copy(isLoadingEpisodeStreams = false) }
++                _uiState.update {
++                    it.finishEpisodeAutoPlaySearch(showStreamPicker = true).copy(isLoadingEpisodeStreams = false)
++                }
+             }
+         }
+         return
+@@ -1618,10 +1660,10 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
+             val resolved = resolveYouTubeStream(stream)
+             debridResolveJob = null
+             if (resolved != null) {
+-                switchToEpisodeStream(resolved, forcedTargetVideo, isAutoPlay)
++                switchToEpisodeStream(resolved, forcedTargetVideo, isAutoPlay, autoSelection)
+             } else {
+                 _uiState.update {
+-                    it.copy(
++                    it.finishEpisodeAutoPlaySearch(showStreamPicker = true).copy(
+                         isLoadingEpisodeStreams = false,
+                         episodeStreamsError = context.getString(com.nuvio.tv.R.string.youtube_resolution_failed)
+                     )
+@@ -1640,12 +1682,12 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
+             val resolved = resolveDirectDebridStreamIfNeeded(stream, resolveSeason, resolveEpisode)
+             debridResolveJob = null
+             if (resolved != null && !resolved.getStreamUrl().isNullOrBlank()) {
+-                switchToEpisodeStream(resolved, forcedTargetVideo, isAutoPlay)
++                switchToEpisodeStream(resolved, forcedTargetVideo, isAutoPlay, autoSelection)
+             } else if (resolved != null) {
+                 switchToTorrentEpisodeStream(resolved, forcedTargetVideo, isAutoPlay)
+             } else {
+                 _uiState.update {
+-                    it.copy(
++                    it.finishEpisodeAutoPlaySearch(showStreamPicker = true).copy(
+                         isLoadingEpisodeStreams = false,
+                         episodeStreamsError = context.getString(com.nuvio.tv.R.string.player_stream_error_invalid_url)
+                     )
+@@ -1666,11 +1708,11 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
+                 val resolved = resolveDirectDebridStreamIfNeeded(stream, resolveSeason, resolveEpisode)
+                 if (resolved != null && !resolved.getStreamUrl().isNullOrBlank()) {
+                     debridResolveJob = null
+-                    switchToEpisodeStream(resolved, forcedTargetVideo, isAutoPlay)
++                    switchToEpisodeStream(resolved, forcedTargetVideo, isAutoPlay, autoSelection)
+                 } else {
+                     debridResolveJob = null
+                     _uiState.update {
+-                        it.copy(
++                        it.finishEpisodeAutoPlaySearch(showStreamPicker = true).copy(
+                             isLoadingEpisodeStreams = false,
+                             episodeStreamsError = context.getString(com.nuvio.tv.R.string.player_stream_error_invalid_url)
+                         )
+@@ -1679,7 +1721,11 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
+             }
+             return
+         }
+-        _uiState.update { it.copy(episodeStreamsError = context.getString(com.nuvio.tv.R.string.player_stream_error_invalid_url)) }
++        _uiState.update {
++            it.finishEpisodeAutoPlaySearch(showStreamPicker = true).copy(
++                episodeStreamsError = context.getString(com.nuvio.tv.R.string.player_stream_error_invalid_url)
++            )
++        }
+         return
+     }
+ 
+@@ -1724,6 +1770,7 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
+     )
+     val playbackUrl = currentStreamUrl
+     val playbackHeaders = currentHeaders
++    restartSourceFallback(playbackUrl, autoSelection)
+     val targetVideoId = targetVideo?.id ?: _uiState.value.episodeStreamsForVideoId ?: currentVideoId
+     // Do not persist an episode switch under the outgoing episode's reuse key.
+     if (targetVideoId == currentVideoId) {
+@@ -2327,9 +2374,14 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
+                 innerJob.cancel()
+             }
+ 
+-            val streamToPlay = selectedStream?.let {
+-                resolveDirectDebridStreamIfNeeded(it, nextVideo.season, nextVideo.episode)
++            val resolveRun = selectedStream?.let { selected ->
++                resolveNextEpisodeStream(
++                    selected = selected,
++                    nextVideo = nextVideo,
++                    streams = lastSuccessData.orEmpty().flatMap { addon -> addon.streams }
++                )
+             }
++            val streamToPlay = resolveRun?.resolved
+             if (streamToPlay != null) {
+                 val sourceName = (streamToPlay.name?.takeIf { it.isNotBlank() } ?: streamToPlay.addonName).trim()
+                 for (remaining in 3 downTo 1) {
+@@ -2356,7 +2408,12 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
+                 switchToEpisodeStream(
+                     stream = streamToPlay,
+                     forcedTargetVideo = nextVideo,
+-                    isAutoPlay = !userInitiated
++                    isAutoPlay = !userInitiated,
++                    // Auto source selection picked it whether or not the user asked for the episode.
++                    autoSelection = SourceFallbackHandoff.TriedSources(
++                        keys = resolveRun.triedKeys,
++                        attempts = resolveRun.attempts
++                    )
+                 )
+             } else {
+                 _uiState.update {
+@@ -2384,6 +2441,57 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
+     }
+ }
+ 
++/**
++ * Resolves the stream auto-play picked for the next episode.
++ *
++ * When its debrid result cannot be played and falling back to the next matching source is on, the
++ * next stream the selection would pick from [streams] is resolved instead, up to the configured
++ * number of further sources, the way the stream screen falls back. Only when none resolves does the
++ * episode's source list open. The run says which sources were tried, so the fallback in the player
++ * goes on from them if the stream that resolved fails to start.
++ */
++private suspend fun PlayerRuntimeController.resolveNextEpisodeStream(
++    selected: Stream,
++    nextVideo: Video,
++    streams: List<Stream>
++): AutoPlayFallbackRun<Stream, Unit> {
++    val settings = playerSettingsDataStore.playerSettings.first()
++    if (!settings.streamAutoPlayFallbackActive) {
++        return AutoPlayFallbackRun(
++            resolved = resolveDirectDebridStreamIfNeeded(selected, nextVideo.season, nextVideo.episode),
++            failure = null,
++            triedKeys = setOf(selected.sourceFallbackKey()),
++            attempts = 0
++        )
++    }
++    val installedAddonNames = streamAddonsFor(nextVideo.id).map { addon -> addon.displayName }.toSet()
++    return resolveWithSourceFallback<Stream, Unit>(
++        first = selected,
++        maxSources = settings.streamAutoPlayFallbackMaxSources,
++        resolve = { candidate ->
++            resolveDirectDebridStreamIfNeeded(candidate, nextVideo.season, nextVideo.episode)
++                ?.let { resolved -> AutoPlayResolveAttempt.Resolved(resolved) }
++                ?: AutoPlayResolveAttempt.Failed(Unit)
++        },
++        nextCandidate = { failed, triedKeys ->
++            nextSourceFallbackCandidate(
++                streams = streams,
++                settings = settings,
++                installedAddonNames = installedAddonNames,
++                triedKeys = triedKeys,
++                failedAddonName = failed.addonName,
++                failedInfoHash = failed.getEffectiveInfoHash()
++            )?.also { next ->
++                Log.i(
++                    PlayerRuntimeController.TAG,
++                    "Next episode source from ${failed.addonName} could not be resolved, " +
++                        "falling back to ${next.name ?: next.addonName} from ${next.addonName}"
++                )
++            }
++        }
++    )
++}
++
+ private fun PlayerRuntimeController.playNextCloudLibraryFile(
+     nextVideo: Video,
+     userInitiated: Boolean
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerScreen.kt b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerScreen.kt
+index 2bf12cfc1e66c07875e3c77855e0ac9e16ba9894..58b4acc248633e58b0fb975e0f16c97ed5b0f184 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerScreen.kt
+@@ -1352,12 +1352,17 @@ fun PlayerScreen(
+         }
+ 
+         LoadingOverlay(
+-            visible = uiState.showLoadingOverlay && uiState.error == null && !postPlayRecommendationState.isVisible,
++            visible = (uiState.showLoadingOverlay || uiState.showEpisodeAutoPlayLoadingOverlay) &&
++                uiState.error == null && !postPlayRecommendationState.isVisible,
+             backdropUrl = uiState.backdrop,
+             logoUrl = uiState.logo,
+             title = uiState.title,
+-            message = uiState.loadingMessage.takeIf { uiState.showPlayerLoadingStatus || uiState.isTorrentStream },
+-            progress = uiState.loadingProgress,
++            message = if (uiState.isEpisodeAutoPlaySearching) {
++                stringResource(R.string.stream_finding_source).takeIf { uiState.showPlayerLoadingStatus }
++            } else {
++                uiState.loadingMessage.takeIf { uiState.showPlayerLoadingStatus || uiState.isTorrentStream }
++            },
++            progress = uiState.loadingProgress.takeUnless { uiState.isEpisodeAutoPlaySearching },
+             modifier = Modifier
+                 .fillMaxSize()
+                 .zIndex(2f)
+@@ -1873,7 +1878,8 @@ fun PlayerScreen(
+ 
+         // Episodes/streams side panel (slides in from right)
+         AnimatedVisibility(
+-            visible = uiState.showEpisodesPanel && uiState.error == null,
++            visible = uiState.showEpisodesPanel && uiState.error == null &&
++                !uiState.showEpisodeAutoPlayLoadingOverlay,
+             enter = fadeIn(animationSpec = tween(120)),
+             exit = fadeOut(animationSpec = tween(120))
+         ) {
+@@ -1887,7 +1893,8 @@ fun PlayerScreen(
+ 
+         // Panel itself (slides in from right)
+         AnimatedVisibility(
+-            visible = uiState.showEpisodesPanel && uiState.error == null,
++            visible = uiState.showEpisodesPanel && uiState.error == null &&
++                !uiState.showEpisodeAutoPlayLoadingOverlay,
+             enter = slideInHorizontally(
+                 animationSpec = tween(220),
+                 initialOffsetX = { it }
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerUiState.kt b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerUiState.kt
+index a60888ba041130c26010bd694c0b54edec574541..22c3e88684d54e98befd6a25e9e8bf73ac6fbf38 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerUiState.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerUiState.kt
+@@ -162,6 +162,7 @@ data class PlayerUiState(
+     val watchedEpisodeKeys: Set<Pair<Int, Int>> = emptySet(),
+     val showEpisodeStreams: Boolean = false,
+     val isLoadingEpisodeStreams: Boolean = false,
++    val isEpisodeAutoPlaySearching: Boolean = false,
+     val episodeStreamsError: String? = null,
+     val episodeAllStreams: List<Stream> = emptyList(),
+     val episodeSelectedAddonFilter: String? = null, // null means "All"
+@@ -276,6 +277,20 @@ internal fun PlayerUiState.clearFrameRateDetection(): PlayerUiState = copy(
+     detectedFrameRateSource = null
+ )
+ 
++internal val PlayerUiState.showEpisodeAutoPlayLoadingOverlay: Boolean
++    get() = isEpisodeAutoPlaySearching && loadingOverlayEnabled
++
++internal fun PlayerUiState.finishEpisodeAutoPlaySearch(showStreamPicker: Boolean = false): PlayerUiState =
++    copy(
++        isEpisodeAutoPlaySearching = false,
++        showEpisodeStreams = showEpisodeStreams || (isEpisodeAutoPlaySearching && showStreamPicker),
++        isLoadingEpisodeStreams = if (isEpisodeAutoPlaySearching && showStreamPicker) {
++            false
++        } else {
++            isLoadingEpisodeStreams
++        }
++    )
++
+ data class PlaybackTimelineState(
+     val currentPosition: Long = 0L,
+     val duration: Long = 0L,
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/player/SourceFallbackHandoff.kt b/app/src/main/java/com/nuvio/tv/ui/screens/player/SourceFallbackHandoff.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..e3d7d5a7b7ba76f4b54fcfe2eabe0b5721770916
+--- /dev/null
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/player/SourceFallbackHandoff.kt
+@@ -0,0 +1,43 @@
++package com.nuvio.tv.ui.screens.player
++
++/**
++ * The sources the stream screen already tried before the auto-selected stream that is about to play.
++ *
++ * Falling back to the next matching source starts on the stream screen, when an auto-selected
++ * stream cannot be resolved, and goes on in the player, when the stream that did resolve fails to
++ * start. The player picks up the tried sources and the count from here, so it skips the ones that
++ * already failed and the configured number of sources covers both. One-shot and keyed by playback
++ * URL, like [StreamSidecarSubtitles], so a leftover entry cannot attach to another playback.
++ */
++internal object SourceFallbackHandoff {
++    data class TriedSources(val keys: Set<String>, val attempts: Int) {
++        companion object {
++            /** A stream auto selection picked first, with nothing tried before it. */
++            val None = TriedSources(keys = emptySet(), attempts = 0)
++        }
++    }
++
++    @Volatile
++    private var playbackUrl: String? = null
++
++    @Volatile
++    private var triedSources: TriedSources? = null
++
++    fun set(url: String?, triedSources: TriedSources) {
++        val playbackUrl = url?.takeIf { it.isNotBlank() }
++        this.playbackUrl = playbackUrl
++        this.triedSources = triedSources.takeIf { playbackUrl != null }
++    }
++
++    /**
++     * The sources tried before the playback of any of [urls] (the URL as navigated and as the player
++     * normalized it), once: the entry is dropped whether or not it matches.
++     */
++    fun take(vararg urls: String): TriedSources? {
++        val storedUrl = playbackUrl
++        val stored = triedSources
++        playbackUrl = null
++        triedSources = null
++        return stored?.takeIf { storedUrl != null && storedUrl in urls }
++    }
++}
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/stream/StreamScreen.kt b/app/src/main/java/com/nuvio/tv/ui/screens/stream/StreamScreen.kt
+index a0eb308a2967ca27eecad5cf7a7a5c131954f1a4..531bdc7c025473497ab13a38f0fec4e3309dfac1 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/stream/StreamScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/stream/StreamScreen.kt
+@@ -298,7 +298,7 @@ fun StreamScreen(
+             viewModel.onEvent(StreamScreenEvent.OnAutoPlayConsumed)
+             return@LaunchedEffect
+         }
+-        val playbackInfo = viewModel.resolveStreamForPlayback(stream)
++        val playbackInfo = viewModel.resolveAutoPlayStreamForPlayback(stream)
+         if (playbackInfo == null) {
+             viewModel.onEvent(StreamScreenEvent.OnAutoPlayConsumed)
+             return@LaunchedEffect
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/stream/StreamScreenViewModel.kt b/app/src/main/java/com/nuvio/tv/ui/screens/stream/StreamScreenViewModel.kt
+index 283cf98a1c7a1de81b859cdfd490dd446dbabb8b..f754656f98289ac766e2547808309c15b9f4ebb7 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/stream/StreamScreenViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/stream/StreamScreenViewModel.kt
+@@ -50,7 +50,11 @@ import com.nuvio.tv.domain.repository.StreamRepository
+ import com.nuvio.tv.domain.repository.WatchProgressRepository
+ import com.nuvio.tv.ui.components.SourceChipItem
+ import com.nuvio.tv.ui.components.SourceChipStatus
++import com.nuvio.tv.ui.screens.player.AutoPlayResolveAttempt
++import com.nuvio.tv.ui.screens.player.SourceFallbackHandoff
+ import com.nuvio.tv.ui.screens.player.StreamSidecarSubtitles
++import com.nuvio.tv.ui.screens.player.nextSourceFallbackCandidate
++import com.nuvio.tv.ui.screens.player.resolveWithSourceFallback
+ import com.nuvio.tv.ui.util.localizedGenreLabel
+ import dagger.hilt.android.lifecycle.HiltViewModel
+ import dagger.hilt.android.qualifiers.ApplicationContext
+@@ -110,6 +114,9 @@ class StreamScreenViewModel @Inject constructor(
+     private var autoPlayHandledForSession = false
+     private var directAutoPlayModeInitializedForSession = false
+     private var directAutoPlayFlowEnabledForSession = false
++
++    /** The add-ons the auto source selection picked from, so its fallback picks by the same rules. */
++    private var autoPlayInstalledAddonNames: Set<String> = emptySet()
+     private var isTorrentStreamStarted = false
+     private var streamLoadJob: Job? = null
+     private var streamLoadScope: kotlinx.coroutines.CoroutineScope? = null
+@@ -537,6 +544,7 @@ class StreamScreenViewModel @Inject constructor(
+                 addonRepository.getInstalledAddons().first().enabledAddons()
+             }
+             val installedAddonOrder = installedAddons.map { it.displayName }
++            autoPlayInstalledAddonNames = installedAddonOrder.toSet()
+             val directDebridSourceNames = emptyList<String>()
+             val directDebridAvailable = false
+             val persistedBingeGroup = if (!preferManagedVod && playerSettings.streamAutoPlayPreferBingeGroupForNextEpisode &&
+@@ -1331,7 +1339,20 @@ class StreamScreenViewModel @Inject constructor(
+         }
+     }
+ 
+-    suspend fun resolveStreamForPlayback(stream: Stream, saveLastLink: Boolean = true): StreamPlaybackInfo? {
++    suspend fun resolveStreamForPlayback(stream: Stream, saveLastLink: Boolean = true): StreamPlaybackInfo? =
++        resolveForPlayback(stream, saveLastLink) { failure ->
++            showDirectDebridPlaybackError(failure.message, failure.refreshStreams)
++        }
++
++    /**
++     * Resolves [stream] for playback. A debrid result that cannot be played goes to [onDebridFailure]
++     * instead of being shown, so the auto-play fallback can try another source before showing it.
++     */
++    private suspend fun resolveForPlayback(
++        stream: Stream,
++        saveLastLink: Boolean,
++        onDebridFailure: (DebridResolveFailure) -> Unit
++    ): StreamPlaybackInfo? {
+         stream.serverTarget?.let { target -> return prepareServerStream(stream, target) }
+         if (stream.youTubeIdToResolve() != null) {
+             return resolveYouTubeStreamForPlayback(stream)
+@@ -1364,18 +1385,7 @@ class StreamScreenViewModel @Inject constructor(
+ 
+         return when (result) {
+             is DirectDebridResolveResult.Success -> {
+-                if (!_uiState.value.isDirectAutoPlayFlow) {
+-                    updateUiStateIfChanged {
+-                        it.copy(
+-                            showDirectAutoPlayOverlay = false,
+-                            directAutoPlayMessage = null
+-                        )
+-                    }
+-                } else {
+-                    updateUiStateIfChanged {
+-                        it.copy(directAutoPlayMessage = null)
+-                    }
+-                }
++                releaseDebridResolveOverlay()
+                 cancelStreamsLoad()
+                 val resolved = basePlaybackInfo.copy(
+                     url = result.url,
+@@ -1411,24 +1421,80 @@ class StreamScreenViewModel @Inject constructor(
+                 resolved
+             }
+             DirectDebridResolveResult.MissingApiKey -> {
+-                showDirectDebridPlaybackError(context.getString(R.string.debrid_missing_api_key), refreshStreams = false)
++                onDebridFailure(DebridResolveFailure(context.getString(R.string.debrid_missing_api_key), refreshStreams = false))
+                 null
+             }
+             DirectDebridResolveResult.NotCached -> {
+-                showDirectDebridPlaybackError(context.getString(R.string.debrid_not_cached), refreshStreams = false)
++                onDebridFailure(DebridResolveFailure(context.getString(R.string.debrid_not_cached), refreshStreams = false))
+                 null
+             }
+             DirectDebridResolveResult.Stale -> {
+-                showDirectDebridPlaybackError(context.getString(R.string.debrid_stale_stream), refreshStreams = true)
++                onDebridFailure(DebridResolveFailure(context.getString(R.string.debrid_stale_stream), refreshStreams = true))
+                 null
+             }
+             DirectDebridResolveResult.Error -> {
+-                showDirectDebridPlaybackError(context.getString(R.string.debrid_resolution_failed), refreshStreams = false)
++                onDebridFailure(DebridResolveFailure(context.getString(R.string.debrid_resolution_failed), refreshStreams = false))
+                 null
+             }
+         }
+     }
+ 
++    /**
++     * Resolves the stream auto source selection picked, falling back past a debrid result that
++     * cannot be played.
++     *
++     * An expired result, one no longer cached or a failed resolve used to end the auto-play here and
++     * show the list. With falling back to the next matching source on, the next stream the selection
++     * would pick is resolved instead, up to the configured number of further sources, the way the
++     * player falls back when a source fails to start. Only the last failure is shown. The sources
++     * tried here are handed to the player, so its own fallback skips them and the count covers both.
++     */
++    suspend fun resolveAutoPlayStreamForPlayback(stream: Stream): StreamPlaybackInfo? {
++        val settings = playerSettingsDataStore.playerSettings.first()
++        if (!settings.streamAutoPlayFallbackActive) return resolveStreamForPlayback(stream)
++        val run = resolveWithSourceFallback<StreamPlaybackInfo, DebridResolveFailure>(
++            first = stream,
++            maxSources = settings.streamAutoPlayFallbackMaxSources,
++            resolve = { candidate ->
++                var failure: DebridResolveFailure? = null
++                val playbackInfo = resolveForPlayback(candidate, saveLastLink = true) { failure = it }
++                when {
++                    playbackInfo != null -> AutoPlayResolveAttempt.Resolved(playbackInfo)
++                    // A failure other than a debrid one was already shown where it happened.
++                    else -> failure?.let { AutoPlayResolveAttempt.Failed(it) } ?: AutoPlayResolveAttempt.Ended
++                }
++            },
++            nextCandidate = { failed, triedKeys ->
++                nextSourceFallbackCandidate(
++                    streams = _uiState.value.allStreams,
++                    settings = settings,
++                    installedAddonNames = autoPlayInstalledAddonNames,
++                    triedKeys = triedKeys,
++                    failedAddonName = failed.addonName,
++                    failedInfoHash = failed.getEffectiveInfoHash()
++                )?.also { next ->
++                    Log.i(
++                        TAG,
++                        "Auto-selected source from ${failed.addonName} could not be resolved, " +
++                            "falling back to ${next.name ?: next.addonName} from ${next.addonName}"
++                    )
++                }
++            }
++        )
++        val playbackInfo = run.resolved
++        if (playbackInfo == null) {
++            run.failure?.let { failure -> showDirectDebridPlaybackError(failure.message, failure.refreshStreams) }
++            return null
++        }
++        // A source that needs no debrid resolve does not take down what a failed one showed.
++        if (run.attempts > 0) releaseDebridResolveOverlay()
++        SourceFallbackHandoff.set(
++            url = playbackUrlFor(playbackInfo),
++            triedSources = SourceFallbackHandoff.TriedSources(keys = run.triedKeys, attempts = run.attempts)
++        )
++        return playbackInfo
++    }
++
+     private suspend fun prepareServerStream(stream: Stream, target: ServerPlaybackTarget): StreamPlaybackInfo? {
+         val session = try {
+             serverPlayback.prepare(target)
+@@ -1444,12 +1510,13 @@ class StreamScreenViewModel @Inject constructor(
+             }
+             return null
+         }
+-        StreamSidecarSubtitles.set(session.url, session.subtitles + stream.subtitles)
+-        return getStreamForPlayback(stream).copy(
++        val playbackInfo = getStreamForPlayback(stream).copy(
+             url = session.url,
+             headers = session.headers.takeIf { it.isNotEmpty() },
+             isServerStream = true
+         )
++        StreamSidecarSubtitles.set(session.url, session.subtitles + stream.subtitles)
++        return playbackInfo
+     }
+ 
+     private suspend fun resolveYouTubeStreamForPlayback(stream: Stream): StreamPlaybackInfo? {
+@@ -1573,6 +1640,22 @@ class StreamScreenViewModel @Inject constructor(
+         }
+     }
+ 
++    /** Takes down what the debrid resolve put on screen, keeping the direct auto-play cover itself. */
++    private fun releaseDebridResolveOverlay() {
++        if (!_uiState.value.isDirectAutoPlayFlow) {
++            updateUiStateIfChanged {
++                it.copy(
++                    showDirectAutoPlayOverlay = false,
++                    directAutoPlayMessage = null
++                )
++            }
++        } else {
++            updateUiStateIfChanged {
++                it.copy(directAutoPlayMessage = null)
++            }
++        }
++    }
++
+     private fun showDirectDebridPlaybackError(message: String, refreshStreams: Boolean) {
+         directAutoPlayFlowEnabledForSession = false
+         updateUiStateIfChanged {
+@@ -2190,6 +2273,9 @@ data class StreamPlaybackInfo(
+     val fromLinkCache: Boolean = false
+ )
+ 
++/** A debrid result that could not be played: what to show, and whether the results are stale. */
++private data class DebridResolveFailure(val message: String, val refreshStreams: Boolean)
++
+ private fun playbackUrlFor(playbackInfo: StreamPlaybackInfo): String? =
+     playbackInfo.url?.takeIf { it.isNotBlank() }
+         ?: if (playbackInfo.isTorrent) playbackInfo.infoHash?.let { "torrent://$it" } else null
+diff --git a/app/src/test/java/com/nuvio/tv/data/repository/EpisodeRatingsAlignmentTest.kt b/app/src/test/java/com/nuvio/tv/data/repository/EpisodeRatingsAlignmentTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..580425d689d75e90f0cde8ca6a7df92cfa4292a9
+--- /dev/null
++++ b/app/src/test/java/com/nuvio/tv/data/repository/EpisodeRatingsAlignmentTest.kt
+@@ -0,0 +1,153 @@
++package com.nuvio.tv.data.repository
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import java.time.LocalDate
++
++class EpisodeRatingsAlignmentTest {
++
++    @Test
++    fun `same seasons keep their numbers`() {
++        val videos = listOf(video(1, 1, "2020-01-01"), video(1, 2, "2020-01-08"), video(2, 1, "2020-06-01"))
++        val external = listOf(
++            external(1, 1, "2020-01-01", 7.0),
++            external(1, 2, "2020-01-08", 7.5),
++            external(1, 3, "2020-01-15", 8.0),
++            external(2, 1, "2020-06-01", 8.5)
++        )
++
++        val result = alignEpisodeRatings(videos, external)
++
++        assertEquals(mapOf((1 to 1) to 7.0, (1 to 2) to 7.5, (1 to 3) to 8.0, (2 to 1) to 8.5), result)
++    }
++
++    @Test
++    fun `different totals are matched by air date`() {
++        val videos = weekly(season = 1, count = 4, start = "2020-01-01") +
++            weekly(season = 2, count = 3, start = "2021-01-01")
++        val external = weekly(season = 1, count = 2, start = "2020-01-01", ratings = listOf(7.0, null)) +
++            weekly(season = 2, count = 2, start = "2020-01-15", ratings = listOf(7.2, 7.3)) +
++            weekly(season = 3, count = 2, start = "2021-01-01", ratings = listOf(8.0, 8.1))
++
++        val result = alignEpisodeRatings(videos, external)
++
++        assertEquals(
++            mapOf(
++                (1 to 1) to 7.0,
++                (1 to 3) to 7.2,
++                (1 to 4) to 7.3,
++                (2 to 1) to 8.0,
++                (2 to 2) to 8.1
++            ),
++            result
++        )
++    }
++
++    @Test
++    fun `single cour entry is matched by air date instead of position`() {
++        val videos = weekly(season = 1, count = 3, start = "2020-04-01")
++        val external = weekly(season = 1, count = 3, start = "2020-01-01", ratings = listOf(6.0, 6.1, 6.2)) +
++            weekly(season = 2, count = 3, start = "2020-04-01", ratings = listOf(9.0, 9.1, 9.2))
++
++        val result = alignEpisodeRatings(videos, external)
++
++        assertEquals(mapOf((1 to 1) to 9.0, (1 to 2) to 9.1, (1 to 3) to 9.2), result)
++    }
++
++    @Test
++    fun `equal totals follow the airing order`() {
++        val videos = (1..4).map { video(1, it, null) }
++        val external = listOf(
++            external(1, 1, null, 7.0),
++            external(1, 2, null, 7.1),
++            external(2, 1, null, 7.2),
++            external(2, 2, null, 7.3)
++        )
++
++        val result = alignEpisodeRatings(videos, external)
++
++        assertEquals(mapOf((1 to 1) to 7.0, (1 to 2) to 7.1, (1 to 3) to 7.2, (1 to 4) to 7.3), result)
++    }
++
++    @Test
++    fun `different totals without air dates keep their numbers`() {
++        val videos = (1..3).map { video(1, it, null) }
++        val external = listOf(
++            external(1, 1, null, 7.0),
++            external(1, 2, null, 7.1),
++            external(2, 1, null, 7.2),
++            external(2, 2, null, 7.3)
++        )
++
++        val result = alignEpisodeRatings(videos, external)
++
++        assertEquals(mapOf((1 to 1) to 7.0, (1 to 2) to 7.1, (2 to 1) to 7.2, (2 to 2) to 7.3), result)
++    }
++
++    @Test
++    fun `unaired episodes are left out when comparing totals`() {
++        val videos = weekly(season = 1, count = 3, start = "2020-01-01") +
++            weekly(season = 2, count = 2, start = "2020-01-22")
++        val external = weekly(season = 1, count = 2, start = "2020-01-01", ratings = listOf(7.0, 7.1)) +
++            listOf(external(2, 1, "2020-01-15", 7.2), external(3, 1, null, 7.3))
++
++        val result = alignEpisodeRatings(videos, external, today = LocalDate.parse("2020-01-23").toEpochDay())
++
++        assertEquals(mapOf((1 to 1) to 7.0, (1 to 2) to 7.1, (1 to 3) to 7.2, (2 to 1) to 7.3), result)
++    }
++
++    @Test
++    fun `episodes sharing an air date are paired in order`() {
++        val videos = listOf(video(1, 1, "2020-01-01"), video(1, 2, "2020-01-01"), video(1, 3, "2020-01-08"))
++        val external = listOf(
++            external(1, 1, "2020-01-01", 7.0),
++            external(1, 2, "2020-01-01", 7.1),
++            external(2, 1, "2020-01-09", 7.2),
++            external(2, 2, "2020-01-16", 7.3)
++        )
++
++        val result = alignEpisodeRatings(videos, external)
++
++        assertEquals(mapOf((1 to 1) to 7.0, (1 to 2) to 7.1, (1 to 3) to 7.2), result)
++    }
++
++    @Test
++    fun `specials keep their numbers when regular seasons are remapped`() {
++        val videos = listOf(video(0, 1, "2019-12-01")) + weekly(season = 1, count = 2, start = "2020-01-01")
++        val external = listOf(external(0, 1, "2019-12-01", 6.5)) +
++            weekly(season = 1, count = 1, start = "2020-01-01", ratings = listOf(7.0)) +
++            weekly(season = 2, count = 1, start = "2020-01-08", ratings = listOf(7.5))
++
++        val result = alignEpisodeRatings(videos, external)
++
++        assertEquals(mapOf((0 to 1) to 6.5, (1 to 1) to 7.0, (1 to 2) to 7.5), result)
++    }
++
++    @Test
++    fun `missing videos keep external numbering`() {
++        val external = listOf(external(1, 1, "2020-01-01", 7.0), external(2, 1, "2020-06-01", 8.0))
++
++        assertEquals(mapOf((1 to 1) to 7.0, (2 to 1) to 8.0), alignEpisodeRatings(emptyList(), external))
++    }
++
++    private fun video(season: Int, episode: Int, released: String?) = AddonEpisodeAirDate(
++        season = season,
++        episode = episode,
++        released = released?.let { "${it}T00:00:00.000Z" }
++    )
++
++    private fun external(season: Int, episode: Int, airDate: String?, rating: Double?) =
++        ExternalEpisodeRating(season = season, episode = episode, airDate = airDate, rating = rating)
++
++    private fun weekly(season: Int, count: Int, start: String): List<AddonEpisodeAirDate> {
++        val first = LocalDate.parse(start)
++        return (1..count).map { episode -> video(season, episode, first.plusWeeks(episode - 1L).toString()) }
++    }
++
++    private fun weekly(season: Int, count: Int, start: String, ratings: List<Double?>): List<ExternalEpisodeRating> {
++        val first = LocalDate.parse(start)
++        return (1..count).map { episode ->
++            external(season, episode, first.plusWeeks(episode - 1L).toString(), ratings[episode - 1])
++        }
++    }
++}
+diff --git a/app/src/test/java/com/nuvio/tv/ui/screens/player/AutoPlaySourceFallbackTest.kt b/app/src/test/java/com/nuvio/tv/ui/screens/player/AutoPlaySourceFallbackTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..5de9f8d0da95394a7942f3b37947554065566758
+--- /dev/null
++++ b/app/src/test/java/com/nuvio/tv/ui/screens/player/AutoPlaySourceFallbackTest.kt
+@@ -0,0 +1,92 @@
++package com.nuvio.tv.ui.screens.player
++
++import com.nuvio.tv.domain.model.Stream
++import kotlinx.coroutines.runBlocking
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class AutoPlaySourceFallbackTest {
++    private val sources = (1..4).map { index -> stream("Source $index") }
++
++    @Test
++    fun `a stream that resolves plays without a fallback`() = runBlocking {
++        val run = run(outcomes = mapOf(sources[0] to resolved(sources[0])))
++
++        assertEquals("Source 1", run.resolved)
++        assertEquals(0, run.attempts)
++        assertEquals(setOf(sources[0].sourceFallbackKey()), run.triedKeys)
++    }
++
++    @Test
++    fun `an expired debrid result falls back to the next source`() = runBlocking {
++        val run = run(outcomes = mapOf(sources[0] to expired, sources[1] to resolved(sources[1])))
++
++        assertEquals("Source 2", run.resolved)
++        assertNull(run.failure)
++        // The source that plays counts, the way the player counts the ones it falls back to.
++        assertEquals(1, run.attempts)
++        assertEquals(sources.take(2).map(Stream::sourceFallbackKey).toSet(), run.triedKeys)
++    }
++
++    @Test
++    fun `the configured number of further sources is the limit`() = runBlocking {
++        val run = run(outcomes = sources.associateWith { expired }, maxSources = 2)
++
++        assertNull(run.resolved)
++        assertEquals("expired", run.failure)
++        assertEquals(2, run.attempts)
++        assertEquals(3, run.triedKeys.size)
++    }
++
++    @Test
++    fun `with no source left the last failure is the one to show`() = runBlocking {
++        val run = run(
++            outcomes = mapOf(sources[0] to expired, sources[1] to AutoPlayResolveAttempt.Failed("not cached")),
++            available = sources.take(2)
++        )
++
++        assertNull(run.resolved)
++        assertEquals("not cached", run.failure)
++        assertEquals(1, run.attempts)
++    }
++
++    @Test
++    fun `a failure already shown ends the auto-play`() = runBlocking {
++        val run = run(outcomes = mapOf(sources[0] to AutoPlayResolveAttempt.Ended))
++
++        assertNull(run.resolved)
++        assertNull(run.failure)
++        assertEquals(0, run.attempts)
++    }
++
++    private val expired = AutoPlayResolveAttempt.Failed("expired")
++
++    private fun resolved(stream: Stream) = AutoPlayResolveAttempt.Resolved(stream.name.orEmpty())
++
++    /** Picks the first untried source of [available], like the auto selection in first-stream mode. */
++    private suspend fun run(
++        outcomes: Map<Stream, AutoPlayResolveAttempt<String, String>>,
++        maxSources: Int = 3,
++        available: List<Stream> = sources
++    ): AutoPlayFallbackRun<String, String> = resolveWithSourceFallback(
++        first = sources[0],
++        maxSources = maxSources,
++        resolve = { stream -> outcomes[stream] ?: error("${stream.name} was not expected to be tried") },
++        nextCandidate = { _, triedKeys -> available.firstOrNull { it.sourceFallbackKey() !in triedKeys } }
++    )
++
++    private fun stream(name: String) = Stream(
++        name = name,
++        title = null,
++        description = null,
++        url = "https://example.com/${name.replace(' ', '-')}.mkv",
++        ytId = null,
++        infoHash = null,
++        fileIdx = null,
++        externalUrl = null,
++        behaviorHints = null,
++        addonName = "Test",
++        addonLogo = null
++    )
++}
+diff --git a/app/src/test/java/com/nuvio/tv/ui/screens/player/EpisodeAutoPlayLoadingTest.kt b/app/src/test/java/com/nuvio/tv/ui/screens/player/EpisodeAutoPlayLoadingTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..0e079585f4a3bbde3c2cc1e08437f069958a353f
+--- /dev/null
++++ b/app/src/test/java/com/nuvio/tv/ui/screens/player/EpisodeAutoPlayLoadingTest.kt
+@@ -0,0 +1,80 @@
++package com.nuvio.tv.ui.screens.player
++
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class EpisodeAutoPlayLoadingTest {
++    @Test
++    fun overlayRemainsVisibleAsPartialResultsArrive() {
++        val searching = PlayerUiState(
++            showLoadingOverlay = false,
++            showEpisodesPanel = true,
++            isEpisodeAutoPlaySearching = true,
++            isLoadingEpisodeStreams = true
++        )
++
++        assertTrue(searching.showEpisodeAutoPlayLoadingOverlay)
++        assertTrue(searching.copy(isLoadingEpisodeStreams = false).showEpisodeAutoPlayLoadingOverlay)
++    }
++
++    @Test
++    fun overlayRespectsLoadingScreenSetting() {
++        val searching = PlayerUiState(
++            isEpisodeAutoPlaySearching = true,
++            loadingOverlayEnabled = false
++        )
++
++        assertFalse(searching.showEpisodeAutoPlayLoadingOverlay)
++    }
++
++    @Test
++    fun failedAutoplayReturnsToStreamPicker() {
++        val searching = PlayerUiState(
++            showEpisodesPanel = true,
++            showEpisodeStreams = false,
++            isEpisodeAutoPlaySearching = true,
++            isLoadingEpisodeStreams = true
++        )
++
++        val failed = searching.finishEpisodeAutoPlaySearch(showStreamPicker = true)
++
++        assertFalse(failed.showEpisodeAutoPlayLoadingOverlay)
++        assertFalse(failed.isLoadingEpisodeStreams)
++        assertTrue(failed.showEpisodesPanel)
++        assertTrue(failed.showEpisodeStreams)
++    }
++
++    @Test
++    fun failureDoesNotOpenPickerForManualOrAutomaticNextEpisode() {
++        val state = PlayerUiState(showEpisodeStreams = false)
++
++        assertFalse(state.finishEpisodeAutoPlaySearch(showStreamPicker = true).showEpisodeStreams)
++    }
++
++    @Test
++    fun finishingSearchPreservesAnAlreadyOpenPicker() {
++        val state = PlayerUiState(showEpisodeStreams = true, isEpisodeAutoPlaySearching = true)
++
++        val finished = state.finishEpisodeAutoPlaySearch()
++
++        assertFalse(finished.isEpisodeAutoPlaySearching)
++        assertTrue(finished.showEpisodeStreams)
++    }
++
++    @Test
++    fun playbackOverlayCanTakeOverWithoutExposingTheOldEpisode() {
++        val searching = PlayerUiState(
++            showLoadingOverlay = false,
++            isEpisodeAutoPlaySearching = true
++        )
++        val starting = searching.copy(
++            showLoadingOverlay = searching.loadingOverlayEnabled,
++            isEpisodeAutoPlaySearching = false
++        )
++
++        assertTrue(searching.showEpisodeAutoPlayLoadingOverlay)
++        assertFalse(starting.showEpisodeAutoPlayLoadingOverlay)
++        assertTrue(starting.showLoadingOverlay)
++    }
++}
+diff --git a/app/src/test/java/com/nuvio/tv/ui/screens/player/SourceFallbackHandoffTest.kt b/app/src/test/java/com/nuvio/tv/ui/screens/player/SourceFallbackHandoffTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..d16a66286790a99c69335dfbb324bf2525f6c906
+--- /dev/null
++++ b/app/src/test/java/com/nuvio/tv/ui/screens/player/SourceFallbackHandoffTest.kt
+@@ -0,0 +1,39 @@
++package com.nuvio.tv.ui.screens.player
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class SourceFallbackHandoffTest {
++    private val tried = SourceFallbackHandoff.TriedSources(keys = setOf("url:https://a", "url:https://b"), attempts = 1)
++
++    @Test
++    fun `the playback the sources were tried for picks them up once`() {
++        SourceFallbackHandoff.set("https://b", tried)
++
++        assertEquals(tried, SourceFallbackHandoff.take("https://b"))
++        assertNull(SourceFallbackHandoff.take("https://b"))
++    }
++
++    @Test
++    fun `the URL the player normalized finds them too`() {
++        SourceFallbackHandoff.set("https://b", tried)
++
++        assertEquals(tried, SourceFallbackHandoff.take("https://b?raw", "https://b"))
++    }
++
++    @Test
++    fun `another playback gets nothing and drops the leftover`() {
++        SourceFallbackHandoff.set("https://b", tried)
++
++        assertNull(SourceFallbackHandoff.take("https://c"))
++        assertNull(SourceFallbackHandoff.take("https://b"))
++    }
++
++    @Test
++    fun `a playback without a URL hands nothing over`() {
++        SourceFallbackHandoff.set(null, tried)
++
++        assertNull(SourceFallbackHandoff.take(""))
++    }
++}

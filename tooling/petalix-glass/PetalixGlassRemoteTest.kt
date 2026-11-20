@@ -1,7 +1,8 @@
 package com.nuvio.tv.petalix
 
-import android.app.Application
+import android.content.ContentValues
 import android.graphics.Bitmap
+import android.provider.MediaStore
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -16,19 +17,15 @@ import com.nuvio.tv.LocalContentFocusRequester
 import com.nuvio.tv.livetv.model.*
 import com.nuvio.tv.livetv.ui.*
 import com.nuvio.tv.ui.theme.NuvioTheme
-import java.io.File
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
-import org.robolectric.annotation.GraphicsMode
 
 @OptIn(ExperimentalTestApi::class)
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w960dp-h540dp-land-television-xhdpi", application = Application::class)
-@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@RunWith(AndroidJUnit4::class)
 class PetalixGlassRemoteTest {
     @get:Rule val compose = createComposeRule()
     private var lastAction: GuideAction? = null
@@ -89,19 +86,36 @@ class PetalixGlassRemoteTest {
         compose.onRoot().performKeyInput { pressKey(Key.DirectionLeft) }
         compose.onNodeWithText("Categories", substring = false).assertIsDisplayed()
         compose.onNodeWithText("Recently Watched").assertIsDisplayed()
+        press(Key.DirectionUp)
         capture("Petalix-Categories.png")
-        compose.onNodeWithText("My Locals").performClick()
+        press(Key.DirectionCenter)
         compose.onNodeWithText("◀  My Locals").assertIsDisplayed()
-        compose.onRoot().performKeyInput { pressKey(Key.DirectionDown); pressKey(Key.DirectionCenter) }
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
         compose.runOnIdle { assertEquals(channels[1].key, tuned) }
-        compose.onRoot().performKeyInput { pressKey(Key.DirectionLeft) }
-        compose.onNodeWithText("Sports Hub").performClick()
+        press(Key.DirectionLeft)
+        press(Key.DirectionUp)
+        press(Key.DirectionCenter)
         compose.runOnIdle { assertEquals(GuideAction.SPORTS, lastAction) }
     }
 
+    private fun press(key: Key) {
+        compose.onRoot().performKeyInput { pressKey(key) }
+        compose.waitForIdle()
+    }
+
     private fun capture(name: String) {
-        val dir = System.getenv("PETALIX_GUIDE_CAPTURES") ?: return
         val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
-        File(dir, name).outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+        check(bitmap.width > bitmap.height) { "Expected landscape, got ${bitmap.width} x ${bitmap.height}" }
+        val resolver = InstrumentationRegistry.getInstrumentation().targetContext.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/PetalixVerification")
+        }
+        val uri = checkNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values))
+        checkNotNull(resolver.openOutputStream(uri)).use {
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+        }
     }
 }
