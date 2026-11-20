@@ -95,7 +95,7 @@ jobs:
           retention-days: 7
       - name: Assemble the verified owner APK
         working-directory: launcher
-        run: ./gradlew --console=plain :app:assembleFullDebug --stacktrace
+        run: ./gradlew --console=plain -PpetalixOwnerArm=true :app:assembleFullDebug --stacktrace
       - name: Verify TV installation identity and both ARM architectures
         env:
           VERSION: ${{ steps.prepare.outputs.version }}
@@ -111,13 +111,13 @@ jobs:
           info = subprocess.check_output([sdk / 'aapt', 'dump', 'badging', apk], text=True)
           signature = subprocess.check_output([sdk / 'apksigner', 'verify', '--verbose', '--print-certs', apk], text=True)
           version = int(os.environ['VERSION'])
-          assert version > 1795087269
+          assert version > 1795141775
           assert f"name='com.petalix.iptv.hometest' versionCode='{version}'" in info.splitlines()[0], info.splitlines()[0]
           assert 'leanback-launchable-activity:' in info or 'android.software.leanback' in info
           import zipfile
           with zipfile.ZipFile(apk) as z:
-              for abi in ('armeabi-v7a', 'arm64-v8a'):
-                  assert any(p.startswith(f'lib/{abi}/') for p in z.namelist()), abi
+              abis = {p.split('/')[1] for p in z.namelist() if p.startswith('lib/') and p.endswith('.so')}
+              assert abis == {'armeabi-v7a', 'arm64-v8a'}, abis
           certificate = re.search(r'Signer #1 certificate SHA-256 digest: ([a-f0-9]+)', signature)
           assert certificate and certificate[1] == 'e2c9a67239c6297fb28a28b72a088ad32cff8aeb94e0157b02d22ee7aeb5cbd8'
           pathlib.Path('out/package.txt').write_text(info.splitlines()[0] + '\n' + certificate[0] + '\n')
@@ -136,4 +136,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
-          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual install over Petalix Home Test 1795087269. Live TV tiles open the smoky guide. Press Left for Sports Hub, My Locals, Favorites and Recently Watched. Sports adds official clips for supported games and Multiview filters. Movies and episodes keep playback position when switching sources, with fallback for automatic episode playback. The screenshots show the guide on an Android TV emulator with sample listings."
+          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual update for Petalix Home Test on ARM Android TV. Silver focus, charcoal glass and red accents inspired by the Petalix logo across the guide, play bar and Guide Settings. Sports Hub uses its own filters and Back navigation. In Live TV, press Left for channel categories. My Locals uses your saved stations or favorited local affiliates. Screenshots use sample TV listings."

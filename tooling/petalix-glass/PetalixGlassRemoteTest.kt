@@ -3,9 +3,12 @@ package com.nuvio.tv.petalix
 import android.content.ContentValues
 import android.graphics.Bitmap
 import android.provider.MediaStore
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -13,9 +16,14 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.nuvio.tv.LocalContentFocusRequester
 import com.nuvio.tv.livetv.model.*
 import com.nuvio.tv.livetv.ui.*
+import com.nuvio.tv.ui.navigation.Screen
+import com.nuvio.tv.ui.navigation.exitPetalixSports
 import com.nuvio.tv.ui.theme.NuvioTheme
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -28,14 +36,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PetalixGlassRemoteTest {
     @get:Rule val compose = createComposeRule()
-    private var lastAction: GuideAction? = null
     private var tuned: String? = null
     private val names = listOf("NBC News NOW", "ABC", "CBS", "ESPN", "FOX", "NBC", "PBS")
     private val shows = listOf("Hallie Jackson NOW", "Local News", "Evening News", "SportsCenter", "The Game", "Nightly News", "Nature")
     private val start = 12 * 3_600_000L
     private val now = start + 12 * 60_000L
 
-    @Test fun guideOpensWithoutTabsAndTheRemoteReachesCategoriesAndSports() {
+    @Test fun guideOpensWithoutTabsAndTheRemoteReachesCategoriesAndLocals() {
         val channels = names.mapIndexed { i, name ->
             LiveChannel(key = "ch$i", sourceId = "test", sourceName = "Test", name = name,
                 tvgId = null, tvgName = null, logo = null, groupId = "news", group = "News", number = i + 1, url = "")
@@ -72,7 +79,7 @@ class PetalixGlassRemoteTest {
                                 group.title, settings, now, false, {}, { rail = true }, modifier)
                         }
                         if (rail) PetalixGlassCategories(ui, settings, railFocus, emptyMap(), emptySet(), {},
-                            { g, _ -> group = g; rail = false }, { lastAction = it; rail = false }, { rail = false }, null)
+                            { g, _ -> group = g; rail = false }, { rail = false }, { rail = false })
                     }
                     LaunchedEffect(rail) { if (!rail) { withFrameNanos { }; gridFocus.requestFocus() } }
                 }
@@ -86,6 +93,7 @@ class PetalixGlassRemoteTest {
         compose.onRoot().performKeyInput { pressKey(Key.DirectionLeft) }
         compose.onNodeWithText("Categories", substring = false).assertIsDisplayed()
         compose.onNodeWithText("Recently Watched").assertIsDisplayed()
+        compose.onNodeWithText("Sports Hub").assertDoesNotExist()
         press(Key.DirectionUp)
         capture("Petalix-Categories.png")
         press(Key.DirectionCenter)
@@ -93,10 +101,83 @@ class PetalixGlassRemoteTest {
         press(Key.DirectionDown)
         press(Key.DirectionCenter)
         compose.runOnIdle { assertEquals(channels[1].key, tuned) }
-        press(Key.DirectionLeft)
-        press(Key.DirectionUp)
-        press(Key.DirectionCenter)
-        compose.runOnIdle { assertEquals(GuideAction.SPORTS, lastAction) }
+    }
+
+    @Test fun backFromSportsReturnsToHome() {
+        sportsNavigation(startRoute = Screen.Home.route)
+        compose.onNodeWithText("Open Sports Hub").performClick()
+        compose.onNodeWithText("Sports Hub open").assertIsDisplayed()
+        back()
+        compose.onNodeWithText("Open Sports Hub").assertIsDisplayed()
+    }
+
+    @Test fun backFromSportsAtStartupOpensHome() {
+        sportsNavigation(startRoute = Screen.Sports.route)
+        compose.onNodeWithText("Sports Hub open").assertIsDisplayed()
+        back()
+        compose.onNodeWithText("Petalix Home").assertIsDisplayed()
+    }
+
+    @Test fun guideSettingsChangeTheSavedOptionsAndDismissWithBack() {
+        var settings by mutableStateOf(LiveTvSettings(showProgramDetails = true))
+        compose.setContent {
+            var showing by remember { mutableStateOf(true) }
+            NuvioTheme {
+                Box(Modifier.fillMaxSize().glassGuideBackground()) {
+                    if (showing) GuideGearPanel(settings, { settings = it(settings) }, {}, { showing = false })
+                }
+            }
+        }
+        compose.onNodeWithText("Guide settings").assertIsDisplayed()
+        capture("Petalix-Guide-Settings.png")
+        compose.onNodeWithText("Show info panel").performClick()
+        compose.runOnIdle { assertFalse(settings.showProgramDetails) }
+        back()
+        compose.onNodeWithText("Guide settings").assertDoesNotExist()
+    }
+
+    @Test fun playBarShowsChannelAndNextProgram() {
+        val channel = LiveChannel(key = "sports", sourceId = "test", sourceName = "Test", name = "Petalix Sports FHD",
+            tvgId = null, tvgName = null, logo = null, groupId = "sports", group = "Sports", number = 12, url = "")
+        compose.setContent {
+            NuvioTheme {
+                Box(Modifier.fillMaxSize().glassGuideBackground()) {
+                    LiveTvPlayerPanel(channel = channel, mode = PanelMode.LIVE, full = true, title = "Game Night",
+                        meta = "", description = "Today’s live broadcast", poster = null, showPosters = false,
+                        timeline = PanelTimeline(start, start + 3_600_000, now, leftLabel = "12:00", rightLabel = "1:00",
+                            status = "LIVE", statusLive = true),
+                        paused = false, controls = panelControls(PanelMode.LIVE, false, false, sports = true),
+                        focused = PanelControl.MORE, captionsOn = false, audioLabel = "Default", sizeLabel = "Fit",
+                        sleepLabel = null, clock = "12:12 PM", resolution = null, showNumber = true,
+                        nextTitle = "Postgame", modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter))
+                }
+            }
+        }
+        compose.onNodeWithText("Game Night").assertIsDisplayed()
+        compose.onNodeWithText("Postgame").assertIsDisplayed()
+        compose.onNodeWithText("Petalix Sports").assertIsDisplayed()
+        capture("Petalix-Play-Bar.png")
+    }
+
+    private fun sportsNavigation(startRoute: String) {
+        compose.setContent {
+            val nav = rememberNavController()
+            NavHost(nav, startDestination = startRoute) {
+                composable(Screen.Home.route) {
+                    Text("Petalix Home")
+                    Button(onClick = { nav.navigate(Screen.Sports.route) }) { Text("Open Sports Hub") }
+                }
+                composable(Screen.Sports.route) {
+                    BackHandler { nav.exitPetalixSports() }
+                    Text("Sports Hub open")
+                }
+            }
+        }
+    }
+
+    private fun back() {
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.waitForIdle()
     }
 
     private fun press(key: Key) {

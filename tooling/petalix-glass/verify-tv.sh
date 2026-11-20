@@ -18,18 +18,19 @@ classes=com.nuvio.tv.petalix.PetalixGlassRemoteTest,com.nuvio.tv.livetv.sports.S
 mkdir -p verification out
 adb shell am instrument -w -e class "$classes" "$runner" | tee verification/tv-tests.txt
 adb logcat -d -s AndroidRuntime:E TestRunner:E > verification/android-errors.txt
-grep -Eq '^OK \(3 tests\)' verification/tv-tests.txt
-for name in Petalix-Guide Petalix-Categories; do
+grep -Eq '^OK \(7 tests\)' verification/tv-tests.txt
+for name in Petalix-Guide Petalix-Categories Petalix-Guide-Settings Petalix-Play-Bar; do
     adb exec-out cat "/sdcard/Pictures/PetalixVerification/$name.png" > "out/$name.png"
 done
 python3 - <<'PY'
 from PIL import Image, ImageChops
 from pathlib import Path
 frames = []
-for name in ("Petalix-Guide", "Petalix-Categories"):
+for name in ("Petalix-Guide", "Petalix-Categories", "Petalix-Guide-Settings", "Petalix-Play-Bar"):
     with Image.open(Path("out") / (name + ".png")) as image:
         image.load()
         assert image.width >= 1280 and image.width > image.height
         frames.append(image.convert("RGB"))
-assert frames[0].size == frames[1].size and ImageChops.difference(*frames).getbbox()
+assert all(frame.size == frames[0].size for frame in frames)
+assert all(ImageChops.difference(frames[0], frame).getbbox() for frame in frames[1:])
 PY

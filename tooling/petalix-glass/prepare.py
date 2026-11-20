@@ -1,6 +1,6 @@
 """Install the guide port into the fully prepared Petalix owner-test source."""
 from pathlib import Path
-from shutil import copy2
+from shutil import copy2, rmtree
 import re
 import subprocess
 import sys
@@ -42,6 +42,8 @@ def prepare(root):
         subprocess.run(["git", "apply", "--whitespace=error", str(HERE / patch)], cwd=root, check=True)
     for name in ("PetalixGlassSurface.kt", "PetalixGlassCategories.kt", "PetalixGuideMetrics.kt"):
         copy2(HERE / name, java / "livetv/ui" / name)
+    subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "polish.patch")], cwd=root, check=True)
+    rmtree(root / "app/src/main/assets/petalix/remote-guide")
     tests = root / "app/src/test/java/com/nuvio/tv/petalix"
     for name in ("PetalixGlassGuideTest.kt", "PetalixSportsUpdateTest.kt"):
         copy2(HERE / name, tests / name)
@@ -55,22 +57,14 @@ if (providers.gradleProperty("petalixTvTest").isPresent) {
     android.splits.abi.isEnable = false
     android.defaultConfig.ndk.abiFilters.add("x86_64")
     android.sourceSets.getByName("androidTest").java.setSrcDirs(listOf("src/petalixGuideAndroidTest/java"))
+} else if (providers.gradleProperty("petalixOwnerArm").isPresent) {
+    android.splits.abi.isEnable = false
+    android.defaultConfig.ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
 }
 tasks.withType<Test>().configureEach {
     testLogging.exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 }
 """)
-    remote = root / "app/src/main/assets/petalix/remote-guide/remote.html"
-    help_text = remote.read_text()
-    for old, new in (
-        ("From categories, return to channels.", "In categories, open the highlighted group."),
-        ("Move up one channel. At the first channel, press Up to reach Guide options.", "Move up one channel or category. Press Left from the current listing for categories and Guide options."),
-        ("From another time, return to now. From the current listing, open categories. From categories, open the Petalix menu.", "Close categories, return from another time to now, or leave the guide for the previous screen."),
-    ):
-        if help_text.count(old) != 1:
-            raise ValueError("Unexpected remote tutorial copy")
-        help_text = help_text.replace(old, new)
-    remote.write_text(help_text)
     copy2(HERE / "NOTICE.txt", root / "app/src/main/assets/petalix/guide-notice.txt")
 
 if __name__ == "__main__":

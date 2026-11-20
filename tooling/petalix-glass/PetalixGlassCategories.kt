@@ -29,10 +29,10 @@ import com.nuvio.tv.livetv.model.ChannelGroup
 import com.nuvio.tv.livetv.model.LiveTvSettings
 import com.nuvio.tv.petalix.PETALIX_ZIP_LOCALS
 
-internal enum class GuideAction { SPORTS, SET_UP_LOCALS, OPTIONS }
+private const val GUIDE_OPTIONS_KEY = "action:options"
 internal data class GuideEntry(
     val key: String, val title: String, val group: ChannelGroup? = null,
-    val action: GuideAction? = null, val playlist: String? = null,
+    val playlist: String? = null,
 )
 
 internal fun glassCategories(
@@ -48,10 +48,7 @@ internal fun glassCategories(
     val pinned = listOf(ChannelGroup.FAVORITES, ChannelGroup.RECENT, PETALIX_ZIP_LOCALS)
     val rest = visible.filter { it.id !in pinned }
     return buildList {
-        for (id in pinned.take(2)) visible.firstOrNull { it.id == id }?.let { add(entry(it)) }
-        add(GuideEntry("action:sports", "Sports Hub", action = GuideAction.SPORTS))
-        val locals = visible.firstOrNull { it.id == PETALIX_ZIP_LOCALS }
-        add(locals?.let(::entry) ?: GuideEntry("action:locals", "My Locals", action = GuideAction.SET_UP_LOCALS))
+        for (id in pinned) visible.firstOrNull { it.id == id }?.let { add(entry(it)) }
         if (headings && rest.mapNotNull { it.sourceId }.distinct().size > 1) {
             rest.filter { it.sourceId == null }.forEach { add(entry(it)) }
             for ((source, children) in rest.filter { it.sourceId != null }.groupBy { it.sourceId!! }) {
@@ -60,7 +57,7 @@ internal fun glassCategories(
                 if (source !in collapsed) children.forEach { add(entry(it)) }
             }
         } else rest.forEach { add(entry(it)) }
-        add(GuideEntry("action:options", "Guide options", action = GuideAction.OPTIONS))
+        add(GuideEntry(GUIDE_OPTIONS_KEY, "Guide options"))
     }
 }
 
@@ -68,12 +65,12 @@ internal fun glassCategories(
 internal fun PetalixGlassCategories(
     ui: LiveTvUiState, settings: LiveTvSettings, focus: FocusRequester,
     playlists: Map<String, String>, collapsed: Set<String>, togglePlaylist: (String) -> Unit,
-    onPick: (ChannelGroup, Boolean) -> Unit, onAction: (GuideAction) -> Unit, onClose: () -> Unit, initialKey: String?,
+    onPick: (ChannelGroup, Boolean) -> Unit, onOptions: () -> Unit, onClose: () -> Unit,
 ) {
     val entries = remember(ui.groups, playlists, collapsed, settings.groupPlaylistHeadings) {
         glassCategories(ui.groups, settings.groupPlaylistHeadings, playlists, collapsed)
     }
-    var key by remember(initialKey) { mutableStateOf(initialKey ?: ui.selectedGroupId) }
+    var key by remember { mutableStateOf(ui.selectedGroupId) }
     val index = entries.indexOfFirst { it.key == key }.coerceAtLeast(0)
     val list = rememberLazyListState(index)
     var held by remember { mutableStateOf(false) }
@@ -87,7 +84,7 @@ internal fun PetalixGlassCategories(
         when {
             e.group != null -> onPick(e.group, options)
             e.playlist != null -> togglePlaylist(e.playlist)
-            e.action != null && !options -> onAction(e.action)
+            e.key == GUIDE_OPTIONS_KEY && !options -> onOptions()
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -126,13 +123,20 @@ internal fun PetalixGlassCategories(
                 itemsIndexed(entries, key = { _, e -> e.key }) { i, e ->
                     val selected = index == i
                     val ink = if (selected) GlassInk else Color.White
-                    Row(Modifier.fillMaxWidth().height(34.dp)
-                        .background(if (selected) GlassFocus else Color.Transparent, RoundedCornerShape(5.dp))
-                        .cableTarget(selected, { choose(e, false) }, { choose(e, true) })
-                        .padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        LiveText((if (e.group?.locked == true) "🔒 " else "") + e.title, Modifier.weight(1f), ink, 14.sp)
-                        if (settings.showGroupCounts && e.group != null)
-                            LiveText(e.group.count.toString(), color = if (selected) ink else GlassMuted, size = 11.sp)
+                    Column {
+                        if (e.key == GUIDE_OPTIONS_KEY) {
+                            Spacer(Modifier.height(7.dp))
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(GuideSilver.copy(alpha = .24f)))
+                            Spacer(Modifier.height(5.dp))
+                        }
+                        Row(Modifier.fillMaxWidth().height(34.dp)
+                            .background(if (selected) GlassFocus else Color.Transparent, RoundedCornerShape(5.dp))
+                            .cableTarget(selected, { choose(e, false) }, { choose(e, true) })
+                            .padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                            LiveText((if (e.group?.locked == true) "🔒 " else "") + e.title, Modifier.weight(1f), ink, 14.sp)
+                            if (settings.showGroupCounts && e.group != null)
+                                LiveText(e.group.count.toString(), color = if (selected) ink else GlassMuted, size = 11.sp)
+                        }
                     }
                 }
             }
