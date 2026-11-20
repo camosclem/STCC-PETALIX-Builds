@@ -1,0 +1,419 @@
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+index 149c5fd..0263029 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+@@ -1097,7 +1097,10 @@ class LiveTvPreferences @Inject constructor(
+         if (i < 0) return
+         order.removeAt(i)
+         order.add((i + delta).coerceIn(0, order.size), groupId)
+-        store.edit { it[my(Keys.groupOrder)] = encodeStringList(order) }
++        store.edit {
++            it[Keys.groupSort] = "custom"
++            it[my(Keys.groupOrder)] = encodeStringList(order)
++        }
+     }
+ 
+     suspend fun petalixLocalKeys(): List<String> {
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+index 812dc35..e098f6f 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -434,6 +434,7 @@ private fun PetalixLiveSession(
+     var groupReorderId by remember { mutableStateOf<String?>(null) }
+     // Reorder groups is open (a group in hand or not), the groups ticked to move together
+     // (hold OK), and where the highlight goes after a move.
++    var editedGroupId by remember { mutableStateOf<String?>(null) }
+     var groupReorderMode by remember { mutableStateOf(false) }
+     var groupTicked by remember { mutableStateOf<Set<String>>(emptySet()) }
+     var groupReorderFocus by remember { mutableStateOf<String?>(null) }
+@@ -524,11 +525,20 @@ private fun PetalixLiveSession(
+         viewModel.saveGroupVisibility(groupVisibilityList.orEmpty(), groupHiddenPending)
+         if (ui.selectedGroupId in groupHiddenPending) viewModel.selectGroup(ui.defaultGroupId)
+         groupVisibilityList = null
++        groupsOpen = true
+         scope.launch {
+             androidx.compose.runtime.withFrameNanos { }
+             runCatching { groupsFocus.requestFocus() }
+         }
+     }
++    fun finishGroupReorder() {
++        viewModel.saveGroupOrder(groupWorking.map { it.id })
++        groupReorderId = null
++        groupReorderMode = false
++        groupTicked = emptySet()
++        groupReorderFocus = null
++        groupsOpen = true
++    }
+     val selectedGroupTitle = ui.groups.firstOrNull { it.id == ui.selectedGroupId }?.title ?: "All channels"
+     // The group on screen gets its listings for every day ahead (Guide Days Ahead), in the
+     // background, so scrolling ahead in it doesn't run out after half a day.
+@@ -605,6 +615,7 @@ private fun PetalixLiveSession(
+         stoppedKey = playback.channelKey
+         viewModel.playback.stop()
+     }
++    val editingGroups = groupReorderMode || groupVisibilityList != null
+     val editingGuide = visibilityMode || reorderActive || favoritesMode || copyPickMode ||
+         groupReorderMode || groupVisibilityList != null || epgPickerFor != null || logoPickerFor != null
+     fun focusGroups() {
+@@ -802,6 +813,8 @@ private fun PetalixLiveSession(
+     }
+     BackHandler(enabled = !sidebarExpanded && !fullscreen) {
+         when {
++            groupVisibilityList != null -> finishGroupVisibility()
++            groupReorderMode -> finishGroupReorder()
+             column == GuideColumn.PROGRAM -> {
+                 column = GuideColumn.CHANNEL
+                 windowStart = floorSlot(now)
+@@ -877,7 +890,7 @@ private fun PetalixLiveSession(
+         GuideBlock(airing.start, airing.end, airing.program)
+     } else focusedBlock
+     val headerProgramKey = headerChannel?.key to headerBlock?.program?.startMs
+-    val headerPoster by androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey, settings.showPosters, settings.showProgramDetails) {
++    val headerPoster by androidx.compose.runtime.key(headerProgramKey) { androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey, settings.showPosters, settings.showProgramDetails) {
+         value = null
+         if (!settings.showProgramDetails || !settings.showPosters) return@produceState
+         // 24/7 channels with no real listings (no guide, or one long block named after the
+@@ -895,7 +908,7 @@ private fun PetalixLiveSession(
+         value = p.icon
+         delay(250) // don't look up every show while scrolling quickly
+         viewModel.guideBackdrop(p.title, p, headerChannel)?.let { value = it }
+-    }
++    } }
+ 
+     fun ensureRowVisible(target: Int) {
+         scope.launch {
+@@ -1040,6 +1053,7 @@ private fun PetalixLiveSession(
+     // The ⚙ panel open counts as in use, and never stays up over full screen.
+     LaunchedEffect(fullscreen) { if (fullscreen) guideGearOpen = false }
+     fun closeCategories() {
++        editedGroupId = null
+         groupsOpen = false
+         resetToNow()
+         scope.launch {
+@@ -1049,7 +1063,7 @@ private fun PetalixLiveSession(
+     }
+     fun pickGroup(group: ChannelGroup, options: Boolean) {
+         when {
+-            options -> if (!group.special) groupMenu = group
++            options -> if (!group.special) { editedGroupId = group.id; groupMenu = group }
+             group.locked -> { pinGroup = group; pinWrong = false; pinRemovesLock = false }
+             else -> {
+                 if (group.id != ui.selectedGroupId) {
+@@ -1108,7 +1122,7 @@ private fun PetalixLiveSession(
+             .onGloballyPositioned { rootBounds = it.boundsInRoot() }
+             .onPreviewKeyEvent { e ->
+                 // Full screen handles its own keys.
+-                if (fullscreen) return@onPreviewKeyEvent false
++                if (fullscreen || editingGroups) return@onPreviewKeyEvent false
+                 val playingNow = playback.channelKey != null
+                 fun returnToPlaying() {
+                     // Remember where you were browsing, to come back to it afterwards.
+@@ -1206,7 +1220,7 @@ private fun PetalixLiveSession(
+                 windowStart, if (column == GuideColumn.CHANNEL) now else cursorMs, row, groupsOpen,
+                 listState, gridFocus, { gridFocused = it }, controls) { modifier ->
+                 PetalixGlassHero(headerChannel, headerBlock?.program, headerPoster, selectedGroupTitle,
+-                    settings, now, playback.channelKey != null, { previewBounds = it }, ::focusGroups, modifier)
++                    settings, now, headerChannel != null && headerChannel.key == playback.channelKey && headerBlock?.program?.isLive(now) != false, { previewBounds = it }, ::focusGroups, modifier)
+             }
+         } else if (!fullscreen) Column(
+             modifier = Modifier
+@@ -1216,9 +1230,9 @@ private fun PetalixLiveSession(
+                     else Modifier
+                 )
+         ) {
+-            // ---------------------------------------------------------------- header
+-            PetalixGlassHero(headerChannel, headerBlock?.program, headerPoster, selectedGroupTitle,
+-                settings, now, playback.channelKey != null, { previewBounds = it }, ::focusGroups,
++            // Group editing keeps the remote inside the category list.
++            if (!editingGroups) PetalixGlassHero(headerChannel, headerBlock?.program, headerPoster, selectedGroupTitle,
++                settings, now, headerChannel != null && headerChannel.key == playback.channelKey && headerBlock?.program?.isLive(now) != false, { previewBounds = it }, ::focusGroups,
+                 Modifier.height(if (settings.smallHeader) 110.dp else 145.dp))
+ 
+             // ---------------------------------------------------------------- groups + guide
+@@ -1248,12 +1262,12 @@ private fun PetalixLiveSession(
+                     with(groupsDensity) { longest.toDp() } + extra
+                 }.coerceIn(minOf(130.dp, groupsFullWidth), groupsFullWidth)
+                 val groupsWidth by androidx.compose.animation.core.animateDpAsState(
+-                    targetValue = if (groupsOpen) groupsFitWidth else 0.dp,
++                    targetValue = if (editingGroups) 320.dp else if (groupsOpen) groupsFitWidth else 0.dp,
+                     animationSpec = androidx.compose.animation.core.tween(220),
+                     label = "groupsWidth"
+                 )
+-                if (groupsWidth > 1.dp) androidx.compose.runtime.CompositionLocalProvider(LocalGuideScale provides guideScale(settings)) { GroupColumn(
+-                    width = groupsWidth,
++                if (editingGroups || groupsWidth > 1.dp) androidx.compose.runtime.CompositionLocalProvider(LocalGuideScale provides guideScale(settings)) { GroupColumn(
++                    width = if (editingGroups) 320.dp else groupsWidth,
+                     // A channel row's height minus its 2dp above and below.
+                     tileHeight = guideRowHeight(settings) - 4.dp,
+                     groups = when {
+@@ -1319,14 +1333,8 @@ private fun PetalixLiveSession(
+                             }
+                         }
+                     },
+-                    onReorderDone = {
+-                        viewModel.saveGroupOrder(groupWorking.map { it.id })
+-                        groupReorderId = null
+-                        groupReorderMode = false
+-                        groupTicked = emptySet()
+-                        groupReorderFocus = null
+-                    },
+-                    selectedId = ui.selectedGroupId,
++                    onReorderDone = ::finishGroupReorder,
++                    selectedId = if (editingGroups) editedGroupId ?: ui.selectedGroupId else ui.selectedGroupId,
+                     showCounts = settings.showGroupCounts,
+                     listState = groupsListState,
+                     focusRequester = groupsFocus,
+@@ -1359,7 +1367,7 @@ private fun PetalixLiveSession(
+                         runCatching { gridFocus.requestFocus() }
+                     }
+                 ) }
+-                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
++                if (!editingGroups) Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                     // ---------------------------------------------------------------- time ruler
+                     val channelColWidth = channelColumnWidth(settings)
+                     val programAreaWidth: Dp? = if (gridWidthPx <= 0) null
+@@ -1956,7 +1964,7 @@ private fun PetalixLiveSession(
+         }
+ 
+         if (!fullscreen && !editingGuide && groupsOpen) {
+-            PetalixGlassCategories(ui, settings, groupsFocus, playlistNames, collapsedPlaylists,
++            PetalixGlassCategories(ui, settings, groupsFocus, editedGroupId, playlistNames, collapsedPlaylists,
+                 viewModel::togglePlaylistCollapsed, ::pickGroup,
+                 onOptions = { closeCategories(); guideActionsOpen = true }, onClose = ::closeCategories)
+         }
+@@ -2492,8 +2500,8 @@ private fun PetalixLiveSession(
+                         groupReorderFocus = g.id
+                         scope.launch { delay(80); runCatching { groupsFocus.requestFocus() } }
+                     })
+-                    add("Move up" to { viewModel.moveGroup(g.id, -1) })
+-                    add("Move down" to { viewModel.moveGroup(g.id, 1) })
++                    add("Move up" to { groupMenu = null; viewModel.moveGroup(g.id, -1) })
++                    add("Move down" to { groupMenu = null; viewModel.moveGroup(g.id, 1) })
+                     add("New group…" to {
+                         groupMenu = null
+                         textPrompt = TextPrompt(
+@@ -3368,6 +3376,16 @@ private fun GroupColumn(
+             if (src !in collapsed) listed.filter { it.sourceId == src }.forEach { add(it.id) }
+         }
+     }
++    LaunchedEffect(reorderMode, hiddenPending != null) {
++        if (reorderMode || hiddenPending != null) {
++            val target = (reorderingId ?: selectedId).takeIf { it in rowKeys } ?: rowKeys.firstOrNull()
++            if (target != null) {
++                listState.scrollToItem(rowKeys.indexOf(target))
++                androidx.compose.runtime.withFrameNanos { }
++                runCatching { focusRequester.requestFocus() }
++            }
++        }
++    }
+     val hasSearch = searchFocusRequester != null && groups.any { it.id == ChannelGroup.SEARCH }
+     // One focus requester per row, so the row number below can put the highlight on any row.
+     val rowRequesters = remember { HashMap<String, FocusRequester>() }
+@@ -3425,6 +3443,12 @@ private fun GroupColumn(
+             .then(if (LocalPetalixGuide.current) Modifier.background(GuidePanel, RoundedCornerShape(7.dp))
+                 .padding(horizontal = 4.dp) else Modifier)
+             .onPreviewKeyEvent { e ->
++                if ((hiddenPending != null || reorderMode) && e.key == Key.Back) {
++                    if (e.type == KeyEventType.KeyUp && !e.nativeKeyEvent.isCanceled) {
++                        if (hiddenPending != null) onVisibilityDone() else onReorderDone()
++                    }
++                    return@onPreviewKeyEvent true
++                }
+                 if (hiddenPending != null) {
+                     // Manage visibility: OK toggles, Left hides all, Right shows all, Back saves.
+                     val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+@@ -3434,7 +3458,6 @@ private fun GroupColumn(
+                         e.type != KeyEventType.KeyDown -> e.key == Key.Back || e.key == Key.DirectionLeft || e.key == Key.DirectionRight
+                         e.key == Key.DirectionLeft -> { onHideAllGroups(); true }
+                         e.key == Key.DirectionRight -> { onShowAllGroups(); true }
+-                        e.key == Key.Back -> { onVisibilityDone(); true }
+                         e.key == Key.DirectionUp || e.key == Key.DirectionDown -> stepGroup(e)
+                         else -> false
+                     }
+@@ -3458,7 +3481,6 @@ private fun GroupColumn(
+                         Key.DirectionDown -> if (reorderingId != null) { onReorderMove(1); return@onPreviewKeyEvent true } else return@onPreviewKeyEvent stepGroup(e)
+                         Key.DirectionLeft -> { onReorderEnds(true, focusedGroupId); return@onPreviewKeyEvent true }
+                         Key.DirectionRight -> { onReorderEnds(false, focusedGroupId); return@onPreviewKeyEvent true }
+-                        Key.Back -> { onReorderDone(); return@onPreviewKeyEvent true }
+                         else -> Unit
+                     }
+                     return@onPreviewKeyEvent e.key == Key.Back || e.key == Key.DirectionLeft || e.key == Key.DirectionRight ||
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+index 1a6100c..2d6ae4c 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+@@ -93,6 +93,7 @@ class LiveTvViewModel @Inject constructor(
+     val playback: LiveTvPlaybackController,
+     private val session: LiveTvSession,
+     private val channelStore: com.nuvio.tv.livetv.data.LiveTvChannelStore,
++    private val guideArtApi: com.nuvio.tv.data.remote.api.TmdbApi,
+     private val posterResolver: com.nuvio.tv.livetv.data.LiveTvPosterResolver,
+     private val matcher247: com.nuvio.tv.livetv.data.LiveTv247Matcher,
+     layoutPrefs: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
+@@ -1123,11 +1124,43 @@ class LiveTvViewModel @Inject constructor(
+         notePendingEpg(channel.key, next)
+     }
+ 
+-    /** The poster Nuvio's catalogs would show for this program, or null if there's no good match. */
++    private val wideGuideImages = com.nuvio.tv.livetv.data.boundedCache<Pair<String, Int?>, String>(512)
+     suspend fun guideBackdrop(title: String, program: EpgProgram?, channel: LiveChannel?): String? {
+-        if (!settings.value.showPosters || com.nuvio.tv.livetv.data.LiveTvPosterResolver.isSports(channel, program)) return null
+-        val meta = posterResolver.titleFor(title)?.meta ?: return null
+-        return meta.background?.takeIf { it.isNotBlank() } ?: meta.landscapePoster
++        if (!settings.value.showPosters || LiveTvRepository.isPlaceholderTitle(title)) return null
++        val query = LiveTvSearchBridge.cleanTitle(title).trim()
++        if (query.isBlank()) return null
++        val key = query to program?.year
++        wideGuideImages[key]?.let { return it.ifBlank { null } }
++        val sports = com.nuvio.tv.livetv.data.LiveTvPosterResolver.isSports(channel, program)
++        if (!sports) {
++            val meta = posterResolver.titleFor(title)?.meta
++            val image = listOfNotNull(meta?.background, meta?.landscapePoster).firstOrNull { it.isNotBlank() }
++            if (image != null) { wideGuideImages[key] = image; return image }
++        }
++        val apiKey = com.nuvio.tv.petalix.PetalixRuntimeConfig.apiKey
++        if (apiKey.isBlank()) return null
++        return try {
++            val response = guideArtApi.petalixSearch("multi", apiKey, query, 1)
++            if (!response.isSuccessful) { response.errorBody()?.close(); return null }
++            val body = response.body()?.use { it.string() } ?: return null
++            val results = org.json.JSONObject(body).optJSONArray("results") ?: return null
++            val match = (0 until results.length()).mapNotNull { results.optJSONObject(it) }.firstOrNull { item ->
++                val tv = item.optString("media_type") == "tv"
++                val name = item.optString(if (tv) "name" else "title")
++                val year = item.optString(if (tv) "first_air_date" else "release_date").take(4).toIntOrNull()
++                (tv || item.optString("media_type") == "movie") && name.equals(query, ignoreCase = true) &&
++                    (program?.year == null || year == program.year) && item.optString("backdrop_path").startsWith("/")
++            }
++            val image = match?.let { "https://image.tmdb.org/t/p/w1280" + it.getString("backdrop_path") }
++            wideGuideImages[key] = image.orEmpty()
++            image
++        } catch (cancelled: kotlinx.coroutines.CancellationException) {
++            throw cancelled
++        } catch (_: java.io.IOException) {
++            null
++        } catch (_: org.json.JSONException) {
++            null
++        }
+     }
+ 
+     suspend fun posterFor(
+@@ -1365,7 +1398,6 @@ class LiveTvViewModel @Inject constructor(
+     /** Saves the whole group order at once (Reorder groups). */
+     fun saveGroupOrder(ids: List<String>) {
+         // Reordering by hand means "my order" from now on.
+-        if (settings.value.groupSort != "custom") viewModelScope.launch { prefs.updateSettings { it.copy(groupSort = "custom") } }
+         if (ids.isEmpty()) return
+         viewModelScope.launch { prefs.moveGroup(ids.first(), 0, ids) }
+     }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt
+index 9efd5be..58d1b30 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt
+@@ -46,7 +46,7 @@ internal fun glassCategories(
+         PETALIX_ZIP_LOCALS -> "My Locals"
+         else -> g.title
+     }, group = g)
+-    val pinned = listOf(ChannelGroup.FAVORITES, ChannelGroup.RECENT, PETALIX_ZIP_LOCALS)
++    val pinned = listOf(ChannelGroup.FAVORITES, ChannelGroup.RECENT)
+     val rest = visible.filter { it.id !in pinned }
+     return buildList {
+         for (id in pinned) visible.firstOrNull { it.id == id }?.let { add(entry(it)) }
+@@ -64,14 +64,14 @@ internal fun glassCategories(
+ 
+ @Composable
+ internal fun PetalixGlassCategories(
+-    ui: LiveTvUiState, settings: LiveTvSettings, focus: FocusRequester,
++    ui: LiveTvUiState, settings: LiveTvSettings, focus: FocusRequester, initialGroup: String?,
+     playlists: Map<String, String>, collapsed: Set<String>, togglePlaylist: (String) -> Unit,
+     onPick: (ChannelGroup, Boolean) -> Unit, onOptions: () -> Unit, onClose: () -> Unit,
+ ) {
+     val entries = remember(ui.groups, playlists, collapsed, settings.groupPlaylistHeadings) {
+         glassCategories(ui.groups, settings.groupPlaylistHeadings, playlists, collapsed)
+     }
+-    var key by remember { mutableStateOf(ui.selectedGroupId) }
++    var key by remember { mutableStateOf(initialGroup?.takeIf { id -> entries.any { it.key == id } } ?: ui.selectedGroupId) }
+     val index = entries.indexOfFirst { it.key == key }.coerceAtLeast(0)
+     val list = rememberLazyListState(index)
+     var held by remember { mutableStateOf(false) }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+index 117f191..512abb6 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+@@ -85,9 +85,9 @@ internal fun PetalixGlassHero(
+             val candidates = listOfNotNull(about?.background, about?.landscapePoster, poster, details?.icon)
+                 .filter { it.isNotBlank() && it != channel?.logo && it !in channel?.guideLogoFallbacks.orEmpty() }
+                 .mapNotNull { petalixArtwork(it, 1280) }.distinct()
+-            PetalixGuideProgramArt(candidates, channel, name, settings.showChannelLogos,
++            key(channel?.key, program?.startMs, program?.title) { PetalixGuideProgramArt(candidates, channel, name, settings.showChannelLogos,
+                 Modifier.align(Alignment.CenterEnd).widthIn(max = maxWidth * .48f)
+-                    .heightIn(max = maxHeight).aspectRatio(16f / 9f))
++                    .heightIn(max = maxHeight).aspectRatio(16f / 9f)) }
+         }
+         if (settings.showProgramDetails && channel != null) {
+             val short = maxHeight < 166.dp || compact
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideArtwork.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideArtwork.kt
+index f16c265..ecff668 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideArtwork.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideArtwork.kt
+@@ -39,7 +39,7 @@ import com.nuvio.tv.petalix.petalixGuideArtworkType
+ 
+ @Composable
+ internal fun PetalixGuideLogo(
+-    channel: LiveChannel, width: Dp, height: Dp, modifier: Modifier = Modifier,
++    channel: LiveChannel, width: Dp, height: Dp, modifier: Modifier = Modifier, hero: Boolean = false,
+     onAvailability: (Boolean) -> Unit = {},
+ ) {
+     val candidates = remember(channel.logo, channel.guideLogoFallbacks) {
+@@ -55,14 +55,14 @@ internal fun PetalixGuideLogo(
+ 
+     val context = LocalContext.current
+     val revalidation = com.nuvio.tv.core.image.rememberImageRevalidationKey(url)
+-    val request = remember(context, url, revalidation) {
++    val request = remember(context, url, revalidation, hero) {
+         ImageRequest.Builder(context).data(url)
+-            .memoryCacheKey("$url:petalix-guide-logo:$revalidation")
+-            .size(192, 104).scale(Scale.FIT).precision(Precision.INEXACT).build()
++            .memoryCacheKey("$url:petalix-guide-logo:$hero:$revalidation")
++            .size(if (hero) 960 else 192, if (hero) 540 else 104).scale(Scale.FIT).precision(Precision.INEXACT).build()
+     }
+     Box(
+         modifier.size(width, height).clip(RoundedCornerShape(7.dp))
+-            .background(if (visible) Color(0xFF222225) else Color.Transparent),
++            .background(if (visible && !hero) Color(0xFF222225) else Color.Transparent),
+         contentAlignment = Alignment.Center,
+     ) {
+         AsyncImage(
+@@ -84,13 +84,13 @@ internal fun PetalixGuideLogo(
+ @Composable
+ internal fun PetalixGuideProgramArt(candidates: List<String>, channel: LiveChannel?, name: String, showLogo: Boolean, modifier: Modifier = Modifier) {
+     var index by remember(candidates) { mutableIntStateOf(0) }
+-    Box(modifier.clip(RoundedCornerShape(12.dp)).background(GlassPanel), contentAlignment = Alignment.Center) {
++    Box(modifier.clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+         val url = candidates.getOrNull(index)
+         var artworkType by remember(url) { mutableStateOf<PetalixGuideArtworkType?>(null) }
+         if (artworkType == null) {
+             var hasLogo by remember(channel?.key, showLogo) { mutableStateOf(false) }
+             if (!hasLogo) LiveText(name, color = GlassMuted, size = 18.sp)
+-            if (channel != null && showLogo) PetalixGuideLogo(channel, 112.dp, 62.dp) { hasLogo = it }
++            if (channel != null && showLogo) PetalixGuideLogo(channel, 250.dp, 140.dp, hero = true) { hasLogo = it }
+         }
+         if (url == null) return@Box
+         val context = LocalContext.current
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceMedia.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceMedia.kt
+index 6c1b10f..b4ee04d 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceMedia.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceMedia.kt
+@@ -148,11 +148,7 @@ private fun PetalixOriginalServiceVideo(videoUri: String, modifier: Modifier, on
+     var firstFrame by remember(player) { mutableStateOf(false) }
+     val videoAlpha by animateFloatAsState(if (firstFrame) 1f else 0f, tween(160), label = "serviceClipReveal")
+     AndroidView(
+-        modifier = modifier.graphicsLayer {
+-            alpha = videoAlpha
+-            blendMode = androidx.compose.ui.graphics.BlendMode.Screen
+-            compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+-        },
++        modifier = modifier.graphicsLayer { alpha = videoAlpha },
+         factory = { ctx ->
+             (LayoutInflater.from(ctx).inflate(R.layout.petalix_service_media_tile, null) as PlayerView).apply {
+                 useController = false

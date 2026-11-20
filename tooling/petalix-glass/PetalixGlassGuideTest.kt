@@ -18,6 +18,7 @@ class PetalixGlassGuideTest {
     @Test fun guideKeepsRealChannelGroupsAndTheSettingsFooter() {
         val saved = glassCategories(listOf(sports, locals, recent, favorites), false, emptyMap(), emptySet())
         assertEquals(listOf(favorites, recent), saved.take(2).map { it.group })
+        assertEquals(listOf(sports, locals), saved.mapNotNull { it.group }.drop(2))
         assertSame(locals, saved.single { it.title == "My Locals" }.group)
         assertSame(sports, saved.single { it.title == "Sports" }.group)
         assertFalse(saved.any { it.title == "Sports Hub" })

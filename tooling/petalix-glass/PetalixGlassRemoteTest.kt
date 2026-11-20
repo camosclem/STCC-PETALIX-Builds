@@ -78,7 +78,7 @@ class PetalixGlassRemoteTest {
                             PetalixGlassHero(ch, epg.getValue(ch.key).first(), "file:///android_asset/petalix/home-art/live/news.jpg",
                                 group.title, settings, now, false, {}, { rail = true }, modifier)
                         }
-                        if (rail) PetalixGlassCategories(ui, settings, railFocus, emptyMap(), emptySet(), {},
+                        if (rail) PetalixGlassCategories(ui, settings, railFocus, null, emptyMap(), emptySet(), {},
                             { g, _ -> group = g; rail = false }, { rail = false }, { rail = false })
                     }
                     LaunchedEffect(rail) { if (!rail) { withFrameNanos { }; gridFocus.requestFocus() } }
