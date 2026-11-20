@@ -22,9 +22,12 @@ def native_catalog(text):
     assert '@panel_' not in result
     return result
 
-def prepare(root,version,production=False,owner_test=False):
+def prepare(root, version, production=False, owner_test=False, glass_guide=False):
     if production and owner_test:
         raise ValueError("Select either the production package or the isolated test package.")
+    if glass_guide and not production:
+        raise ValueError("The panel guide recipe needs the customer package.")
+    enhanced_guide = owner_test or glass_guide
     package="com.petalix.iptv.preview" if production else PACKAGE
     revision = subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
     if revision not in (PIN, LEGACY_PIN):
@@ -266,9 +269,9 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
             apply_category_backdrop(root)
             from home_layout_patch import apply as apply_home_layout
             apply_home_layout(root)
-            if owner_test:
+            if enhanced_guide:
                 from upgrade_120 import apply as apply_upstream_update
-                apply_upstream_update(root)
+                apply_upstream_update(root, customer=glass_guide)
                 from service_card_motion_patch import apply as apply_card_motion
                 apply_card_motion(root)
                 from guide_presentation_patch import apply as apply_guide_presentation
@@ -282,6 +285,6 @@ android.defaultConfig.versionName = "1.1.0-petalix.owner-test." + android.defaul
                 from cinematic_guide import apply as apply_cinematic_guide
                 apply_cinematic_guide(root)
     assert not list(dest.glob('ManagedPolicy*'))
-    print(json.dumps({'upstream':('1.2.0-beta.1.4' if owner_test else upstream_tag),'sha':('2d898cd8be38cd81a087604cd9dc974a06cf9a00' if owner_test else revision),'package':package,'versionCode':version,'guidePresentation':('petalix-cable' if owner_test else 'native'),'nativeGuide':not owner_test,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
+    print(json.dumps({'upstream':('1.2.0-beta.1.4' if enhanced_guide else upstream_tag),'sha':('2d898cd8be38cd81a087604cd9dc974a06cf9a00' if enhanced_guide else revision),'package':package,'versionCode':version,'guidePresentation':('petalix-cable' if enhanced_guide else 'native'),'nativeGuide':not enhanced_guide,'nativeSports':True,'nativeSettingsUnrestricted':not production,'streamingServices':9,'horizontalHomeTiles':True,'referenceBuild':1793881218,'customerRollout':False}))
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--upstream',type=Path,required=True);p.add_argument('--version',type=int,required=True);mode=p.add_mutually_exclusive_group();mode.add_argument('--production',action='store_true');mode.add_argument('--owner-test',action='store_true');a=p.parse_args();prepare(a.upstream.resolve(),a.version,a.production,a.owner_test)

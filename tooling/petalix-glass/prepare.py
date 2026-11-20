@@ -32,12 +32,14 @@ import androidx.test.platform.app.InstrumentationRegistry
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(source.replace(old, new))
 
-def prepare(root):
+def prepare(root, *, panel=False):
     java = root / "app/src/main/java/com/nuvio/tv"
     gradle = root / "app/build.gradle.kts"
     text = gradle.read_text()
-    if 'variant.applicationId.set("com.petalix.iptv.hometest")' not in text or '1.2.0-petalix.owner-test.' not in text:
-        raise ValueError("Expected the prepared Petalix 1795087269 owner-test base")
+    package = "com.petalix.iptv.preview" if panel else "com.petalix.iptv.hometest"
+    version = "1.1.0-petalix.panel" if panel else "1.2.0-petalix.owner-test."
+    if f'variant.applicationId.set("{package}")' not in text or version not in text:
+        raise ValueError("Expected the prepared Petalix Android TV source")
     for patch in ["guide.patch", "sports-and-playback.patch"]:
         subprocess.run(["git", "apply", "--whitespace=error", str(HERE / patch)], cwd=root, check=True)
     for name in ("PetalixGlassSurface.kt", "PetalixGlassCategories.kt", "PetalixGuideMetrics.kt"):

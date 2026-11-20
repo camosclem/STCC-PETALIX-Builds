@@ -16,7 +16,7 @@ PIN = '2d898cd8be38cd81a087604cd9dc974a06cf9a00'
 def git(root, *args):
     return subprocess.check_output(['git', *args], cwd=root)
 
-def apply(root):
+def apply(root, *, customer=False):
     root = Path(root)
     try:
         revision = git(root, 'rev-parse', TAG).decode().strip()
@@ -60,9 +60,13 @@ def apply(root):
                 raise RuntimeError('Could not merge '+relative+': '+merged.stderr.decode())
             text = merged.stdout.decode().replace('\r\n', '\n')
             for resolution in resolutions.get(relative, []):
-                if text.count(resolution['old']) != resolution.get('count', 1):
+                old, new = resolution['old'], resolution['new']
+                if customer and relative.endswith('/strings.xml'):
+                    old = old.replace('Petalix Home Test', 'Petalix')
+                    new = new.replace('Petalix Home Test', 'Petalix')
+                if text.count(old) != resolution.get('count', 1):
                     raise ValueError('Upstream resolution anchor changed: '+relative)
-                text = text.replace(resolution['old'], resolution['new'])
+                text = text.replace(old, new)
             path.write_text(text)
             if '<<<<<<< PETALIX' in text:
                 conflicts.append(relative)

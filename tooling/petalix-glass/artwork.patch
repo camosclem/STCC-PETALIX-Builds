@@ -779,7 +779,7 @@ index 0000000..22ca70b
 +
 +private fun homeArtworkUri(name: String) = "file:///android_asset/petalix/home-art/$name.webp"
 diff --git a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceDetails.kt b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceDetails.kt
-index 45ea5ce..9db2732 100644
+index 45ea5ce..e964bd7 100644
 --- a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceDetails.kt
 +++ b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceDetails.kt
 @@ -1,5 +1,6 @@
@@ -818,16 +818,24 @@ index 45ea5ce..9db2732 100644
                  fontSize=24.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=28.dp,vertical=16.dp))
          }
          item("season-selector") {
-@@ -108,7 +115,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
-                         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Black,Color.Black.copy(alpha=.62f),Color.Transparent))))
+@@ -103,12 +110,11 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
+         when(service.id) {
+             "netflix" -> {
+                 item("billboard") {
+-                    Box(Modifier.fillMaxWidth().height(340.dp)) {
+-                        ServiceDetailArt(meta)
+-                        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Black,Color.Black.copy(alpha=.62f),Color.Transparent))))
++                    Box(Modifier.fillMaxWidth().heightIn(min = 340.dp)) {
++                        ServiceDetailArt(meta, Modifier.matchParentSize())
++                        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(Color.Black,Color.Black.copy(alpha=.62f),Color.Transparent))))
                          Column(Modifier.align(Alignment.BottomStart).widthIn(max=580.dp).padding(28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-                             Text("N  ${if(meta.type==ContentType.SERIES)"SERIES" else "FILM"}",color=service.accent,fontSize=17.sp,fontWeight=FontWeight.Black,letterSpacing=4.sp)
+-                            Text("N  ${if(meta.type==ContentType.SERIES)"SERIES" else "FILM"}",color=service.accent,fontSize=17.sp,fontWeight=FontWeight.Black,letterSpacing=4.sp)
 -                            ServiceDetailCopy(meta,service,false);actions()
 +                            ServiceDetailCopy(meta, service, state, center = false);actions()
                          }
                      }
                  }
-@@ -117,10 +124,9 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
+@@ -117,10 +123,9 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
              "prime" -> {
                  item("feature") {
                      Row(Modifier.fillMaxWidth().padding(28.dp),horizontalArrangement=Arrangement.spacedBy(30.dp)) {
@@ -840,8 +848,16 @@ index 45ea5ce..9db2732 100644
                          }
                      }
                  }
-@@ -133,7 +139,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
-                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,service.background))))
+@@ -128,12 +133,12 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
+             }
+             "disney","paramount","max" -> {
+                 item("panoramic-feature") {
+-                    Box(Modifier.fillMaxWidth().height(370.dp)) {
+-                        ServiceDetailArt(meta)
+-                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,service.background))))
++                    Box(Modifier.fillMaxWidth().heightIn(min = 370.dp)) {
++                        ServiceDetailArt(meta, Modifier.matchParentSize())
++                        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent,service.background))))
                          Column(Modifier.align(Alignment.BottomCenter).widthIn(max=680.dp).padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,
                              verticalArrangement=Arrangement.spacedBy(14.dp)) {
 -                            ServiceDetailCopy(meta,service,true);actions()
@@ -849,7 +865,7 @@ index 45ea5ce..9db2732 100644
                          }
                      }
                  }
-@@ -143,7 +149,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
+@@ -143,7 +148,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
                  item("panoramic") {Box(Modifier.fillMaxWidth().height(300.dp)){ServiceDetailArt(meta)}}
                  item("title") {
                      Row(Modifier.fillMaxWidth().padding(28.dp),horizontalArrangement=Arrangement.spacedBy(36.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -858,31 +874,45 @@ index 45ea5ce..9db2732 100644
                          Column(verticalArrangement=Arrangement.spacedBy(12.dp)){actions()}
                      }
                  }
-@@ -154,7 +160,7 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
-                     Row(Modifier.fillMaxWidth().height(320.dp),verticalAlignment=Alignment.CenterVertically) {
+@@ -151,12 +156,11 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
+             }
+             "hulu" -> {
+                 item("editorial-feature") {
+-                    Row(Modifier.fillMaxWidth().height(320.dp),verticalAlignment=Alignment.CenterVertically) {
++                    Row(Modifier.fillMaxWidth().heightIn(min = 320.dp),verticalAlignment=Alignment.CenterVertically) {
                          Column(Modifier.weight(1.1f).padding(28.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-                             Text(if(meta.type==ContentType.SERIES)"TV SERIES" else "MOVIE",color=service.accent,letterSpacing=3.sp,fontSize=13.sp)
+-                            Text(if(meta.type==ContentType.SERIES)"TV SERIES" else "MOVIE",color=service.accent,letterSpacing=3.sp,fontSize=13.sp)
 -                            ServiceDetailCopy(meta,service,false);actions()
 +                            ServiceDetailCopy(meta, service, state, center = false);actions()
                          }
-                         Box(Modifier.weight(1f).fillMaxHeight()){ServiceDetailArt(meta)}
+-                        Box(Modifier.weight(1f).fillMaxHeight()){ServiceDetailArt(meta)}
++                        Box(Modifier.weight(1f).height(320.dp)){ServiceDetailArt(meta)}
                      }
-@@ -164,10 +170,10 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
+                 }
+                 episodes(true)
+@@ -164,10 +168,9 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
              "britbox" -> {
                  item("britbox-feature") {
                      Row(Modifier.fillMaxWidth().padding(28.dp),horizontalArrangement=Arrangement.spacedBy(28.dp),verticalAlignment=Alignment.CenterVertically) {
 -                        AsyncImage(meta.poster,null,Modifier.width(170.dp).height(255.dp),contentScale=ContentScale.Fit)
 +                        AsyncImage(petalixArtwork(meta.poster, 780),null,Modifier.width(170.dp).height(255.dp),contentScale=ContentScale.Fit)
                          Column(Modifier.weight(1f).background(Color(0xFF261021)).padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-                             Text("BRITBOX",color=service.accent,fontSize=15.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp)
+-                            Text("BRITBOX",color=service.accent,fontSize=15.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp)
 -                            ServiceDetailCopy(meta,service,false);actions()
 +                            ServiceDetailCopy(meta, service, state, center = false);actions()
                          }
                      }
                  }
-@@ -179,32 +185,86 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
-                         ServiceDetailArt(meta)
-                         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(service.background,service.background.copy(alpha=.6f),Color.Transparent))))
+@@ -175,36 +178,90 @@ fun PetalixServiceDetails(service:PetalixService,state:MetaDetailsUiState,
+             }
+             else -> {
+                 item("feature") {
+-                    Box(Modifier.fillMaxWidth().height(320.dp)) {
+-                        ServiceDetailArt(meta)
+-                        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(service.background,service.background.copy(alpha=.6f),Color.Transparent))))
++                    Box(Modifier.fillMaxWidth().heightIn(min = 320.dp)) {
++                        ServiceDetailArt(meta, Modifier.matchParentSize())
++                        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(service.background,service.background.copy(alpha=.6f),Color.Transparent))))
                          Column(Modifier.align(Alignment.BottomStart).widthIn(max=580.dp).padding(28.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
 -                            ServiceDetailCopy(meta,service,false);actions()
 +                            ServiceDetailCopy(meta, service, state, center = false);actions()
@@ -912,14 +942,14 @@ index 45ea5ce..9db2732 100644
 -    AsyncImage(meta.backdropUrl,null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
 +
 +@Composable
-+private fun ServiceDetailArt(meta: Meta) {
++private fun ServiceDetailArt(meta: Meta, modifier: Modifier = Modifier.fillMaxSize()) {
 +    val backdrop = petalixArtwork(meta.background ?: meta.landscapePoster, 1280)
 +    var backdropFailed by remember(backdrop) { mutableStateOf(false) }
 +    if (backdrop != null && !backdropFailed) {
-+        AsyncImage(backdrop, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
++        AsyncImage(backdrop, null, modifier, contentScale = ContentScale.Crop,
 +            onError = { backdropFailed = true })
 +    } else {
-+        Box(Modifier.fillMaxSize().padding(end = 24.dp, top = 12.dp, bottom = 12.dp), contentAlignment = Alignment.CenterEnd) {
++        Box(modifier.padding(end = 24.dp, top = 12.dp, bottom = 12.dp), contentAlignment = Alignment.CenterEnd) {
 +            AsyncImage(petalixArtwork(meta.poster, 780), null, Modifier.fillMaxHeight().fillMaxWidth(.42f),
 +                contentScale = ContentScale.Fit, alignment = Alignment.CenterEnd)
 +        }
