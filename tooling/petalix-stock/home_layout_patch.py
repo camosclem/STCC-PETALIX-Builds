@@ -59,7 +59,7 @@ def apply(root):
         replace(target,'file:///android_asset/petalix/britbox-intro/logo.png',
             'file:///android_asset/petalix/britbox-intro/logo-v2.svg')
     coordinator=source/'petalix/PetalixManagedCoordinator.kt'
-    replace(coordinator,'"guide-only-feeds-v1"','"guide-only-feeds-v1", "petalix-home-layout-v1"')
+    replace(coordinator,'"guide-only-feeds-v1"','"guide-only-feeds-v1", "petalix-home-layout-v1", "petalix-toolbar-v1"')
     text=coordinator.read_text();start=text.index('    private suspend fun ensureBritBoxService(');end=text.index('    private suspend fun ensureLocalHome(',start)
     text=text[:start]+'''    private suspend fun ensureBritBoxService(serviceProfileId: Int) {
         val saved = collections.getCurrentCollections(serviceProfileId)

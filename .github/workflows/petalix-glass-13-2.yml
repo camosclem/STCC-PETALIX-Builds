@@ -62,7 +62,7 @@ jobs:
         working-directory: launcher
         run: |
           chmod +x gradlew
-          ./gradlew --console=plain :app:testFullDebugUnitTest \
+          ./gradlew --console=plain :app:testFullReleaseUnitTest \
             --tests 'com.nuvio.tv.petalix.*' --tests 'com.nuvio.tv.ui.screens.home.PetalixCategoryHeroTest' \
             --tests 'com.nuvio.tv.livetv.sports.SportsWatchPolicyTest' --tests '*AutoPlaySourceFallbackTest' \
             --tests '*SourceFallbackHandoffTest' --tests '*EpisodeAutoPlayLoadingTest' --tests '*EpisodeRatingsAlignmentTest' \
@@ -72,19 +72,19 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: guide-verification-diagnostics
-          path: launcher/app/build/test-results/testFullDebugUnitTest/
+          path: launcher/app/build/test-results/testFullReleaseUnitTest/
           if-no-files-found: ignore
           retention-days: 7
       - name: Assemble the ARM owner-test APK
         working-directory: launcher
-        run: ./gradlew --console=plain -PpetalixOwnerArm=true :app:assembleFullDebug --stacktrace
+        run: ./gradlew --console=plain -PpetalixOwnerArm=true :app:assembleFullRelease --stacktrace
       - name: Verify TV installation identity and both ARM architectures
         env:
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
           python3 - <<'PYVERIFY'
           import json, os, pathlib, re, shutil, subprocess
-          root = pathlib.Path('launcher/app/build/outputs/apk/full/debug')
+          root = pathlib.Path('launcher/app/build/outputs/apk/full/release')
           metadata = json.loads((root / 'output-metadata.json').read_text())
           matches = [item for item in metadata['elements'] if not item.get('filters')]
           assert len(matches) == 1, metadata['elements']
@@ -93,9 +93,10 @@ jobs:
           info = subprocess.check_output([sdk / 'aapt', 'dump', 'badging', apk], text=True)
           signature = subprocess.check_output([sdk / 'apksigner', 'verify', '--verbose', '--print-certs', apk], text=True)
           version = int(os.environ['VERSION'])
-          assert version > 1795184213
+          assert version > 1795198995
           assert f"name='com.petalix.iptv.hometest' versionCode='{version}'" in info.splitlines()[0], info.splitlines()[0]
           assert 'leanback-launchable-activity:' in info or 'android.software.leanback' in info
+          assert apk.stat().st_size < 145225879, 'Release must be smaller than the tested Shield APK'
           import zipfile
           with zipfile.ZipFile(apk) as z:
               abis = {p.split('/')[1] for p in z.namelist() if p.startswith('lib/') and p.endswith('.so')}

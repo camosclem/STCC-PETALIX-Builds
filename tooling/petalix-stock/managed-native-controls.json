@@ -3743,6 +3743,10 @@
       [
         "recent",
         "Recently watched"
+      ],
+      [
+        "hidden",
+        "Hidden"
       ]
     ],
     "appDefault": "favorites"
@@ -7192,5 +7196,83 @@
     "type": "text",
     "maxLength": 20000,
     "requiresCapability": "petalix-home-layout-v1"
+  },
+  {
+    "key": "pref:layout_settings:petalix_toolbar_library",
+    "feature": "layout_settings",
+    "preference": "petalix_toolbar_library",
+    "kind": "boolean",
+    "group": "Home sections",
+    "label": "Show Library in Home Toolbar",
+    "help": "Show Library in Home Toolbar",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "petalix-toolbar-v1",
+    "appDefault": false
+  },
+  {
+    "key": "pref:layout_settings:petalix_toolbar_search",
+    "feature": "layout_settings",
+    "preference": "petalix_toolbar_search",
+    "kind": "boolean",
+    "group": "Home sections",
+    "label": "Show Search in Home Toolbar",
+    "help": "Show Search in Home Toolbar",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "petalix-toolbar-v1",
+    "appDefault": true
+  },
+  {
+    "key": "pref:layout_settings:petalix_toolbar_live_tv",
+    "feature": "layout_settings",
+    "preference": "petalix_toolbar_live_tv",
+    "kind": "boolean",
+    "group": "Home sections",
+    "label": "Show Live TV in Home Toolbar",
+    "help": "Show Live TV in Home Toolbar",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "petalix-toolbar-v1",
+    "appDefault": true
+  },
+  {
+    "key": "pref:layout_settings:petalix_toolbar_sports",
+    "feature": "layout_settings",
+    "preference": "petalix_toolbar_sports",
+    "kind": "boolean",
+    "group": "Home sections",
+    "label": "Show Sports in Home Toolbar",
+    "help": "Show Sports in Home Toolbar",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "petalix-toolbar-v1",
+    "appDefault": true
+  },
+  {
+    "key": "pref:layout_settings:petalix_toolbar_movies",
+    "feature": "layout_settings",
+    "preference": "petalix_toolbar_movies",
+    "kind": "boolean",
+    "group": "Home sections",
+    "label": "Show Movies in Home Toolbar",
+    "help": "Show Movies in Home Toolbar",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "petalix-toolbar-v1",
+    "appDefault": true
+  },
+  {
+    "key": "pref:layout_settings:petalix_toolbar_series",
+    "feature": "layout_settings",
+    "preference": "petalix_toolbar_series",
+    "kind": "boolean",
+    "group": "Home sections",
+    "label": "Show Series in Home Toolbar",
+    "help": "Show Series in Home Toolbar",
+    "optional": true,
+    "type": "boolean",
+    "requiresCapability": "petalix-toolbar-v1",
+    "appDefault": true
   }
 ]

@@ -22,6 +22,13 @@ class PetalixHomeLayoutTest {
         assertEquals(PetalixHomeLayout(), PetalixHomeLayout.from(emptyMap()))
     }
 
+    @Test fun toolbarDefaultsAndOverrides() {
+        assertEquals(setOf("library"), PetalixHomeLayout.from(emptyMap()).hiddenToolbarTabs)
+        val edited = PetalixHomeLayout.from(mapOf("petalix_toolbar_library" to true,
+            "petalix_toolbar_movies" to false))
+        assertEquals(setOf("movies"), edited.hiddenToolbarTabs)
+    }
+
     @Test fun artworkOverridesAcceptHttpsAndIgnoreInvalidInput() {
         val layout = PetalixHomeLayout.from(mapOf("petalix_home_service_artwork" to
             """{"folder-petalix-britbox":"https://images.example/britbox.jpg","folder-bad":"file:///private","folder-login":"https://user:password@example.test/art.jpg"}"""))

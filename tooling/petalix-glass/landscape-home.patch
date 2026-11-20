@@ -1,0 +1,398 @@
+diff --git a/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt b/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt
+index f26238d..2904954 100644
+--- a/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt
++++ b/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt
+@@ -66,12 +66,20 @@ internal fun PetalixNavigationShell(
+             )
+         }
+         if (menuAvailable && expanded) {
+-            val destinations = remember(items) {
++            val hidden = com.nuvio.tv.petalix.petalixHomeLayout().hiddenToolbarTabs
++            val destinations = remember(items, hidden) {
+                 items.flatMap { item ->
+                     if (item.route == Screen.OnDemand.route) listOf(
+                         Destination("Movies", item.route, VodKind.MOVIE),
+                         Destination("Series", item.route, VodKind.SERIES)
+                     ) else listOf(Destination(item.label, item.route))
++                }.filterNot { destination ->
++                    val key = when (destination.kind) {
++                        VodKind.MOVIE -> "movies"
++                        VodKind.SERIES -> "series"
++                        else -> destination.route
++                    }
++                    key in hidden
+                 }
+             }
+             val active = destinations.firstOrNull { it.route == currentRoute && (it.kind == null || it.kind == OnDemandHomeTab.last) }
+@@ -102,7 +110,7 @@ internal fun PetalixNavigationShell(
+                     if (showProfiles) PetalixDestination("Profiles", false) { closeMenu(); onSwitchProfile() }
+                     PetalixDestination("Exit", false) { onExit() }
+                 }
+-                LaunchedEffect(Unit) { withFrameNanos { }; if (initial != null) focus.requestFocus() }
++                LaunchedEffect(initial) { withFrameNanos { }; if (initial != null) focus.requestFocus() }
+             }
+         }
+     }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+index d9f8b3e..1b10139 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+@@ -672,12 +672,13 @@ class LiveTvPreferences @Inject constructor(
+             recordPostMinutes = p[Keys.recordPost] ?: d.recordPostMinutes,
+             // The row used to be on/off for the whole app. Turned off before (with no per-profile
+             // choice saved yet): that was done from the main profile, so it stays off there only.
+-            homeRowEnabled = true,
++            homeRowEnabled = p[Keys.homeRowSource] != "hidden",
+             homeRowHiddenProfiles = p[Keys.homeRowHiddenProfiles]?.mapNotNull { it.toIntOrNull() }?.toSet()
+                 ?: if (p[Keys.homeRowEnabled] == false) setOf(1) else emptySet(),
+             homeRowAboveContinueWatching = p[Keys.homeRowAboveContinueWatching] ?: d.homeRowAboveContinueWatching,
+             homeRowSource = p[Keys.homeRowSource] ?: d.homeRowSource,
+-            homeRowTitle = p[Keys.homeRowTitle] ?: d.homeRowTitle,
++            homeRowTitle = p[Keys.homeRowTitle]?.takeIf { it.isNotBlank() && it != d.homeRowTitle }
++                ?: if (p[Keys.homeRowSource] == "favorites") "Favorite Channels" else d.homeRowTitle,
+             homeRowSort = p[Keys.homeRowSort] ?: d.homeRowSort,
+             homeRowLimit = p[Keys.homeRowLimit] ?: d.homeRowLimit,
+             homeRowHidePlaceholders = p[Keys.homeRowHidePlaceholders] ?: d.homeRowHidePlaceholders,
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
+index f65b8eb..2e56a49 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
+@@ -93,7 +93,7 @@ fun rememberLiveTvHomeRowPosition(): Boolean? {
+     val profileId by profiles.activeProfileId.collectAsStateWithLifecycle()
+     val settings = s ?: return null
+     // On or off per Nuvio profile.
+-    if (profileId in settings.homeRowHiddenProfiles || !settings.showInSidebar) return null
++    if (!settings.homeRowEnabled || profileId in settings.homeRowHiddenProfiles || !settings.showInSidebar) return null
+     // Always above Continue watching (tucked away until you press Up from the top row).
+     return true
+ }
+@@ -185,7 +185,7 @@ fun LiveTvHomeRow(
+             context.applicationContext, com.nuvio.tv.livetv.startup.LiveTvStartupEntryPoint::class.java
+         ).profileManager()
+     }.activeProfileId.collectAsStateWithLifecycle()
+-    if (profileId in settings.homeRowHiddenProfiles || !settings.showInSidebar || !above) return
++    if (!settings.homeRowEnabled || profileId in settings.homeRowHiddenProfiles || !settings.showInSidebar || !above) return
+     if (!LocalLiveTvHomeActions.current.onHome) return
+     if (HomeRowFocus.homeShownAt == 0L) HomeRowFocus.homeShownAt = android.os.SystemClock.uptimeMillis()
+     LiveTvHomeRowContent(settings, takeInitialFocus = above, startPadding = startPadding, titleStyle = titleStyle, hideUnlessFocused = hideUnlessFocused && above, persistent = persistent)
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+index bb95045..812dc35 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -877,9 +877,9 @@ private fun PetalixLiveSession(
+         GuideBlock(airing.start, airing.end, airing.program)
+     } else focusedBlock
+     val headerProgramKey = headerChannel?.key to headerBlock?.program?.startMs
+-    val headerPoster by androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey) {
++    val headerPoster by androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey, settings.showPosters, settings.showProgramDetails) {
+         value = null
+-        if (!settings.showProgramDetails) return@produceState
++        if (!settings.showProgramDetails || !settings.showPosters) return@produceState
+         // 24/7 channels with no real listings (no guide, or one long block named after the
+         // channel): the show's poster, by the channel's name.
+         val ch = headerChannel
+@@ -894,7 +894,7 @@ private fun PetalixLiveSession(
+         if (LiveTvRepository.isPlaceholderTitle(p.title)) return@produceState // channel logo
+         value = p.icon
+         delay(250) // don't look up every show while scrolling quickly
+-        viewModel.posterFor(p.title, p, headerChannel)?.let { value = it }
++        viewModel.guideBackdrop(p.title, p, headerChannel)?.let { value = it }
+     }
+ 
+     fun ensureRowVisible(target: Int) {
+@@ -2661,7 +2661,7 @@ private fun GuideHeader(
+             Box(
+                 modifier = Modifier
+                     .fillMaxHeight()
+-                    .aspectRatio(2f / 3f)
++                    .aspectRatio(16f / 9f)
+                     .clip(posterShape)
+                     .background(guideSurface())
+                     .border(1.dp, Color.White.copy(alpha = 0.10f), posterShape),
+@@ -2672,12 +2672,9 @@ private fun GuideHeader(
+                     ?.takeIf { block != null && now in block.startMs until block.stopMs }
+                 if (game != null) {
+                     com.nuvio.tv.livetv.sports.SportsPosterCard(game, Modifier.fillMaxSize())
+-                } else if (!poster.isNullOrBlank()) {
+-                    LivePosterImage(poster, Modifier.fillMaxSize()) {
+-                        ChannelLogo(channel.logo, if (small) 24.dp else 34.dp)
+-                    }
+                 } else {
+-                    ChannelLogo(channel.logo, if (small) 24.dp else 34.dp)
++                    PetalixGuideProgramArt(listOfNotNull(poster), channel, channel.name,
++                        settings.showChannelLogos, Modifier.fillMaxSize())
+                 }
+             }
+         }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt
+index 5fdfe2f..985d433 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt
+@@ -306,20 +306,9 @@ internal fun LiveTvPlayerPanel(
+                 // ---- left: the poster, or the channel's logo on a tile
+                 if (showPoster) {
+                     val shape = RoundedCornerShape(10.dp)
+-                    // As tall as the middle column, so the gap above and below it matches the one
+-                    // on its left (never smaller than before), and 2:3 like a poster.
+-                    val posterHeight = maxOf(76.dp, middleHeight)
+-                    Box(
+-                        Modifier.width(posterHeight * (52f / 76f)).height(posterHeight).clip(shape)
+-                            .background(colors.BackgroundCard.copy(alpha = 0.85f))
+-                            .border(1.dp, Color.White.copy(alpha = 0.12f), shape),
+-                        contentAlignment = Alignment.Center
+-                    ) {
+-                        if (!poster.isNullOrBlank()) LivePosterImage(poster, Modifier.fillMaxSize()) {
+-                            ChannelLogo(channel.logo, maxOf(30.dp, posterHeight * 0.4f))
+-                        }
+-                        else ChannelLogo(channel.logo, maxOf(30.dp, posterHeight * 0.4f))
+-                    }
++                    val posterHeight = middleHeight.coerceIn(64.dp, 100.dp)
++                    PetalixGuideProgramArt(listOfNotNull(poster), channel, channel.name, showChannel,
++                        Modifier.width(posterHeight * (16f / 9f)).height(posterHeight).clip(shape))
+                     Spacer(Modifier.width(14.dp))
+                 } else if (showChannel && !channel.logo.isNullOrBlank()) {
+                     Box(
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
+index 41a3277..c8e3255 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
+@@ -498,7 +498,7 @@ fun LiveTvPlayerScreen(
+         value = null
+         // In archive playback the guide entry isn't the live one, so no movie/series hint.
+         val hintProgram = if (playback.catchupTitle == null) nowProgram else null
+-        value = watchingTitle?.let { viewModel.posterFor(it, hintProgram, current) }
++        value = watchingTitle?.let { viewModel.guideBackdrop(it, hintProgram, current) ?: hintProgram?.icon }
+             // A 24/7 channel with no guide: the show's poster, by the channel's name.
+             ?: current?.takeIf { playback.catchupTitle == null }?.let { viewModel.channelPoster(it, hintProgram) }
+             ?: hintProgram?.takeIf { !LiveTvRepository.isPlaceholderTitle(it.title) }?.icon
+@@ -967,7 +967,7 @@ fun LiveTvPlayerScreen(
+         val browsePoster by androidx.compose.runtime.produceState<String?>(initialValue = null, settledBrowseKey, browseProgram?.title) {
+             value = null
+             val c = browseChannel?.takeIf { settledBrowseKey == it.key } ?: return@produceState
+-            value = browseProgram?.title?.let { viewModel.posterFor(it, browseProgram, c) }
++            value = browseProgram?.title?.let { viewModel.guideBackdrop(it, browseProgram, c) ?: browseProgram?.icon }
+                 ?: viewModel.channelPoster(c, browseProgram)
+                 ?: browseProgram?.takeIf { !LiveTvRepository.isPlaceholderTitle(it.title) }?.icon
+         }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+index 83d45f1..1a6100c 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+@@ -1124,6 +1124,12 @@ class LiveTvViewModel @Inject constructor(
+     }
+ 
+     /** The poster Nuvio's catalogs would show for this program, or null if there's no good match. */
++    suspend fun guideBackdrop(title: String, program: EpgProgram?, channel: LiveChannel?): String? {
++        if (!settings.value.showPosters || com.nuvio.tv.livetv.data.LiveTvPosterResolver.isSports(channel, program)) return null
++        val meta = posterResolver.titleFor(title)?.meta ?: return null
++        return meta.background?.takeIf { it.isNotBlank() } ?: meta.landscapePoster
++    }
++
+     suspend fun posterFor(
+         programTitle: String,
+         program: EpgProgram? = null,
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+index 1043772..117f191 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+@@ -78,14 +78,16 @@ internal fun PetalixGlassHero(
+     val title = program?.title?.takeUnless { it == NO_GUIDE_TITLE }?.let { titleMarks(it).title }
+     BoxWithConstraints(modifier.fillMaxWidth().clipToBounds()) {
+         if (previewPlaying && settings.showPreview) {
+-            Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(.56f).fillMaxHeight(.98f)
++            Box(Modifier.align(Alignment.CenterEnd).widthIn(max = maxWidth * .48f).heightIn(max = maxHeight).aspectRatio(16f / 9f)
+                 .onGloballyPositioned { onBounds(it.boundsInRoot()) })
+             DisposableEffect(Unit) { onDispose { onBounds(null) } }
+         } else if (settings.showPosters && settings.showProgramDetails) {
+-            val candidates = listOfNotNull(about?.background, about?.landscapePoster, details?.icon, poster, about?.poster)
++            val candidates = listOfNotNull(about?.background, about?.landscapePoster, poster, details?.icon)
+                 .filter { it.isNotBlank() && it != channel?.logo && it !in channel?.guideLogoFallbacks.orEmpty() }
+                 .mapNotNull { petalixArtwork(it, 1280) }.distinct()
+-            PetalixGuideProgramArt(candidates, Modifier.align(Alignment.TopEnd).fillMaxWidth(.56f).fillMaxHeight(.98f))
++            PetalixGuideProgramArt(candidates, channel, name, settings.showChannelLogos,
++                Modifier.align(Alignment.CenterEnd).widthIn(max = maxWidth * .48f)
++                    .heightIn(max = maxHeight).aspectRatio(16f / 9f))
+         }
+         if (settings.showProgramDetails && channel != null) {
+             val short = maxHeight < 166.dp || compact
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideArtwork.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideArtwork.kt
+index b57eb24..f16c265 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideArtwork.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGuideArtwork.kt
+@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.layout.ContentScale
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.unit.Dp
++import androidx.compose.ui.unit.sp
+ import androidx.compose.ui.unit.dp
+ import coil3.compose.AsyncImage
+ import coil3.request.ImageRequest
+@@ -81,39 +82,27 @@ internal fun PetalixGuideLogo(
+ }
+ 
+ @Composable
+-internal fun PetalixGuideProgramArt(candidates: List<String>, modifier: Modifier = Modifier) {
++internal fun PetalixGuideProgramArt(candidates: List<String>, channel: LiveChannel?, name: String, showLogo: Boolean, modifier: Modifier = Modifier) {
+     var index by remember(candidates) { mutableIntStateOf(0) }
+-    val url = candidates.getOrNull(index) ?: return
+-    var artworkType by remember(url) { mutableStateOf<PetalixGuideArtworkType?>(null) }
+-    val context = LocalContext.current
+-    val revalidation = com.nuvio.tv.core.image.rememberImageRevalidationKey(url)
+-    val request = remember(context, url, revalidation) {
+-        ImageRequest.Builder(context).data(url)
+-            .memoryCacheKey("$url:petalix-guide-art:$revalidation")
+-            .size(1280, 720).scale(Scale.FIT).precision(Precision.INEXACT).build()
+-    }
+-    Box(modifier, contentAlignment = Alignment.CenterEnd) {
+-        val landscape = artworkType == PetalixGuideArtworkType.LANDSCAPE
+-        val artModifier = if (landscape) {
+-            Modifier.fillMaxSize()
+-                .clip(RoundedCornerShape(bottomStart = 16.dp))
+-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+-                .drawWithCache {
+-                    val left = Brush.horizontalGradient(0f to Color.Transparent, .44f to Color.Black)
+-                    val bottom = Brush.verticalGradient(.61f to Color.Black, 1f to Color.Transparent)
+-                    onDrawWithContent {
+-                        drawContent()
+-                        drawRect(left, blendMode = BlendMode.DstIn)
+-                        drawRect(bottom, blendMode = BlendMode.DstIn)
+-                    }
+-                }
+-        } else {
+-            Modifier.padding(end = 28.dp, top = 12.dp, bottom = 16.dp)
+-                .fillMaxHeight().fillMaxWidth(.42f).clip(RoundedCornerShape(12.dp))
++    Box(modifier.clip(RoundedCornerShape(12.dp)).background(GlassPanel), contentAlignment = Alignment.Center) {
++        val url = candidates.getOrNull(index)
++        var artworkType by remember(url) { mutableStateOf<PetalixGuideArtworkType?>(null) }
++        if (artworkType == null) {
++            var hasLogo by remember(channel?.key, showLogo) { mutableStateOf(false) }
++            if (!hasLogo) LiveText(name, color = GlassMuted, size = 18.sp)
++            if (channel != null && showLogo) PetalixGuideLogo(channel, 112.dp, 62.dp) { hasLogo = it }
++        }
++        if (url == null) return@Box
++        val context = LocalContext.current
++        val revalidation = com.nuvio.tv.core.image.rememberImageRevalidationKey(url)
++        val request = remember(context, url, revalidation) {
++            ImageRequest.Builder(context).data(url)
++                .memoryCacheKey("$url:petalix-guide-art:$revalidation")
++                .size(1280, 720).scale(Scale.FIT).precision(Precision.INEXACT).build()
+         }
+         AsyncImage(
+-            model = request, contentDescription = null, modifier = artModifier,
+-            contentScale = if (landscape) ContentScale.Crop else ContentScale.Fit,
++            model = request, contentDescription = null, modifier = Modifier.fillMaxSize(),
++            contentScale = ContentScale.Crop,
+             alpha = if (artworkType != null) 1f else 0f,
+             onSuccess = {
+                 val image = it.result.image
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixArtwork.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixArtwork.kt
+index 1f1dd88..1d8176f 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixArtwork.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixArtwork.kt
+@@ -12,12 +12,11 @@ internal fun petalixArtwork(url: String?, width: Int): String? {
+ }
+ 
+ internal enum class PetalixGuideArtworkType {
+-    LANDSCAPE, POSTER
++    LANDSCAPE
+ }
+ 
+ /** Tiny EPG icons shouldn't be expanded across the preview area. */
+ internal fun petalixGuideArtworkType(width: Int, height: Int): PetalixGuideArtworkType? = when {
+     width >= 560 && height >= 270 && width >= height * 1.3f -> PetalixGuideArtworkType.LANDSCAPE
+-    width >= 180 && height >= 270 && width < height -> PetalixGuideArtworkType.POSTER
+     else -> null
+ }
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt
+index 63404c5..843f8ad 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt
+@@ -8,7 +8,8 @@ data class PetalixHomeLayout(
+     val showRecentLiveTv: Boolean = true,
+     val showServices: Boolean = true,
+     val charts: Set<String> = setOf("trending/movie/day", "trending/tv/day"),
+-    val serviceArtwork: Map<String, String> = emptyMap()
++    val serviceArtwork: Map<String, String> = emptyMap(),
++    val hiddenToolbarTabs: Set<String> = setOf("library")
+ ) {
+     companion object {
+         fun from(values: Map<String, Any>): PetalixHomeLayout {
+@@ -29,7 +30,9 @@ data class PetalixHomeLayout(
+                 charts = PetalixCatalogPolicy.charts.filter {
+                     enabled(it.preference, it.defaultEnabled)
+                 }.map { it.path }.toSet(),
+-                serviceArtwork = artwork
++                serviceArtwork = artwork,
++                hiddenToolbarTabs = listOf("search", "library", "live_tv", "sports", "movies", "series")
++                    .filterNot { enabled("petalix_toolbar_$it", it != "library") }.toSet()
+             )
+         }
+     }
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceMedia.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceMedia.kt
+index b4ee04d..6c1b10f 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceMedia.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceMedia.kt
+@@ -148,7 +148,11 @@ private fun PetalixOriginalServiceVideo(videoUri: String, modifier: Modifier, on
+     var firstFrame by remember(player) { mutableStateOf(false) }
+     val videoAlpha by animateFloatAsState(if (firstFrame) 1f else 0f, tween(160), label = "serviceClipReveal")
+     AndroidView(
+-        modifier = modifier.graphicsLayer { alpha = videoAlpha },
++        modifier = modifier.graphicsLayer {
++            alpha = videoAlpha
++            blendMode = androidx.compose.ui.graphics.BlendMode.Screen
++            compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
++        },
+         factory = { ctx ->
+             (LayoutInflater.from(ctx).inflate(R.layout.petalix_service_media_tile, null) as PlayerView).apply {
+                 useController = false
+diff --git a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+index a09dc7a..62fd7e9 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+@@ -361,6 +361,7 @@ private fun PlaybackNavHost(
+                             navController.navigate(Screen.OnDemand.route) { launchSingleTop = true }
+                         }
+                         com.nuvio.tv.ui.screens.home.HomeTab.SPORTS -> navController.navigate(Screen.Sports.route) { launchSingleTop = true }
++                        com.nuvio.tv.ui.screens.home.HomeTab.LIBRARY -> navController.navigate(Screen.Library.route) { launchSingleTop = true }
+                         com.nuvio.tv.ui.screens.home.HomeTab.SETTINGS -> navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+                     }
+                 },
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt
+index 0e6d3d6..4100d8e 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt
+@@ -30,18 +30,19 @@ import com.nuvio.tv.ui.theme.ThemeColors
+ import androidx.tv.material3.Text
+ 
+ internal enum class HomeTab(val label: String) {
+-    HOME("Home"), SEARCH("Search"), LIVE("Live TV"), SPORTS("Sports"), MOVIES("Movies"), SERIES("Series"), SETTINGS("Settings")
++    HOME("Home"), SEARCH("Search"), LIBRARY("Library"), LIVE("Live TV"), SPORTS("Sports"), MOVIES("Movies"), SERIES("Series"), SETTINGS("Settings")
+ }
+ 
+ internal val LocalPetalixHomeTab = staticCompositionLocalOf<((HomeTab) -> Unit)?> { null }
+ 
+ @Composable
+ internal fun PetalixHomeNavigation(modifier: Modifier, contentFocus: FocusRequester, open: (HomeTab) -> Unit) {
++    val hidden = com.nuvio.tv.petalix.petalixHomeLayout().hiddenToolbarTabs
+     val shape = RoundedCornerShape(24.dp)
+     Row(modifier.alpha(if (com.nuvio.tv.LocalSidebarExpanded.current) 0f else 1f)
+         .clip(shape).background(Color(0xE5161719)).padding(4.dp),
+         horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+-        HomeTab.entries.forEach { tab ->
++        HomeTab.entries.filterNot { (if (it == HomeTab.LIVE) "live_tv" else it.name.lowercase()) in hidden }.forEach { tab ->
+             PetalixDestination(tab.label, tab == HomeTab.HOME, Modifier.onPreviewKeyEvent {
+                 if (it.type == KeyEventType.KeyDown && it.key == Key.DirectionDown)
+                     runCatching { contentFocus.requestFocus(FocusDirection.Enter) }.getOrDefault(false)
+diff --git a/app/src/test/java/com/nuvio/tv/petalix/PetalixArtworkTest.kt b/app/src/test/java/com/nuvio/tv/petalix/PetalixArtworkTest.kt
+index 70a06d9..78a3a9b 100644
+--- a/app/src/test/java/com/nuvio/tv/petalix/PetalixArtworkTest.kt
++++ b/app/src/test/java/com/nuvio/tv/petalix/PetalixArtworkTest.kt
+@@ -25,7 +25,7 @@ class PetalixArtworkTest {
+     @Test
+     fun guideFiltersTinyImagesAndKeepsPortraitsOutOfTheWidePreview() {
+         assertEquals(PetalixGuideArtworkType.LANDSCAPE, petalixGuideArtworkType(1280, 720))
+-        assertEquals(PetalixGuideArtworkType.POSTER, petalixGuideArtworkType(480, 720))
++        assertNull(petalixGuideArtworkType(480, 720))
+         assertNull(petalixGuideArtworkType(320, 180))
+         assertNull(petalixGuideArtworkType(300, 300))
+     }
