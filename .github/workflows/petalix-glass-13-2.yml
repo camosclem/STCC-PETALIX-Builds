@@ -35,7 +35,7 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/ghc
           python3 -m pip install --disable-pip-version-check Pillow
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; fi
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
       - name: Verify offline service artwork
         run: python3 -m unittest discover -s tooling/petalix-stock -p 'test_service_artwork.py' -q
@@ -111,7 +111,7 @@ jobs:
           info = subprocess.check_output([sdk / 'aapt', 'dump', 'badging', apk], text=True)
           signature = subprocess.check_output([sdk / 'apksigner', 'verify', '--verbose', '--print-certs', apk], text=True)
           version = int(os.environ['VERSION'])
-          assert version > 1795141775
+          assert version > 1795179916
           assert f"name='com.petalix.iptv.hometest' versionCode='{version}'" in info.splitlines()[0], info.splitlines()[0]
           assert 'leanback-launchable-activity:' in info or 'android.software.leanback' in info
           import zipfile
@@ -136,4 +136,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
-          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual update for Petalix Home Test on ARM Android TV. Silver focus, charcoal glass and red accents inspired by the Petalix logo across the guide, play bar and Guide Settings. Sports Hub uses its own filters and Back navigation. In Live TV, press Left for channel categories. My Locals uses your saved stations or favorited local affiliates. Screenshots use sample TV listings."
+          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual update for Petalix Home Test on ARM Android TV. This build removes Browse Live TV from Home, rounds the guide, tries larger channel logo and program art sources, and shows one synopsis on streaming-service detail screens. Screenshots use sample listings and titles."

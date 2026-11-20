@@ -43,9 +43,10 @@ def prepare(root):
     for name in ("PetalixGlassSurface.kt", "PetalixGlassCategories.kt", "PetalixGuideMetrics.kt"):
         copy2(HERE / name, java / "livetv/ui" / name)
     subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "polish.patch")], cwd=root, check=True)
+    subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "artwork.patch")], cwd=root, check=True)
     rmtree(root / "app/src/main/assets/petalix/remote-guide")
     tests = root / "app/src/test/java/com/nuvio/tv/petalix"
-    for name in ("PetalixGlassGuideTest.kt", "PetalixSportsUpdateTest.kt"):
+    for name in ("PetalixGlassGuideTest.kt", "PetalixSportsUpdateTest.kt", "PetalixArtworkTest.kt"):
         copy2(HERE / name, tests / name)
     device_tests = root / "app/src/petalixGuideAndroidTest/java"
     ui_tests = device_tests / "com/nuvio/tv/petalix"

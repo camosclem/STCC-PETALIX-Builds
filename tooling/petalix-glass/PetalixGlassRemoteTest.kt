@@ -103,6 +103,34 @@ class PetalixGlassRemoteTest {
         compose.runOnIdle { assertEquals(channels[1].key, tuned) }
     }
 
+    @Test fun netflixDetailsShowOneTitleAndOneSynopsis() {
+        val service = checkNotNull(com.nuvio.tv.petalix.ui2.PetalixServices.find("netflix"))
+        val title = "Never Surrender"
+        val synopsis = "The crew makes one last attempt to reach safety."
+        val meta = com.nuvio.tv.domain.model.Meta(
+            id = "sample", type = com.nuvio.tv.domain.model.ContentType.MOVIE,
+            name = title, poster = null, posterShape = com.nuvio.tv.domain.model.PosterShape.POSTER,
+            background = "file:///android_asset/petalix/home-art/live/news.jpg", logo = null,
+            description = synopsis, releaseInfo = "2026", imdbRating = 7.6f,
+            genres = listOf("Drama"), runtime = "109 min", director = emptyList(),
+            cast = listOf("Taylor James"), videos = emptyList(), country = null, awards = null,
+            language = null, links = emptyList(),
+        )
+        compose.setContent {
+            NuvioTheme {
+                com.nuvio.tv.petalix.ui2.PetalixServiceDetails(service,
+                    com.nuvio.tv.ui.screens.detail.MetaDetailsUiState(meta = meta, tmdbRating = 8.0f),
+                    playLabel = "Play", canPlay = true, onPlay = {}, onEpisode = {}, onSeason = {},
+                    onLibrary = {}, onBack = {}, returnSeason = null, returnEpisode = null, onReturnConsumed = {})
+            }
+        }
+        compose.onAllNodesWithText(title).assertCountEquals(1)
+        compose.onAllNodesWithText(synopsis).assertCountEquals(1)
+        compose.onNodeWithText("About Never Surrender").assertDoesNotExist()
+        compose.onNodeWithText("Play").assertIsDisplayed()
+        capture("Petalix-Service-Details.png")
+    }
+
     @Test fun backFromSportsReturnsToHome() {
         sportsNavigation(startRoute = Screen.Home.route)
         compose.onNodeWithText("Open Sports Hub").performClick()
