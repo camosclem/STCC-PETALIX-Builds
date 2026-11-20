@@ -1,0 +1,131 @@
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandRepository.kt b/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandRepository.kt
+--- a/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandRepository.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandRepository.kt
+@@ -305,26 +305,26 @@
+             lastProblem = null
+             // Movies and series import separately, so a problem with one keeps the other.
+             val movies = runCatching { importKind(pl, VodKind.MOVIE) }
+-<<<<<<< PETALIX
+-                .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; Log.w(TAG, "Movies for ${pl.name} failed", it); lastProblem = "Couldn't import movies from ${pl.name}: ${it.message ?: it.javaClass.simpleName}" }
++                .onFailure { error ->
++                    if (error is kotlinx.coroutines.CancellationException) throw error
++                    val problem = problemText(pl, error)
++                    if (pl.isStalker) Log.w(TAG, "Movies for ${pl.name} failed: $problem")
++                    else Log.w(TAG, "Movies for ${pl.name} failed", error)
++                    lastProblem = text(R.string.iptv_status_import_movies_failed, pl.name, problem)
++                }
+             _hasContent.value = runCatching { db.hasAny() }.getOrDefault(_hasContent.value)
+             _version.value++
+-||||||| BETA1
+-                .onFailure { Log.w(TAG, "Movies for ${pl.name} failed", it); lastProblem = text(R.string.iptv_status_import_movies_failed, pl.name, it.message ?: it.javaClass.simpleName) }
+-=======
+-                .onFailure { if (pl.isStalker) Log.w(TAG, "Movies for ${pl.name} failed: ${problemText(pl, it)}") else Log.w(TAG, "Movies for ${pl.name} failed", it); lastProblem = text(R.string.iptv_status_import_movies_failed, pl.name, problemText(pl, it)) }
+->>>>>>> BETA2
+             if (!force) com.nuvio.tv.livetv.data.BackgroundWork.awaitIdle()
+             if (!force) com.nuvio.tv.livetv.data.BackgroundWork.awaitNoHeavy()
+             val series = runCatching { importKind(pl, VodKind.SERIES) }
+-<<<<<<< PETALIX
+-                .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; Log.w(TAG, "Series for ${pl.name} failed", it); lastProblem = "Couldn't import series from ${pl.name}: ${it.message ?: it.javaClass.simpleName}" }
++                .onFailure { error ->
++                    if (error is kotlinx.coroutines.CancellationException) throw error
++                    val problem = problemText(pl, error)
++                    if (pl.isStalker) Log.w(TAG, "Series for ${pl.name} failed: $problem")
++                    else Log.w(TAG, "Series for ${pl.name} failed", error)
++                    lastProblem = text(R.string.iptv_status_import_series_failed, pl.name, problem)
++                }
+             _hasContent.value = runCatching { db.hasAny() }.getOrDefault(_hasContent.value)
+-||||||| BETA1
+-                .onFailure { Log.w(TAG, "Series for ${pl.name} failed", it); lastProblem = text(R.string.iptv_status_import_series_failed, pl.name, it.message ?: it.javaClass.simpleName) }
+-=======
+-                .onFailure { if (pl.isStalker) Log.w(TAG, "Series for ${pl.name} failed: ${problemText(pl, it)}") else Log.w(TAG, "Series for ${pl.name} failed", it); lastProblem = text(R.string.iptv_status_import_series_failed, pl.name, problemText(pl, it)) }
+->>>>>>> BETA2
+             val ok = movies.isSuccess && series.isSuccess && lastProblem == null
+             lastProblem?.let { problemByPlaylist[pl.id] = it } ?: problemByPlaylist.remove(pl.id)
+             // Success: next import in a day. Failure: try again in an hour, not on every start.
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+@@ -229,19 +229,10 @@
+     // The card last highlighted (not page state: moving the highlight mustn't redraw the page).
+     val rowFocus = remember { arrayOfNulls<String>(1) }
+     var rowsReturning by remember { mutableStateOf(false) }
+-<<<<<<< PETALIX
+     // Left from the page's left edge: up to the top bar's first button (see leftJumpsToTop).
+     val sportsFirstChip = remember { FocusRequester() }
+     var topBarFocused by remember { mutableStateOf(false) }
+     val scope = androidx.compose.runtime.rememberCoroutineScope()
+-||||||| BETA1
+-=======
+-    // Left from the page's left edge: up to the top bar's first button (see leftJumpsToTop).
+-    val sportsFirstChip = remember { FocusRequester() }
+-    var topBarFocused by remember { mutableStateOf(false) }
+-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+-    val openSidebar = com.nuvio.tv.LocalOpenSidebar.current
+->>>>>>> BETA2
+
+     // ---- the video window: the shared player, shown where the page puts its slot
+     val videoOn = settings.videoWindow && hasChannels
+@@ -380,7 +371,6 @@
+                     }
+                 }
+             )
+-<<<<<<< PETALIX
+             else -> Box(
+                 Modifier.fillMaxSize().leftJumpsToTop(
+                     atTop = { topBarFocused },
+@@ -397,26 +387,6 @@
+             ) { SportsHub(
+                 firstChip = sportsFirstChip,
+                 onTopBarFocus = { topBarFocused = it },
+-||||||| BETA1
+-            else -> SportsHub(
+-=======
+-            else -> Box(
+-                Modifier.fillMaxSize().leftJumpsToTop(
+-                    atTop = { topBarFocused },
+-                    toTop = {
+-                        // Back up to the top bar (its first button, so one more Left opens Nuvio's menu).
+-                        scope.launch {
+-                            runCatching { listState.scrollToItem(0) }
+-                            runCatching { rowsState.scrollToItem(0) }
+-                            repeat(2) { androidx.compose.runtime.withFrameNanos { } }
+-                            if (runCatching { sportsFirstChip.requestFocus() }.isFailure) openSidebar()
+-                        }
+-                    }
+-                )
+-            ) { SportsHub(
+-                firstChip = sportsFirstChip,
+-                onTopBarFocus = { topBarFocused = it },
+->>>>>>> BETA2
+                 events = events,
+                 known = known,
+                 rowsState = rowsState,
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixCableGuide.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixCableGuide.kt
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixCableGuide.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixCableGuide.kt
+@@ -82,7 +82,7 @@
+     var heldOk by remember { mutableStateOf(false) }
+
+     fun step(steps: Int) {
+-        val archiveDays = channel?.catchup?.days?.coerceIn(0, 7) ?: 0
++        val archiveDays = channel?.catchup?.days?.coerceIn(0, 14) ?: 0
+         val archiveHours = minOf(archiveDays * 24, settings.epgPastHours.coerceAtLeast(0))
+         val earliest = if (archiveHours == 0) now else now - archiveHours * 3_600_000L
+         val latest = now + settings.epgFutureDays.coerceAtLeast(0) * 86_400_000L
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt
+@@ -103,7 +103,12 @@
+                         if (down) key = entries[(index + if (e.key == Key.DirectionUp) -1 else 1).coerceIn(entries.indices)].key
+                         true
+                     }
+-                    Key.DirectionLeft -> { if (!down) onClose(); true }
++                    Key.DirectionLeft -> {
++                        if (!down && !keyEvent.isCanceled) {
++                            if (index > 0) key = entries.first().key else onClose()
++                        }
++                        true
++                    }
+                     Key.DirectionRight -> { if (!down) choose(entries[index], false); true }
+                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                         if (down && keyEvent.repeatCount == 0) held = false

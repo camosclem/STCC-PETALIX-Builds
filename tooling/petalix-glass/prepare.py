@@ -69,6 +69,9 @@ tasks.withType<Test>().configureEach {
 }
 """)
     copy2(HERE / "NOTICE.txt", root / "app/src/main/assets/petalix/guide-notice.txt")
+    sys.path.insert(0, str(HERE.parent / "petalix-stock"))
+    from upgrade_121 import apply as apply_beta_2_1
+    apply_beta_2_1(root)
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())
