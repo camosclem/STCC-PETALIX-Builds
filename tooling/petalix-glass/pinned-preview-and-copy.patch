@@ -1,0 +1,229 @@
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+index e098f6f..f83cba8 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -889,6 +889,8 @@ private fun PetalixLiveSession(
+         val airing = remember(headerPrograms) { PetalixAirtimes(headerPrograms) }.at(now)
+         GuideBlock(airing.start, airing.end, airing.program)
+     } else focusedBlock
++    // Browsing changes the program details, while the preview follows the player.
++    val showLivePreview = settings.showPreview && playback.channelKey != null
+     val headerProgramKey = headerChannel?.key to headerBlock?.program?.startMs
+     val headerPoster by androidx.compose.runtime.key(headerProgramKey) { androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey, settings.showPosters, settings.showProgramDetails) {
+         value = null
+@@ -1220,7 +1222,7 @@ private fun PetalixLiveSession(
+                 windowStart, if (column == GuideColumn.CHANNEL) now else cursorMs, row, groupsOpen,
+                 listState, gridFocus, { gridFocused = it }, controls) { modifier ->
+                 PetalixGlassHero(headerChannel, headerBlock?.program, headerPoster, selectedGroupTitle,
+-                    settings, now, headerChannel != null && headerChannel.key == playback.channelKey && headerBlock?.program?.isLive(now) != false, { previewBounds = it }, ::focusGroups, modifier)
++                    settings, now, showLivePreview, { previewBounds = it }, ::focusGroups, modifier)
+             }
+         } else if (!fullscreen) Column(
+             modifier = Modifier
+@@ -1232,7 +1234,7 @@ private fun PetalixLiveSession(
+         ) {
+             // Group editing keeps the remote inside the category list.
+             if (!editingGroups) PetalixGlassHero(headerChannel, headerBlock?.program, headerPoster, selectedGroupTitle,
+-                settings, now, headerChannel != null && headerChannel.key == playback.channelKey && headerBlock?.program?.isLive(now) != false, { previewBounds = it }, ::focusGroups,
++                settings, now, showLivePreview, { previewBounds = it }, ::focusGroups,
+                 Modifier.height(if (settings.smallHeader) 110.dp else 145.dp))
+ 
+             // ---------------------------------------------------------------- groups + guide
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+index 512abb6..523c2fc 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+@@ -65,7 +65,7 @@ internal fun Modifier.glassPreviewFade(preview: Rect, root: Rect) = drawWithCach
+ @Composable
+ internal fun PetalixGlassHero(
+     channel: LiveChannel?, program: EpgProgram?, poster: String?, group: String,
+-    settings: LiveTvSettings, now: Long, previewPlaying: Boolean,
++    settings: LiveTvSettings, now: Long, showLivePreview: Boolean,
+     onBounds: (Rect?) -> Unit, openCategories: () -> Unit, modifier: Modifier = Modifier,
+ ) {
+     val compact = settings.smallHeader
+@@ -77,7 +77,7 @@ internal fun PetalixGlassHero(
+     val name = channel?.let { petalixCleanChannelName(it.name).ifBlank { it.name } }.orEmpty()
+     val title = program?.title?.takeUnless { it == NO_GUIDE_TITLE }?.let { titleMarks(it).title }
+     BoxWithConstraints(modifier.fillMaxWidth().clipToBounds()) {
+-        if (previewPlaying && settings.showPreview) {
++        if (showLivePreview) {
+             Box(Modifier.align(Alignment.CenterEnd).widthIn(max = maxWidth * .48f).heightIn(max = maxHeight).aspectRatio(16f / 9f)
+                 .onGloballyPositioned { onBounds(it.boundsInRoot()) })
+             DisposableEffect(Unit) { onDispose { onBounds(null) } }
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
+index 22ca70b..ebadf98 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
+@@ -21,17 +21,4 @@ internal fun petalixServiceArtworkUri(folderId: String): String? =
+     else -> null
+ }
+ 
+-internal fun petalixServiceTagline(folderId: String): String? = when (folderId) {
+-    "folder-WFGY1XPD" -> "Movies, TV Shows & Originals"
+-    "folder-AT8KYHZO" -> "Movies, TV Shows & Originals"
+-    "folder-8ZBZOMW9" -> "Disney, Pixar, Marvel & More"
+-    "folder-LN9SPMQN" -> "TV Shows, Movies & Originals"
+-    "folder-OA4T8NYO" -> "HBO Originals, Movies & More"
+-    "folder-IQTF27K8" -> "Apple Original Shows & Movies"
+-    "folder-9YQK1ZF1" -> "TV, Movies & Live Sports"
+-    "folder-ILJM8PD0" -> "A Mountain of Entertainment"
+-    "folder-petalix-britbox" -> "The Best of British TV"
+-    else -> null
+-}
+-
+ private fun homeArtworkUri(name: String) = "file:///android_asset/petalix/home-art/$name.webp"
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
+index d342405..6f66f95 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
+@@ -118,8 +118,14 @@ fun DistinctPetalixServiceScreen(onHome: () -> Unit, onDetail: (String,String,St
+             Box(Modifier.weight(1f)) {
+                 when {
+                     view==HubView.COLLECTIONS && collection==null && !search -> HubCollectionBrowser(page)
+-                    search || view!=HubView.HOME || collection!=null -> HubResults(page,visible,
+-                        collection ?: if(search) if(query.isBlank())"Explore ${service.name}" else if(visible.isEmpty() && !searchState.loading)"No verified matches. Try another title or load the next page." else "${visible.size} results on ${service.name}" else if(view==HubView.MOVIES) "Movies" else "TV Shows")
++                    search || view != HubView.HOME || collection != null -> {
++                        val heading = when {
++                            collection != null -> collection
++                            search && query.isNotBlank() && visible.isNotEmpty() -> "${visible.size} results"
++                            else -> null
++                        }
++                        HubResults(page, visible, heading, showEmpty = !search || (query.isNotBlank() && !searchState.loading))
++                    }
+                     service.id=="netflix" -> NetflixLanding(page)
+                     service.id=="disney" -> DisneyLanding(page)
+                     service.id=="prime" -> PrimeLanding(page)
+@@ -174,10 +180,9 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+ @Composable private fun HubTitle(text:String,accent:Color=Color.White) {
+     Text(text,color=accent,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=28.dp,vertical=10.dp))
+ }
+-@Composable private fun HubHeroCopy(p:HubPage,center:Boolean=false,eyebrow:String="",large:Boolean=false) {
++@Composable private fun HubHeroCopy(p:HubPage,center:Boolean=false,large:Boolean=false) {
+     Column(Modifier.widthIn(max=if(center)650.dp else 440.dp).padding(24.dp),
+         horizontalAlignment=if(center)Alignment.CenterHorizontally else Alignment.Start,verticalArrangement=Arrangement.spacedBy(10.dp)) {
+-        if(eyebrow.isNotBlank())Text(eyebrow,color=p.service.accent,fontWeight=FontWeight.Bold,fontSize=12.sp,letterSpacing=2.sp)
+         Text(p.hero?.name ?: p.service.name,color=Color.White,fontWeight=FontWeight.Black,fontSize=if(large)40.sp else 30.sp,maxLines=2,overflow=TextOverflow.Ellipsis)
+         p.hero?.let { meta ->
+             Text(meta.description.orEmpty(),color=Color(0xFFD9DFE8),fontSize=13.sp,maxLines=2,overflow=TextOverflow.Ellipsis)
+@@ -240,7 +245,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+                 HubBackdrop(p,Modifier.fillMaxSize())
+                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Black,Color.Black.copy(alpha=.3f),Color.Transparent))))
+                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,p.service.background))))
+-                Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p,eyebrow=if(p.hero?.type==ContentType.SERIES)"N  SERIES" else "N  FILM",large=true)}
++                Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p,large=true)}
+             }
+         }
+         p.rows.firstOrNull()?.let { row -> item("netflix-ranked"){HubShelf(p,row,width=252,ranked=true)} }
+@@ -254,7 +259,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+             Box(Modifier.fillMaxWidth().padding(horizontal=36.dp,vertical=16.dp).height(265.dp).clip(RoundedCornerShape(14.dp)).border(1.dp,Color(0xFF516FA8),RoundedCornerShape(14.dp))) {
+                 HubBackdrop(p,Modifier.fillMaxSize())
+                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF061236),Color.Transparent))))
+-                Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p,eyebrow="DISNEY+ SPOTLIGHT")}
++                Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p)}
+             }
+         }
+         item("disney-brand-deck"){HubCollections(p,height=112)}
+@@ -265,7 +270,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+         item("prime-feature-split") {
+             Row(Modifier.fillMaxWidth().height(286.dp).background(Color(0xFF001322)),verticalAlignment=Alignment.CenterVertically) {
+-                Box(Modifier.weight(.43f)){HubHeroCopy(p,eyebrow="prime video",large=true)}
++                Box(Modifier.weight(.43f)){HubHeroCopy(p,large=true)}
+                 Box(Modifier.weight(.57f).fillMaxHeight()) {
+                     HubBackdrop(p,Modifier.fillMaxSize())
+                     Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF001322),Color.Transparent))))
+@@ -281,7 +286,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+         item("hulu-feature-mosaic") {
+             Row(Modifier.fillMaxWidth().height(288.dp).padding(24.dp),horizontalArrangement=Arrangement.spacedBy(16.dp),verticalAlignment=Alignment.CenterVertically) {
+-                Box(Modifier.weight(1f)){HubHeroCopy(p,eyebrow="YOUR NEXT FAVORITE",large=true)}
++                Box(Modifier.weight(1f)){HubHeroCopy(p,large=true)}
+                 Box(Modifier.weight(1.05f).fillMaxHeight().clip(RoundedCornerShape(14.dp))){HubBackdrop(p,Modifier.fillMaxSize())}
+                 Column(Modifier.weight(.48f).fillMaxHeight(),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                     p.rows.drop(1).take(2).forEach { row ->
+@@ -304,7 +309,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+             Box(Modifier.fillMaxWidth().height(300.dp)) {
+                 HubBackdrop(p,Modifier.fillMaxSize())
+                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color(0xFF100C2B)))))
+-                Box(Modifier.align(Alignment.BottomCenter)){HubHeroCopy(p,center=true,eyebrow="THE SPOTLIGHT")}
++                Box(Modifier.align(Alignment.BottomCenter)){HubHeroCopy(p,center=true)}
+             }
+         }
+         item("max-editorial-duet"){HubDoubleFeature(p)}
+@@ -318,7 +323,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+             Box(Modifier.fillMaxWidth().height(286.dp)) {
+                 HubBackdrop(p,Modifier.fillMaxSize())
+                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF073EAA),Color.Transparent))))
+-                Box(Modifier.align(Alignment.CenterStart)){HubHeroCopy(p,eyebrow="PARAMOUNT+ FEATURED",large=true)}
++                Box(Modifier.align(Alignment.CenterStart)){HubHeroCopy(p,large=true)}
+             }
+         }
+         item("paramount-brand-circles"){HubCollections(p,shape="circles")}
+@@ -331,7 +336,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+             Box(Modifier.fillMaxWidth().height(360.dp)) {
+                 HubBackdrop(p,Modifier.fillMaxSize())
+                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black))))
+-                Box(Modifier.align(Alignment.BottomCenter)){HubHeroCopy(p,center=true,eyebrow="APPLE TV",large=true)}
++                Box(Modifier.align(Alignment.BottomCenter)){HubHeroCopy(p,center=true,large=true)}
+             }
+         }
+         p.rows.firstOrNull()?.let{item("apple-premiere-deck"){HubShelf(p,it,width=390)}}
+@@ -345,7 +350,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+             Box(Modifier.fillMaxWidth().height(284.dp).padding(start=28.dp,top=14.dp,end=28.dp)) {
+                 HubBackdrop(p,Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)))
+                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF080C11),Color.Transparent))))
+-                Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p,eyebrow="STREAM SOMETHING GREAT",large=true)}
++                Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p,large=true)}
+             }
+         }
+         item("peacock-content-pillars"){HubCollections(p,shape="type",height=58)}
+@@ -379,7 +384,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+                 Box(Modifier.weight(1.6f).fillMaxHeight().border(2.dp,p.service.accent,RoundedCornerShape(14.dp))) {
+                     HubBackdrop(p,Modifier.fillMaxSize())
+                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black))))
+-                    Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p,eyebrow="ON DEMAND SPOTLIGHT")}
++                    Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p)}
+                 }
+                 Column(Modifier.weight(.7f).fillMaxHeight(),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                     Text("KEEP EXPLORING",color=p.service.accent,fontSize=13.sp,fontWeight=FontWeight.Black)
+@@ -406,7 +411,7 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+                     HubBackdrop(p,Modifier.fillMaxSize())
+                 }
+                 Box(Modifier.weight(1f).fillMaxHeight().background(Color(0xFF261021),RoundedCornerShape(14.dp)),contentAlignment=Alignment.CenterStart) {
+-                    HubHeroCopy(p,eyebrow="BRITISH STORIES, BRILLIANTLY TOLD")
++                    HubHeroCopy(p)
+                 }
+             }
+         }
+@@ -431,12 +436,14 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+     }
+ }
+ @Composable private fun HubCollectionBrowser(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize()) {item{HubTitle("${p.service.name} collections");HubCollectionGrid(p)}}
++    LazyColumn(Modifier.fillMaxSize()) {item{HubCollectionGrid(p)}}
+ }
+-@Composable private fun HubResults(p:HubPage,titles:List<MetaPreview>,title:String) {
++@Composable private fun HubResults(p:HubPage,titles:List<MetaPreview>,title:String?,showEmpty:Boolean) {
+     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item{HubTitle(title)}
+-        if(titles.isEmpty())item{Text("No matching titles. Try another search or browse a collection.",color=Color.White,modifier=Modifier.padding(28.dp))}
++        if (title != null) item { HubTitle(title) }
++        if (showEmpty && titles.isEmpty()) item {
++            Text("No titles found", color = Color.White, modifier = Modifier.padding(28.dp))
++        }
+         items(titles.chunked(3),key={group->group.joinToString{"${it.apiType}:${it.id}"}}) { group ->
+             Row(Modifier.fillMaxWidth().padding(horizontal=28.dp,vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(18.dp)) {
+                 group.forEach { meta ->
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRows.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRows.kt
+index 705a63a..6aac2d6 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRows.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRows.kt
+@@ -1188,7 +1188,6 @@ private fun ModernCarouselCard(
+     val petalixArtwork = payload?.folderId?.let { homeLayout.serviceArtwork[it]
+         ?: com.nuvio.tv.petalix.petalixServiceArtworkUri(it) }
+     val imageUrl = petalixArtwork ?: petalixLogoUri ?: com.nuvio.tv.petalix.PetalixHomeRepairPolicy.thumbnail(baseImageUrl, item.heroPreview.poster)
+-    val serviceTagline = payload?.folderId?.let { com.nuvio.tv.petalix.petalixServiceTagline(it) }
+     // GIF overlay: shown on top of the base image only when focused and loaded
+     val focusGifUrl = when {
+         petalixArtwork != null -> null

@@ -74,6 +74,7 @@ tasks.withType<Test>().configureEach {
     apply_beta_2_1(root)
     subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "landscape-home.patch")], cwd=root, check=True)
     subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "shield-guide.patch")], cwd=root, check=True)
+    subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "pinned-preview-and-copy.patch")], cwd=root, check=True)
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())
