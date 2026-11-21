@@ -1,0 +1,166 @@
+diff --git a/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt b/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt
+index 2904954..3abba09 100644
+--- a/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt
++++ b/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt
+@@ -60,10 +60,12 @@ internal fun PetalixNavigationShell(
+             LocalSidebarExpanded provides expanded,
+             LocalContentFocusRequester provides contentFocus
+         ) {
+-            NuvioNavHost(
++            Box(Modifier.fillMaxSize().padding(top = if (expanded && currentRoute == Screen.OnDemand.route) 68.dp else 0.dp)) {
++                NuvioNavHost(
+                 navController = navController, startDestination = startDestination,
+                 hideBuiltInHeaders = false, discoverIsRoot = Screen.Discover.route in rootRoutes
+-            )
++                )
++            }
+         }
+         if (menuAvailable && expanded) {
+             val hidden = com.nuvio.tv.petalix.petalixHomeLayout().hiddenToolbarTabs
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+index 0263029..f491920 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+@@ -898,6 +898,16 @@ class LiveTvPreferences @Inject constructor(
+ 
+     // ---------- settings ----------
+ 
++    suspend fun toggleHomeChannelRow() {
++        store.edit { values ->
++            val source = values[Keys.homeRowSource] ?: LiveTvSettings().homeRowSource
++            if (source == "hidden") return@edit
++            val favorites = source != "favorites"
++            values[Keys.homeRowSource] = if (favorites) "favorites" else "recent"
++            values[Keys.homeRowTitle] = if (favorites) "Favorite Channels" else "Recently Watched Channels"
++        }
++    }
++
+     suspend fun updateSettings(transform: (LiveTvSettings) -> LiveTvSettings) {
+         val next = transform(currentSettings())
+         store.edit { p -> writeSettings(p, next) }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
+index 2e56a49..18f822a 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
+@@ -188,7 +188,12 @@ fun LiveTvHomeRow(
+     if (!settings.homeRowEnabled || profileId in settings.homeRowHiddenProfiles || !settings.showInSidebar || !above) return
+     if (!LocalLiveTvHomeActions.current.onHome) return
+     if (HomeRowFocus.homeShownAt == 0L) HomeRowFocus.homeShownAt = android.os.SystemClock.uptimeMillis()
+-    LiveTvHomeRowContent(settings, takeInitialFocus = above, startPadding = startPadding, titleStyle = titleStyle, hideUnlessFocused = hideUnlessFocused && above, persistent = persistent)
++    val scope = androidx.compose.runtime.rememberCoroutineScope()
++    val switchRow = {
++        scope.launch { prefs.toggleHomeChannelRow() }
++        Unit
++    }
++    LiveTvHomeRowContent(settings, switchRow = switchRow, takeInitialFocus = above, startPadding = startPadding, titleStyle = titleStyle, hideUnlessFocused = hideUnlessFocused && above, persistent = persistent)
+ }
+ 
+ /** The home screen opens on the Live TV row (when it's on top) once per app start. */
+@@ -237,6 +242,7 @@ object LiveTvHomeFocus {
+ @Composable
+ private fun LiveTvHomeRowContent(
+     settings: com.nuvio.tv.livetv.model.LiveTvSettings,
++    switchRow: () -> Unit,
+     takeInitialFocus: Boolean,
+     startPadding: androidx.compose.ui.unit.Dp,
+     titleStyle: androidx.compose.ui.text.TextStyle?,
+@@ -256,15 +262,17 @@ private fun LiveTvHomeRowContent(
+     val playback by viewModel.playbackState.collectAsStateWithLifecycle()
+     // The hint by the top row's title shows only while there's a row to open.
+     androidx.compose.runtime.DisposableEffect(entries.isNotEmpty()) {
+-        LiveTvHomeReveal.available.value = entries.isNotEmpty()
++        LiveTvHomeReveal.available.value = !persistent && entries.isNotEmpty()
+         onDispose { LiveTvHomeReveal.available.value = false; LiveTvHomeReveal.open.value = false }
+     }
+-    if (entries.isEmpty()) return
++    if (entries.isEmpty() && !persistent) return
++    val openHomeMenu = com.nuvio.tv.LocalOpenSidebar.current
+     val open by LiveTvHomeReveal.open.collectAsStateWithLifecycle()
+     // A one-pixel spot above the top row (always there): Up from the top row lands here, which
+     // opens the row. The highlight stays here while the row slides open, then moves onto the
+     // first channel, so the page doesn't lurch while the row is still growing.
+     var catcherFocused by remember { mutableStateOf(false) }
++    var cardsFocused by remember { mutableStateOf(false) }
+     var rowHasFocus by remember { mutableStateOf(false) }
+     // With an update banner above the page, Up from the Live TV row goes on to the banner: the
+     // spot is skipped while the row has the highlight (it used to catch Up, so the banner could
+@@ -274,7 +282,7 @@ private fun LiveTvHomeRowContent(
+         modifier = Modifier
+             .fillMaxWidth()
+             .height(1.dp)
+-            .focusProperties { canFocus = !(bannerShown && rowHasFocus) }
++            .focusProperties { canFocus = !persistent && !(bannerShown && rowHasFocus) }
+             .onFocusChanged {
+                 catcherFocused = it.isFocused
+                 if (it.isFocused) LiveTvHomeReveal.open.value = true
+@@ -317,9 +325,11 @@ private fun LiveTvHomeRowContent(
+                 // The Live TV row is the top of the page: Up stays put (instead of landing on the
+                 // spot above it, which would close the row), unless the update banner is there.
+                 .onPreviewKeyEvent { e ->
+-                    !persistent && !bannerShown &&
+-                        e.key == androidx.compose.ui.input.key.Key.DirectionUp &&
+-                        e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown
++                    if (!bannerShown && e.key == androidx.compose.ui.input.key.Key.DirectionUp &&
++                        e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && (!persistent || cardsFocused)) {
++                        if (persistent && e.nativeKeyEvent.repeatCount == 0) openHomeMenu()
++                        true
++                    } else false
+                 }
+                 .onFocusChanged {
+                     if (rowHasFocus && !it.hasFocus) {
+@@ -341,7 +351,12 @@ private fun LiveTvHomeRowContent(
+                     LiveText(title, size = 16.sp, weight = FontWeight.SemiBold)
+                 }
+             }
++            if (persistent && entries.isEmpty()) {
++                LiveText(if (settings.homeRowSource == "favorites") "Favorite a channel in the guide to see it here."
++                    else "Watch a channel to see it here.", modifier = Modifier.padding(start = startPadding), size = 13.sp)
++            }
+             LazyRow(
++                modifier = Modifier.onFocusChanged { cardsFocused = it.hasFocus },
+                 state = listState,
+                 contentPadding = PaddingValues(start = startPadding, end = maxOf(startPadding, 24.dp)),
+                 horizontalArrangement = Arrangement.spacedBy(10.dp)
+@@ -378,6 +393,11 @@ private fun LiveTvHomeRowContent(
+                     )
+                 }
+             }
++            if (persistent) {
++                com.nuvio.tv.ui.screens.home.PetalixDestination(
++                    if (settings.homeRowSource == "favorites") "Live TV · Show Recently Watched" else "Live TV · Show Favorites",
++                    false, Modifier.padding(start = startPadding), onClick = switchRow)
++            }
+         }
+     }
+ }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+index f83cba8..460029b 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -881,7 +881,7 @@ private fun PetalixLiveSession(
+     // While browsing the group list, the info panel stays on what's playing in the preview;
+     // it only follows the highlight when you're moving through the channels themselves.
+     val browsingGroups = groupsOpen && !gridFocused
+-    val playingChannel = viewModel.channelByKey(playback.channelKey)
++    val playingChannel = if (browsingGroups) viewModel.channelByKey(playback.channelKey) else null
+     val headerChannel = if (browsingGroups && playingChannel != null) playingChannel else focusedChannel
+     val headerBlock = if (browsingGroups && playingChannel != null) {
+         val headerPrograms = if (playingChannel.key == focusedChannel?.key) focusedPrograms
+@@ -892,7 +892,7 @@ private fun PetalixLiveSession(
+     // Browsing changes the program details, while the preview follows the player.
+     val showLivePreview = settings.showPreview && playback.channelKey != null
+     val headerProgramKey = headerChannel?.key to headerBlock?.program?.startMs
+-    val headerPoster by androidx.compose.runtime.key(headerProgramKey) { androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey, settings.showPosters, settings.showProgramDetails) {
++    val headerPoster = if (showLivePreview) null else androidx.compose.runtime.key(headerProgramKey) { androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey, settings.showPosters, settings.showProgramDetails) {
+         value = null
+         if (!settings.showProgramDetails || !settings.showPosters) return@produceState
+         // 24/7 channels with no real listings (no guide, or one long block named after the
+@@ -910,7 +910,7 @@ private fun PetalixLiveSession(
+         value = p.icon
+         delay(250) // don't look up every show while scrolling quickly
+         viewModel.guideBackdrop(p.title, p, headerChannel)?.let { value = it }
+-    } }
++    } }.value
+ 
+     fun ensureRowVisible(target: Int) {
+         scope.launch {
