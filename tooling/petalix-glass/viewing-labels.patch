@@ -1,0 +1,364 @@
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.sports
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.compose.animation.animateContentSize
+ import androidx.compose.foundation.ExperimentalFoundationApi
+@@ -867,8 +869,8 @@
+             Column(Modifier.weight(1f)) {
+                 // The channel, and which of your playlists (providers) it comes from.
+                 Row(verticalAlignment = Alignment.CenterVertically) {
+-                    LiveText(m.channel.name, modifier = Modifier.weight(1f, fill = false), color = ink, size = 13.sp, weight = FontWeight.ExtraBold, maxLines = 1)
+-                    m.channel.sourceName.takeIf { it.isNotBlank() }?.let { src ->
++                    LiveText(ViewingLabels.channel(m.channel.name), modifier = Modifier.weight(1f, fill = false), color = ink, size = 13.sp, weight = FontWeight.ExtraBold, maxLines = 1)
++                    ViewingLabels.source(m.channel.sourceName)?.let { src ->
+                         Spacer(Modifier.width(7.dp))
+                         LiveText(
+                             src,
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsGameStrip.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsGameStrip.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.sports
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.activity.compose.BackHandler
+ import androidx.compose.foundation.background
+@@ -605,7 +607,7 @@
+             if (playing) SportsBadge("PLAYING", accent, NuvioTheme.colors.OnSecondary)
+             else if (best) SportsBadge("BEST MATCH", MultiviewNeutralTag, NuvioTheme.colors.TextPrimary)
+         }
+-        LiveText(match.channel.name, size = 13.sp, maxLines = 2, weight = FontWeight.ExtraBold)
++        LiveText(ViewingLabels.channel(match.channel.name), size = 13.sp, maxLines = 2, weight = FontWeight.ExtraBold)
+         Row(
+             Modifier.fillMaxWidth().weight(1f),
+             horizontalArrangement = Arrangement.spacedBy(6.dp),
+@@ -614,8 +616,8 @@
+             match.quality?.takeIf { it.isNotBlank() }?.let {
+                 SportsBadge(it, accent.copy(alpha = 0.25f), NuvioTheme.colors.TextPrimary)
+             }
+-            LiveText(match.channel.sourceName, Modifier.weight(1f), size = 10.sp,
+-                color = NuvioTheme.colors.TextSecondary)
++            ViewingLabels.source(match.channel.sourceName)?.let { source -> LiveText(source, Modifier.weight(1f), size = 10.sp,
++                color = NuvioTheme.colors.TextSecondary) }
+         }
+         val reason = match.how.takeIf { it.isNotBlank() }
+         LiveText(if (!match.sure && reason != null) "Guess: $reason" else reason.orEmpty(),
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsRecord.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsRecord.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.sports
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+@@ -116,9 +118,9 @@
+         Spacer(Modifier.height(4.dp))
+         LazyColumn(Modifier.heightIn(max = 210.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+             itemsIndexed(channels, key = { _, m -> m.channel.key }) { i, m ->
+-                val src = m.channel.sourceName.takeIf { it.isNotBlank() }
++                val src = ViewingLabels.source(m.channel.sourceName)
+                 SportsMenuRow(
+-                    (if (i == pick) "✓  " else "     ") + m.channel.name,
++                    (if (i == pick) "✓  " else "     ") + ViewingLabels.channel(m.channel.name),
+                     if (i == 0) Modifier.focusRequester(first) else Modifier,
+                     detail = listOfNotNull(src, if (m.sure) "SHOWING IT" else "MAYBE").joinToString(" · ")
+                 ) { pick = i }
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+@@ -1,6 +1,8 @@
+ @file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+ 
+ package com.nuvio.tv.livetv.sports
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.activity.compose.BackHandler
+ import androidx.compose.foundation.background
+@@ -1853,7 +1855,7 @@
+     ) {
+         ChannelLogo(channel.logo, 22.dp)
+         Spacer(Modifier.width(10.dp))
+-        LiveText(channel.name, color = Color.White, size = 14.sp, weight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
++        LiveText(ViewingLabels.channel(channel.name), color = Color.White, size = 14.sp, weight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+         LiveText(detail, color = SportsLook.Dim, size = 11.sp)
+     }
+ }
+@@ -1897,7 +1899,7 @@
+         }
+         LazyColumn(Modifier.heightIn(max = 330.dp).keepFocusWhileHeld(horizontal = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+             itemsIndexed(list, key = { _, ch -> ch.key }) { i, ch ->
+-                ChannelLine(channel = ch, detail = listOf(ch.sourceName, ch.group).filter { it.isNotBlank() }.joinToString(" · "), modifier = if (i == 0) Modifier.focusRequester(firstResult) else Modifier, onClick = { onPick(ch) })
++                ChannelLine(channel = ch, detail = listOf(ViewingLabels.source(ch.sourceName).orEmpty(), ch.group).filter { it.isNotBlank() }.joinToString(" · "), modifier = if (i == 0) Modifier.focusRequester(firstResult) else Modifier, onClick = { onPick(ch) })
+             }
+         }
+     }
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.sports
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.compose.foundation.ExperimentalFoundationApi
+ import androidx.compose.foundation.background
+@@ -421,7 +423,7 @@
+                     itemsIndexed(list, key = { _, ch -> ch.key }) { i, ch ->
+                         ChannelLine(
+                             channel = ch,
+-                            detail = (if (i == 0) "In use" else listOf(ch.sourceName, ch.group).filter { it.isNotBlank() }.joinToString(" · ")),
++                            detail = (if (i == 0) "In use" else listOf(ViewingLabels.source(ch.sourceName).orEmpty(), ch.group).filter { it.isNotBlank() }.joinToString(" · ")),
+                             modifier = if (i == 0) Modifier.focusRequester(first) else Modifier,
+                             onClick = {
+                                 viewModel.repo.pickLeagueNetwork(net.id, ch.key)
+--- a/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPicker.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/multiview/MultiviewPicker.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.multiview
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+@@ -859,7 +861,7 @@
+         Column(Modifier.weight(1f)) {
+             LiveText(match.channel.name, color = colors.text, size = 14.sp, weight = FontWeight.SemiBold, marquee = selected && active)
+             LiveText(
+-                listOfNotNull(match.quality?.takeIf { it.isNotBlank() }, match.channel.sourceName.takeIf { it.isNotBlank() }).joinToString(" · "),
++                listOfNotNull(match.quality?.takeIf { it.isNotBlank() }, ViewingLabels.source(match.channel.sourceName)).joinToString(" · "),
+                 color = NuvioTheme.colors.TextSecondary, size = 11.sp
+             )
+         }
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+@@ -1,6 +1,8 @@
+ // SPDX-License-Identifier: GPL-3.0-only
+ // Adapted for the Petalix player from IMD TV v0.5.2 GuidePreview.kt and GuideGrid.kt.
+ package com.nuvio.tv.livetv.ui
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+@@ -68,7 +70,7 @@
+         key(channel.key, program?.startMs) { rememberShowDetails(channel.key, program) } else null
+     val about = if (settings.showProgramDetails && channel != null)
+         key(channel.key, program?.startMs) { rememberChannelAbout(channel, details) } else null
+-    val name = channel?.let { petalixCleanChannelName(it.name).ifBlank { it.name } }.orEmpty()
++    val name = channel?.let { petalixCleanChannelName(ViewingLabels.channel(it.name)).ifBlank { it.name } }.orEmpty()
+     val title = program?.title?.takeUnless { it == NO_GUIDE_TITLE }?.let { titleMarks(it).title }
+     BoxWithConstraints(modifier.fillMaxWidth().clipToBounds()) {
+         if (showLivePreview) {
+@@ -105,7 +107,7 @@
+                 if (GuideInfoPart.TITLE !in hidden)
+                     LiveText(title ?: name, color = Color.White, size = if (short) 24.sp else 31.sp,
+                         weight = FontWeight.Medium, maxLines = 1)
+-                if (settings.showPlaylistInInfo && channel.sourceName.isNotBlank())
++                if (settings.showPlaylistInInfo && ViewingLabels.source(channel.sourceName) != null)
+                     LiveText(channel.sourceName, color = GlassMuted, size = 11.sp)
+                 val minutesLeft = program?.takeIf { it.isLive(now) && GuideInfoPart.LEFT !in hidden }
+                     ?.let { (it.stopMs - now + 59_999L) / 60_000L }
+@@ -151,7 +153,7 @@
+     onSelect: (PetalixAiring, Boolean) -> Unit,
+ ) {
+     val spans = remember(line, start, duration) { line.visible(start, start + duration) }
+-    val name = remember(channel.name) { petalixCleanChannelName(channel.name).ifBlank { channel.name } }
++    val name = remember(channel.name) { petalixCleanChannelName(ViewingLabels.channel(channel.name)).ifBlank { channel.name } }
+     val active = selectedAt != null
+     val fontScale = guideScale(settings)
+     val tile = GuidePanel.copy(alpha = when (settings.guideInfoBackground) {
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassCategories.kt
+@@ -1,6 +1,8 @@
+ // SPDX-License-Identifier: GPL-3.0-only
+ // Adapted from the category rail in IMD TV v0.5.2.
+ package com.nuvio.tv.livetv.ui
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.compose.foundation.Image
+ import androidx.compose.foundation.background
+@@ -141,7 +143,7 @@
+                             .background(if (selected) GlassFocus else Color.Transparent, RoundedCornerShape(9.dp))
+                             .cableTarget(selected, { choose(e, false) }, { choose(e, true) })
+                             .padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+-                            LiveText((if (e.group?.locked == true) "🔒 " else "") + e.title, Modifier.weight(1f), ink, 14.sp)
++                            LiveText((if (e.group?.locked == true) "🔒 " else "") + (if (e.group != null) ViewingLabels.category(e.title) else e.title), Modifier.weight(1f), ink, 14.sp)
+                             if (settings.showGroupCounts && e.group != null)
+                                 LiveText(e.group.count.toString(), color = if (selected) ink else GlassMuted, size = 11.sp)
+                         }
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvOverlayMode.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvOverlayMode.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.ui
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+@@ -708,7 +710,7 @@
+                     }
+                     Column(modifier = Modifier.weight(1f)) {
+                         Row(verticalAlignment = Alignment.CenterVertically) {
+-                            LiveText(ch.name, color = colors.text, size = osp(15f), modifier = Modifier.weight(1f, fill = false), marquee = isFocused && i == restingIndex)
++                            LiveText(ViewingLabels.channel(ch.name), color = colors.text, size = osp(15f), modifier = Modifier.weight(1f, fill = false), marquee = isFocused && i == restingIndex)
+                             if (ch.catchup != null) {
+                                 Spacer(Modifier.width(4.dp))
+                                 Icon(androidx.compose.material.icons.Icons.Default.History, contentDescription = "Catch-up", tint = if (onSolid) Color.White else NuvioTheme.colors.TextSecondary, modifier = Modifier.size(odp(13f)))
+@@ -843,7 +845,7 @@
+                 ChannelLogo(channel.logo, 26.dp)
+                 Spacer(Modifier.width(10.dp))
+                 Column {
+-                    LiveText(channel.name, size = osp(15f), weight = FontWeight.SemiBold)
++                    LiveText(ViewingLabels.channel(channel.name), size = osp(15f), weight = FontWeight.SemiBold)
+                     LiveText(channel.group, color = NuvioTheme.colors.TextSecondary, size = osp(12f))
+                 }
+             }
+@@ -901,7 +903,7 @@
+                 ChannelLogo(channel.logo, 28.dp)
+                 Spacer(Modifier.width(10.dp))
+                 Column {
+-                    LiveText(channel.name, size = osp(16f), weight = FontWeight.SemiBold)
++                    LiveText(ViewingLabels.channel(channel.name), size = osp(16f), weight = FontWeight.SemiBold)
+                     LiveText(channel.group, color = NuvioTheme.colors.TextSecondary, size = osp(12f))
+                 }
+             }
+@@ -1182,7 +1184,7 @@
+                     }
+                     Column(modifier = Modifier.weight(1f)) {
+                         Row(verticalAlignment = Alignment.CenterVertically) {
+-                            LiveText(ch.name, color = colors.text, size = osp(15f), modifier = Modifier.weight(1f, fill = false), marquee = isFocused && i == restingIndex)
++                            LiveText(ViewingLabels.channel(ch.name), color = colors.text, size = osp(15f), modifier = Modifier.weight(1f, fill = false), marquee = isFocused && i == restingIndex)
+                             (null as String?)?.let { q ->
+                                 Spacer(Modifier.width(6.dp))
+                                 LiveText(q, color = dim, size = osp(11f), weight = FontWeight.Bold)
+@@ -1192,7 +1194,7 @@
+                         // The group always shows here (even when hidden on the play bar): it's what tells
+                         // same-named copies apart (UK, World, another language).
+                         LiveText(
+-                            listOfNotNull(from.takeIf { it.isNotBlank() }, ch.group.takeIf { it.isNotBlank() }, if (ch.key == playingKey) "Watching" else null).joinToString(" · "),
++                            listOfNotNull(ViewingLabels.source(from), ch.group.takeIf { it.isNotBlank() }, if (ch.key == playingKey) "Watching" else null).joinToString(" · "),
+                             color = dim, size = osp(12f), maxLines = 1,
+                             marquee = isFocused && i == restingIndex
+                         )
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/BackupChannelMenu.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/BackupChannelMenu.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.ui
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Spacer
+@@ -109,9 +111,9 @@
+             val bell = com.nuvio.tv.livetv.calendar.rememberLiveBell(program, channel)
+             val from = playlistNames[channel.sourceId] ?: channel.sourceName
+             LiveDialog(onDismiss = onDismiss, width = 460.dp) {
+-                LiveText("${channel.number}  ${channel.name}", size = 20.sp, weight = FontWeight.Bold)
++                LiveText("${channel.number}  ${ViewingLabels.channel(channel.name)}", size = 20.sp, weight = FontWeight.Bold)
+                 LiveText(
+-                    listOfNotNull(from.takeIf { it.isNotBlank() }, channel.group.takeIf { it.isNotBlank() }, if (playing) "Watching" else null)
++                    listOfNotNull(ViewingLabels.source(from), channel.group.takeIf { it.isNotBlank() }, if (playing) "Watching" else null)
+                         .joinToString(" · "),
+                     color = NuvioTheme.colors.TextSecondary, size = 13.sp
+                 )
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.ui
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import com.nuvio.tv.livetv.data.LiveTvRepository
+ import android.view.KeyEvent as AndroidKeyEvent
+@@ -1702,7 +1704,7 @@
+                 ) { f ->
+                     Column(Modifier.fillMaxWidth()) {
+                         Row(verticalAlignment = Alignment.CenterVertically) {
+-                            LiveText(ch.name, size = 12.sp, color = focusedTextColor(f), weight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
++                            LiveText(ViewingLabels.channel(ch.name), size = 12.sp, color = focusedTextColor(f), weight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
+                             (null as String?)?.let { q ->
+                                 Spacer(Modifier.width(6.dp))
+                                 LiveText(q, size = 9.sp, weight = FontWeight.Bold, color = focusedTextColor(f))
+@@ -1714,7 +1716,7 @@
+                         }
+                         // Only the highlighted copy shows where it comes from and what's on.
+                         if (f) {
+-                            val line = listOf(ch.sourceName, ch.group.takeIf { showGroup }.orEmpty(), nowTitle(ch.key)?.let { "Now: $it" }.orEmpty())
++                            val line = listOf(ViewingLabels.source(ch.sourceName).orEmpty(), ch.group.takeIf { showGroup }.orEmpty(), nowTitle(ch.key)?.let { "Now: $it" }.orEmpty())
+                                 .filter { it.isNotBlank() }.joinToString(" · ")
+                             if (line.isNotBlank()) LiveText(line, size = 9.sp, color = focusedTextColor(f), maxLines = 1)
+                         }
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvSearch.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvSearch.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.ui
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import com.nuvio.tv.livetv.data.LiveTvRepository
+ import androidx.compose.foundation.ExperimentalFoundationApi
+@@ -354,10 +356,10 @@
+         kotlinx.coroutines.delay(2_500)
+         posterFor(hit)?.let { value = it }
+     }
+-    val title = p?.title?.takeIf { !LiveTvRepository.isPlaceholderTitle(it) } ?: hit.channel.name
++    val title = p?.title?.takeIf { !LiveTvRepository.isPlaceholderTitle(it) } ?: ViewingLabels.channel(hit.channel.name)
+     SearchResultCard(
+         title = title,
+-        lines = listOfNotNull("CH: ${hit.channel.name}", playlistName),
++        lines = listOfNotNull("CH: ${ViewingLabels.channel(hit.channel.name)}", ViewingLabels.source(playlistName)),
+         poster = poster,
+         logo = hit.channel.logo,
+         posterCardStyle = posterCardStyle,
+--- a/app/src/main/java/com/nuvio/tv/livetv/calendar/CalendarLiveMenu.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/calendar/CalendarLiveMenu.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.calendar
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.layout.Arrangement
+@@ -394,8 +396,8 @@
+                         com.nuvio.tv.livetv.ui.ChannelLogo(ch.logo, 26.dp)
+                     }
+                     Column(Modifier.weight(1f)) {
+-                        LiveText(ch.name, size = 15.sp, weight = FontWeight.SemiBold, color = focusedTextColor(focused))
+-                        LiveText(ch.sourceName, size = 11.sp, color = focusedTextColor(focused).copy(alpha = 0.65f))
++                        LiveText(ViewingLabels.channel(ch.name), size = 15.sp, weight = FontWeight.SemiBold, color = focusedTextColor(focused))
++                        if (ViewingLabels.source(ch.sourceName) != null) LiveText(ch.sourceName, size = 11.sp, color = focusedTextColor(focused).copy(alpha = 0.65f))
+                     }
+                 }
+             }
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -1,4 +1,6 @@
+ package com.nuvio.tv.livetv.ui
++
++import com.nuvio.tv.petalix.ViewingLabels
+ 
+ import com.nuvio.tv.livetv.data.LiveTvRepository
+ import androidx.activity.compose.BackHandler
+@@ -3855,7 +3857,7 @@
+             LiveText("CHANNEL OPTIONS", size = 11.sp, color = GuideSilver, weight = FontWeight.Bold)
+             Spacer(Modifier.height(6.dp))
+         }
+-        LiveText(if (LocalPetalixGuide.current) ch.name else "${ch.number}  ${ch.name}", size = 23.sp, weight = FontWeight.Bold)
++        LiveText(if (LocalPetalixGuide.current) ViewingLabels.channel(ch.name) else "${ch.number}  ${ch.name}", size = 23.sp, weight = FontWeight.Bold)
+         LiveText(ch.group, color = NuvioTheme.colors.TextSecondary, size = 13.sp)
+         Spacer(Modifier.height(14.dp))
+         LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+@@ -4575,7 +4577,7 @@
+     val p = rememberShowDetails(target.channel.key, block?.program)
+     val infoBell = com.nuvio.tv.livetv.calendar.rememberLiveBell(p, target.channel)
+     LiveDialog(onDismiss = onDismiss, width = 640.dp) {
+-        LiveText(p?.title ?: target.channel.name, size = 24.sp, weight = FontWeight.Bold, maxLines = 2)
++        LiveText(p?.title ?: ViewingLabels.channel(target.channel.name), size = 24.sp, weight = FontWeight.Bold, maxLines = 2)
+         Spacer(Modifier.height(6.dp))
+         if (block != null) {
+             val meta = listOfNotNull(
