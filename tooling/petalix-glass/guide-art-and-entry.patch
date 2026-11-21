@@ -365,7 +365,7 @@ index 2d6ae4c..5941742 100644
          val combined = ids.flatMap(::nativeChannels).distinctBy { it.key }
          if (ids.size > 1) sorted(combined) else combined
 diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
-index 78a1860..c3d99fb 100644
+index 78a1860..e068776 100644
 --- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
 +++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
 @@ -73,66 +73,75 @@ internal fun PetalixGlassHero(
@@ -386,8 +386,8 @@ index 78a1860..c3d99fb 100644
 +        val artwork = listOfNotNull(poster, about?.background, about?.landscapePoster, details?.icon)
 +            .filter { it.isNotBlank() && it != channel?.logo && it !in channel?.guideLogoFallbacks.orEmpty() }
 +            .mapNotNull { petalixArtwork(it, 1280) }.distinct()
++        val media = Modifier.widthIn(max = maxWidth * .48f).heightIn(max = maxHeight).aspectRatio(16f / 9f)
 +        Box(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp)) {
-+            val media = Modifier.widthIn(max = maxWidth * .48f).heightIn(max = maxHeight).aspectRatio(16f / 9f)
 +            if (showLivePreview) {
 +                Box(media.onGloballyPositioned { onBounds(it.boundsInRoot()) })
 +                DisposableEffect(Unit) { onDispose { onBounds(null) } }
@@ -497,7 +497,7 @@ index 78a1860..c3d99fb 100644
          }
          Row(Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 3.dp)
 diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
-index ebadf98..cd276bd 100644
+index ebadf98..e0c9e14 100644
 --- a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
 +++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
 @@ -22,3 +22,11 @@ internal fun petalixServiceArtworkUri(folderId: String): String? =
@@ -506,8 +506,8 @@ index ebadf98..cd276bd 100644
  private fun homeArtworkUri(name: String) = "file:///android_asset/petalix/home-art/$name.webp"
 +
 +/** The same artwork used on Home's service tiles, including the bundled fallback. */
-+internal fun petalixServiceHeroArtwork(folderId: String): String? {
-+    petalixHomeLayout().serviceArtwork[folderId]?.let { return it }
++internal fun petalixServiceHeroArtwork(folderId: String, configuredArtwork: Map<String, String>): String? {
++    configuredArtwork[folderId]?.let { return it }
 +    val artwork = petalixServiceArtworkUri(folderId) ?: return null
 +    return if (artwork.startsWith("https://art.kaptain.stream/"))
 +        "file:///android_asset/petalix/service-art-v1/$folderId.jpg" else artwork
@@ -525,32 +525,43 @@ index b9551e2..b890eea 100644
          "lifestyle" to "🏡 Home & Living", "documentaries" to "🌍 Docs & Discovery",
          "music" to "🎵 Music Mix", "streaming channels" to "📡 Streaming Channels",
 diff --git a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
-index 6f66f95..9bd744f 100644
+index 6f66f95..9a017f4 100644
 --- a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
 +++ b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
-@@ -196,8 +196,10 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+@@ -196,8 +196,11 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
  }
  @Composable private fun HubBackdrop(p:HubPage,modifier:Modifier=Modifier) {
      Box(modifier.background(p.service.background)) {
 -        Crossfade(p.hero?.backdropUrl,label="${p.service.id}FeatureArtwork") { art ->
 -            AsyncImage(petalixArtwork(art, 1280),null,Modifier.fillMaxSize(),contentScale=ContentScale.Fit)
++        val configuredArtwork = com.nuvio.tv.petalix.petalixHomeLayout().serviceArtwork
 +        val backdrop = PetalixServices.folderId(p.service.id)
-+            ?.let { com.nuvio.tv.petalix.petalixServiceHeroArtwork(it) } ?: p.hero?.backdropUrl
++            ?.let { com.nuvio.tv.petalix.petalixServiceHeroArtwork(it, configuredArtwork) } ?: p.hero?.backdropUrl
 +        Crossfade(backdrop,label="${p.service.id}FeatureArtwork") { art ->
 +            AsyncImage(petalixArtwork(art, 1280),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
          }
      }
  }
 diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
-index 3ef64b0..1562f04 100644
+index 3ef64b0..eaebd6a 100644
 --- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
 +++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
-@@ -787,7 +787,10 @@ fun ModernHomeContent(
+@@ -731,7 +731,8 @@ fun ModernHomeContent(
+                 }
+             }
+ 
+-            val resolvedHeroState = remember(activeCarouselItemState, enrichedPreviews, enrichingItemId, heroItem, uiState.heroEnrichmentEnabled, uiState.homeImdbRatingsVisibility, failedEnrichmentIds) {
++            val configuredServiceArtwork = com.nuvio.tv.petalix.petalixHomeLayout().serviceArtwork
++            val resolvedHeroState = remember(activeCarouselItemState, enrichedPreviews, enrichingItemId, heroItem, uiState.heroEnrichmentEnabled, uiState.homeImdbRatingsVisibility, failedEnrichmentIds, configuredServiceArtwork) {
+                 derivedStateOf {
+                     val activeCarouselItem = activeCarouselItemState.value
+                     val activeItemId = activeCarouselItem?.metaPreview?.id
+@@ -787,7 +788,10 @@ fun ModernHomeContent(
                      val effectiveEnrichmentActive = activeCarouselItem == null || enrichmentActive ||
                          (enrichedHero == null && activeItemId != null && heroEnrichmentEnabled && !enrichmentFailed)
                      
 +                    val serviceArtwork = (activeCarouselItem?.payload as? ModernPayload.CollectionFolder)
-+                        ?.folderId?.let { com.nuvio.tv.petalix.petalixServiceHeroArtwork(it) }
++                        ?.folderId?.let { com.nuvio.tv.petalix.petalixServiceHeroArtwork(it, configuredServiceArtwork) }
                      val heroBackdrop = firstNonBlank(
 +                        serviceArtwork,
                          resolvedHero?.backdrop,
