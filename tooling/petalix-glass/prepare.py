@@ -77,6 +77,13 @@ tasks.withType<Test>().configureEach {
     subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "pinned-preview-and-copy.patch")], cwd=root, check=True)
     subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "home-row-and-scroll.patch")], cwd=root, check=True)
     subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "home-catalog-navigation.patch")], cwd=root, check=True)
+    subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "panel-guide-and-favorites.patch")], cwd=root, check=True)
+    coordinator = java / "petalix/PetalixManagedCoordinator.kt"
+    capabilities = coordinator.read_text()
+    marker = '"favorites-backup-v1"'
+    if capabilities.count(marker) != 1:
+        raise ValueError("Expected the Favorites backup capability")
+    coordinator.write_text(capabilities.replace(marker, marker + ', "favorites-edit-v1"'))
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())

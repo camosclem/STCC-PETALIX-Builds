@@ -1,0 +1,185 @@
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+index f491920..cd7f1cb 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+@@ -1623,6 +1623,19 @@ class LiveTvPreferences @Inject constructor(
+             p[key] = encodeStringList((current + keys).distinct())
+         }
+     }
++    suspend fun replacePanelFavorites(expected: List<String>, keys: List<String>, profileId: Int): Boolean {
++        var applied = false
++        store.edit { prefs ->
++            val key = my(Keys.favorites, profileId)
++            val current = decodeStringList(prefs[key])
++            if (current == keys || current == expected) {
++                if (current != keys) prefs[key] = encodeStringList(keys)
++                applied = true
++            }
++        }
++        return applied
++    }
++
+     suspend fun clearFavorites() {
+         store.edit { it[my(Keys.favorites)] = encodeStringList(emptyList()) }
+     }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/model/LiveTvModels.kt b/app/src/main/java/com/nuvio/tv/livetv/model/LiveTvModels.kt
+index 1f3c5c3..f29bd78 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/model/LiveTvModels.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/model/LiveTvModels.kt
+@@ -628,7 +628,7 @@ data class LiveTvSettings(
+     /** How dark the info panel above the guide and the guide's bars are (the play bar has its own, [panelBackground]). */
+     val guideInfoBackground: String = "darker",
+     /** The backdrop behind the guide, Sports hub and On Demand: "auto" (match the theme, the default), "onyx", or an app icon color: "original", "arctic", "emerald", "rose", "copper", "graphite". */
+-    val guideBackdrop: String = "auto",
++    val guideBackdrop: String = "petalix",
+     /** The row of recently watched channels at the bottom of the full info panel (OK). */
+     val recentInPanel: Boolean = true,
+     /**
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+index 540f2ab..9c05df3 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+@@ -74,7 +74,6 @@ import com.nuvio.tv.livetv.ui.LiveText
+ import com.nuvio.tv.livetv.ui.guideBackdrop
+ import com.nuvio.tv.livetv.ui.drawGuideBackdrop
+ import com.nuvio.tv.livetv.ui.LiveTextField
+-import com.nuvio.tv.livetv.ui.GuideBackdrops
+ import com.nuvio.tv.livetv.ui.formatClock
+ import com.nuvio.tv.ui.theme.NuvioTheme
+ import kotlinx.coroutines.delay
+@@ -188,7 +187,7 @@ fun SportsScreen(
+     val problem by viewModel.problem.collectAsStateWithLifecycle()
+     val hasChannels by viewModel.hasChannels.collectAsStateWithLifecycle()
+     val playingKey by viewModel.playingKey.collectAsStateWithLifecycle()
+-    val backdrop = GuideBackdrops.PETALIX
++    val backdrop by viewModel.backdrop.collectAsStateWithLifecycle()
+ 
+     var day by rememberSaveable { mutableIntStateOf(0) }
+     var chip by rememberSaveable { mutableStateOf<String?>(null) }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvComponents.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvComponents.kt
+index 30119e5..a132bb0 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvComponents.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvComponents.kt
+@@ -184,7 +184,11 @@ internal object GuideBackdrops {
+     const val PETALIX = "petalix"
+ 
+     val all: List<Pair<String, String>> = listOf(
++        PETALIX to "Petalix",
+         "auto" to "Match Theme",
++        "christmas" to "Christmas",
++        "halloween" to "Halloween",
++        "winter" to "Winter",
+         "onyx" to "Onyx",
+         "original" to "Original",
+         "arctic" to "Arctic Blue",
+@@ -228,6 +232,9 @@ private fun accentOfKey(style: String): Pair<Color, Color> = when (style) {
+     "emerald" -> Color(0xFF1FA58B) to Color(0xFF1B6C5F)
+     "rose" -> Color(0xFFB05A9A) to Color(0xFF7A3A6E)
+     "copper" -> Color(0xFFC8773A) to Color(0xFF8A4A2A)
++    "christmas" -> Color(0xFF258858) to Color(0xFFB52A3A)
++    "halloween" -> Color(0xFFED711E) to Color(0xFF692CAA)
++    "winter" -> Color(0xFF438CCD) to Color(0xFF79B5D6)
+     else -> Color(0xFF59606E) to Color(0xFF3E5566) // "graphite"
+ }
+ 
+@@ -241,6 +248,9 @@ internal fun backdropBase(style: String): Color = if (style.startsWith("auto:"))
+     "emerald" -> Color(0xFF05130F)
+     "rose" -> Color(0xFF140711)
+     "copper" -> Color(0xFF140B07)
++    "christmas" -> Color(0xFF09140E)
++    "halloween" -> Color(0xFF170D18)
++    "winter" -> Color(0xFF081422)
+     else -> Color(0xFF0E0F11) // "graphite"
+ }
+ 
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+index 460029b..9d42dda 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -1112,6 +1112,7 @@ private fun PetalixLiveSession(
+         }
+         onHomeEntryHandled()
+     }
++    val guideStyle = resolveBackdrop(settings.guideBackdrop)
+     FrameMeter("Guide")
+     androidx.compose.runtime.CompositionLocalProvider(
+         LocalShowDetails provides { key, p -> viewModel.details(key, p) },
+@@ -1120,7 +1121,7 @@ private fun PetalixLiveSession(
+     Box(
+         modifier = Modifier
+             .fillMaxSize()
+-            .then(if (cinematic) Modifier.glassGuideBackground() else Modifier.guideBackdrop(settings.guideBackdrop))
++            .guideBackdrop(guideStyle)
+             .onGloballyPositioned { rootBounds = it.boundsInRoot() }
+             .onPreviewKeyEvent { e ->
+                 // Full screen handles its own keys.
+@@ -1868,7 +1869,7 @@ private fun PetalixLiveSession(
+         // shape on most TVs, so its four corners are painted over in exactly what's behind
+         // them (the background and the theme glow), which looks the same.
+         if (cinematic && !fullscreen && pb != null && rb != null && pb.width > 1f) {
+-            Box(videoModifier.glassPreviewFade(pb, rb))
++            Box(videoModifier.glassPreviewFade(pb, rb, guideStyle))
+         } else if (!fullscreen && pb != null && rb != null && pb.width > 1f) {
+             val bg = NuvioTheme.colors.Background
+             val backdropResolved = resolveBackdrop(settings.guideBackdrop)
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+index 523c2fc..93cb904 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+@@ -35,19 +35,13 @@ internal val GlassPanel = Color(0xEB19191B)
+ private val cellShape = RoundedCornerShape(11.dp)
+ private val progressShape = RoundedCornerShape(50)
+ 
+-internal fun Modifier.glassGuideBackground() = drawWithCache {
+-    val background = ImageBitmap(size.width.toInt().coerceAtLeast(1), size.height.toInt().coerceAtLeast(1))
+-    CanvasDrawScope().draw(this, layoutDirection, Canvas(background), size) { drawGuideBackdrop(GuideBackdrops.PETALIX, size.width, size.height) }
+-    onDrawBehind { drawImage(background) }
+-}
+-
+ /** A matching patch of the full guide blends the hardware video overlay into the screen. */
+-internal fun Modifier.glassPreviewFade(preview: Rect, root: Rect) = drawWithCache {
++internal fun Modifier.glassPreviewFade(preview: Rect, root: Rect, style: String) = drawWithCache {
+     val w = size.width.toInt().coerceAtLeast(1)
+     val h = size.height.toInt().coerceAtLeast(1)
+     val patch = ImageBitmap(w, h)
+     CanvasDrawScope().draw(this, layoutDirection, Canvas(patch), size) {
+-        translate(root.left - preview.left, root.top - preview.top) { drawGuideBackdrop(GuideBackdrops.PETALIX, root.width, root.height) }
++        translate(root.left - preview.left, root.top - preview.top) { drawGuideBackdrop(style, root.width, root.height) }
+     }
+     fun mask(brush: Brush): ImageBitmap {
+         val image = ImageBitmap(w, h)
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixManagedCoordinator.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixManagedCoordinator.kt
+index efaf54c..b698585 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixManagedCoordinator.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixManagedCoordinator.kt
+@@ -196,7 +196,7 @@ class PetalixManagedCoordinator @Inject constructor(
+         val key = "deviceTestRepairV3:$profileId:$afterPanel"
+         if (prefs.getBoolean(key, false)) return
+         live.updateSettings { it.copy(openOn = "HOME", startPage = "HOME", startOnLiveTv = false,
+-            autoPlayLastChannel = false, guideBackdrop = "auto", onDemandEnabled = true,
++            autoPlayLastChannel = false, guideBackdrop = "petalix", onDemandEnabled = true,
+             onDemandInSidebar = true, onDemandAutoPlay = true, onDemandStreamsPosition = "FIRST") }
+         com.nuvio.tv.livetv.startup.StartPage.save(context, null)
+         theme.setTheme(com.nuvio.tv.domain.model.AppTheme.WHITE)
+@@ -345,8 +345,19 @@ class PetalixManagedCoordinator @Inject constructor(
+                 val id = entry.optString("providerId")
+                 if (id.isNotBlank()) PanelChannelIdentity.providerKey(id) else entry.getString("key")
+             }
+-            live.mergePanelFavorites(keys, profile)
+-            post("favorites", report().put("action", "ack").put("requestId", restored.getString("requestId")).put("profileId", profile), token())
++            val expected = restored.optJSONArray("expectedKeys")
++            val applied = if (expected == null) {
++                live.mergePanelFavorites(keys, profile)
++                true
++            } else {
++                live.replacePanelFavorites(
++                    List(expected.length()) { expected.getString(it) },
++                    List(entries.length()) { entries.getJSONObject(it).getString("key") },
++                    profile
++                )
++            }
++            val action = if (applied) "ack" else "conflict"
++            post("favorites", report().put("action", action).put("requestId", restored.getString("requestId")).put("profileId", profile), token())
+         }
+         if (profiles.activeProfileId.value != profile) return
+         val current = live.userState.first().favorites

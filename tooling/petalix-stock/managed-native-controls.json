@@ -6232,6 +6232,22 @@
     "maxLength": 60000,
     "options": [
       [
+        "petalix",
+        "Petalix"
+      ],
+      [
+        "christmas",
+        "Christmas"
+      ],
+      [
+        "halloween",
+        "Halloween"
+      ],
+      [
+        "winter",
+        "Winter"
+      ],
+      [
         "auto",
         "Auto"
       ],

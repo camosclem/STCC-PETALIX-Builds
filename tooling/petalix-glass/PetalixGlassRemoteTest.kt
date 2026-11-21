@@ -66,7 +66,7 @@ class PetalixGlassRemoteTest {
             val ui = LiveTvUiState(guideReady = true, groups = groups, selectedGroupId = group.id, channels = channels)
             NuvioTheme {
                 CompositionLocalProvider(LocalContentFocusRequester provides remember { FocusRequester() }) {
-                    Box(Modifier.fillMaxSize().glassGuideBackground()) {
+                    Box(Modifier.fillMaxSize().guideBackdrop(GuideBackdrops.PETALIX)) {
                         PetalixGlassGuide(ui, channels, settings, epg,
                             CableChannelMarks(emptySet(), emptyMap(), emptyMap(), emptyMap()), null, now, start,
                             cursor, row, rail, rememberLazyListState(), gridFocus, {}, CableGuideActions(
@@ -156,7 +156,7 @@ class PetalixGlassRemoteTest {
         compose.setContent {
             var showing by remember { mutableStateOf(true) }
             NuvioTheme {
-                Box(Modifier.fillMaxSize().glassGuideBackground()) {
+                Box(Modifier.fillMaxSize().guideBackdrop(GuideBackdrops.PETALIX)) {
                     if (showing) GuideGearPanel(settings, { settings = it(settings) }, {}, { showing = false })
                 }
             }
@@ -174,7 +174,7 @@ class PetalixGlassRemoteTest {
             tvgId = null, tvgName = null, logo = null, groupId = "sports", group = "Sports", number = 12, url = "")
         compose.setContent {
             NuvioTheme {
-                Box(Modifier.fillMaxSize().glassGuideBackground()) {
+                Box(Modifier.fillMaxSize().guideBackdrop(GuideBackdrops.PETALIX)) {
                     LiveTvPlayerPanel(channel = channel, mode = PanelMode.LIVE, full = true, title = "Game Night",
                         meta = "", description = "Today’s live broadcast", poster = null, showPosters = false,
                         timeline = PanelTimeline(start, start + 3_600_000, now, leftLabel = "12:00", rightLabel = "1:00",
