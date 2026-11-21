@@ -107,7 +107,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: camosclem/STCC-PETALIX-Builds
-          ref: e35786f5f649550c25e9e50fc4e78ca5f0ec61ad
+          ref: 7cc8a60edfae15fbc4d73ee50ae2c00b44fe0b70
           path: glass-source
           persist-credentials: false
       - uses: actions/setup-go@v5
