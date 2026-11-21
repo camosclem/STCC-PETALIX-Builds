@@ -298,8 +298,9 @@ def sign_and_release():
                 )
             if glass:
                 meta.update(
-                    upstreamTag='1.2.0-beta.1.4',
-                    upstreamCommit='2d898cd8be38cd81a087604cd9dc974a06cf9a00',
+                    upstreamTag='1.2.0-beta.2.1',
+                    upstreamCommit='f3fcb2aebd1b44a02f63f56715712fbdee11e5f6',
+                    petalixRecipeCommit='a1e844ce88dbd46befb56ac09c0343248ac5d4dd',
                     notes='Petalix OTA candidate for owner review for the existing Android TV package. '
                           'Rounded guide cells, sharper artwork, one synopsis in service details, '
                           'and the removal of Browse Live TV from Home. Preserves activation, '
