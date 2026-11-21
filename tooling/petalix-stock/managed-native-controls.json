@@ -7260,7 +7260,7 @@
     "optional": true,
     "type": "boolean",
     "requiresCapability": "petalix-toolbar-v1",
-    "appDefault": true
+    "appDefault": false
   },
   {
     "key": "pref:layout_settings:petalix_toolbar_series",
@@ -7273,6 +7273,6 @@
     "optional": true,
     "type": "boolean",
     "requiresCapability": "petalix-toolbar-v1",
-    "appDefault": true
+    "appDefault": false
   }
 ]

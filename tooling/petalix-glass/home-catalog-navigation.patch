@@ -1,0 +1,187 @@
+diff --git a/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt b/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt
+index 3abba09..f3b1b71 100644
+--- a/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt
++++ b/app/src/main/java/com/nuvio/tv/PetalixNavigationShell.kt
+@@ -40,7 +40,7 @@ internal fun PetalixNavigationShell(
+     navigate: (String) -> Unit
+ ) {
+     var expanded by remember(currentRoute) { mutableStateOf(false) }
+-    val menuAvailable = currentRoute != Screen.Sports.route
++    val menuAvailable = currentRoute != Screen.Sports.route && currentRoute != Screen.OnDemand.route
+     val contentFocus = remember { FocusRequester() }
+     val fullscreen by LiveTvFullscreen.active.collectAsState()
+     val openMenu = {
+@@ -60,12 +60,10 @@ internal fun PetalixNavigationShell(
+             LocalSidebarExpanded provides expanded,
+             LocalContentFocusRequester provides contentFocus
+         ) {
+-            Box(Modifier.fillMaxSize().padding(top = if (expanded && currentRoute == Screen.OnDemand.route) 68.dp else 0.dp)) {
+-                NuvioNavHost(
++            NuvioNavHost(
+                 navController = navController, startDestination = startDestination,
+                 hideBuiltInHeaders = false, discoverIsRoot = Screen.Discover.route in rootRoutes
+-                )
+-            }
++            )
+         }
+         if (menuAvailable && expanded) {
+             val hidden = com.nuvio.tv.petalix.petalixHomeLayout().hiddenToolbarTabs
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandHomeScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandHomeScreen.kt
+index 4bfe106..addbda9 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandHomeScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ondemand/OnDemandHomeScreen.kt
+@@ -78,6 +78,7 @@ import kotlin.math.roundToInt
+ @Composable
+ fun OnDemandHomeScreen(
+     homeSettings: HomeUiState?,
++    onExitCatalog: () -> Unit,
+     onOpenDetail: (itemId: String, itemType: String, addonBaseUrl: String?, onDemandUid: String) -> Unit,
+     onPlay: (url: String, title: String, type: String, poster: String?, contentId: String, contentName: String, season: Int?, episode: Int?, episodeName: String?) -> Unit,
+     /** The search button: Nuvio's own search. */
+@@ -292,15 +293,9 @@ fun OnDemandHomeScreen(
+     }
+     val requestTrailerForItem: (MetaPreview) -> Unit = { item -> if (trailersActive) viewModel.requestTrailer(item.id) }
+ 
+-    // Back opens the menu, like on every other menu page. Added here because otherwise Back
+-    // went to the page underneath (Home) on this one. The layouts' own Back handling (scroll a
+-    // row back to its start, close a full screen trailer) and any open dialog still come first,
+-    // and with the menu open Back is left to the app (exit).
+-    val openSidebar = com.nuvio.tv.LocalOpenSidebar.current
+-    val sidebarOpen = com.nuvio.tv.LocalSidebarExpanded.current
+     val topFocusManager = androidx.compose.ui.platform.LocalFocusManager.current
+     val topContentFocus = com.nuvio.tv.LocalContentFocusRequester.current
+-    androidx.activity.compose.BackHandler(enabled = !sidebarOpen) { openSidebar() }
++    androidx.activity.compose.BackHandler(onBack = onExitCatalog)
+ 
+     androidx.compose.runtime.CompositionLocalProvider(com.nuvio.tv.core.player.LocalTrailerPlayerPool provides ownPool) {
+     Box(
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt
+index 843f8ad..c80027a 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt
+@@ -3,13 +3,15 @@ package com.nuvio.tv.petalix
+ import org.json.JSONObject
+ 
+ /** Home defaults for this build; explicit panel preferences can change each section. */
++private val defaultHiddenToolbarTabs = setOf("library", "movies", "series")
++
+ data class PetalixHomeLayout(
+     val showLiveTv: Boolean = true,
+     val showRecentLiveTv: Boolean = true,
+     val showServices: Boolean = true,
+     val charts: Set<String> = setOf("trending/movie/day", "trending/tv/day"),
+     val serviceArtwork: Map<String, String> = emptyMap(),
+-    val hiddenToolbarTabs: Set<String> = setOf("library")
++    val hiddenToolbarTabs: Set<String> = defaultHiddenToolbarTabs
+ ) {
+     companion object {
+         fun from(values: Map<String, Any>): PetalixHomeLayout {
+@@ -32,7 +34,7 @@ data class PetalixHomeLayout(
+                 }.map { it.path }.toSet(),
+                 serviceArtwork = artwork,
+                 hiddenToolbarTabs = listOf("search", "library", "live_tv", "sports", "movies", "series")
+-                    .filterNot { enabled("petalix_toolbar_$it", it != "library") }.toSet()
++                    .filterNot { enabled("petalix_toolbar_$it", it !in defaultHiddenToolbarTabs) }.toSet()
+             )
+         }
+     }
+diff --git a/app/src/main/java/com/nuvio/tv/ui/components/CatalogRowSection.kt b/app/src/main/java/com/nuvio/tv/ui/components/CatalogRowSection.kt
+index 13554e4..47f8409 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/components/CatalogRowSection.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/components/CatalogRowSection.kt
+@@ -305,6 +305,7 @@ fun CatalogRowSection(
+                         overflow = TextOverflow.Clip
+                     )
+                     // Live TV fork: "Live TV ▲" hint when this is the top row.
++                    com.nuvio.tv.ui.screens.home.PetalixBrowseVod(catalogRow.catalogId)
+                     com.nuvio.tv.livetv.home.LiveTvHomeHint()
+                 }
+                 if (showAddonName) {
+diff --git a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+index 62fd7e9..1835bcf 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+@@ -1693,6 +1693,14 @@ private fun PlaybackNavHost(
+                 ?: com.nuvio.tv.livetv.ondemand.OnDemandHomeSettings.last?.settingsOnly()
+             com.nuvio.tv.livetv.ondemand.OnDemandHomeScreen(
+                 homeSettings = homeSettings,
++                onExitCatalog = {
++                    if (!navController.popBackStack(Screen.Home.route, inclusive = false)) {
++                        navController.navigate(Screen.Home.route) {
++                            popUpTo(Screen.OnDemand.route) { inclusive = true }
++                            launchSingleTop = true
++                        }
++                    }
++                },
+                 onOpenDetail = { itemId, itemType, addonBaseUrl, onDemandUid ->
+                     navController.navigate(Screen.Detail.createRoute(itemId, itemType, addonBaseUrl))
+                     navController.currentBackStackEntry?.savedStateHandle?.set(
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/GridHomeContent.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/GridHomeContent.kt
+index 1905f15..e1a1f44 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/GridHomeContent.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/GridHomeContent.kt
+@@ -755,7 +755,7 @@ fun GridHomeContent(
+                             gridItem.catalogName.replaceFirstChar { it.uppercase() }
+                         }
+                         SectionDivider(
+-                            catalogName = displayName
++                            catalogName = displayName, catalogId = gridItem.catalogId
+                         )
+                     }
+ 
+@@ -906,9 +906,11 @@ private fun GridStickyHeader(
+ @Composable
+ private fun SectionDivider(
+     catalogName: String,
++    catalogId: String? = null,
+     modifier: Modifier = Modifier
+ ) {
+-    Box(
++    androidx.compose.foundation.layout.Row(
++        verticalAlignment = Alignment.CenterVertically,
+         modifier = modifier
+             .fillMaxWidth()
+             .padding(top = NuvioTheme.spacing.xl, bottom = NuvioTheme.spacing.md)
+@@ -920,6 +922,7 @@ private fun SectionDivider(
+             ),
+             color = NuvioTheme.colors.TextPrimary
+         )
++        PetalixBrowseVod(catalogId)
+     }
+ }
+ 
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRows.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRows.kt
+index 6aac2d6..f3b2b49 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRows.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRows.kt
+@@ -554,6 +554,7 @@ internal fun ModernRowSection(
+                 color = textColor
+             )
+             // Live TV fork: "Live TV ▲" hint when this is the top row.
++            com.nuvio.tv.ui.screens.home.PetalixBrowseVod(row.catalogId)
+             com.nuvio.tv.livetv.home.LiveTvHomeHint()
+         }
+ 
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt
+index 4100d8e..48df955 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/PetalixHomeNavigation.kt
+@@ -35,6 +35,18 @@ internal enum class HomeTab(val label: String) {
+ 
+ internal val LocalPetalixHomeTab = staticCompositionLocalOf<((HomeTab) -> Unit)?> { null }
+ 
++@Composable
++internal fun PetalixBrowseVod(catalogId: String?) {
++    val open = LocalPetalixHomeTab.current ?: return
++    val tab = when (catalogId) {
++        "petalix-home-trending/movie/day" -> HomeTab.MOVIES
++        "petalix-home-trending/tv/day" -> HomeTab.SERIES
++        else -> return
++    }
++    PetalixDestination(if (tab == HomeTab.MOVIES) "View all movies" else "View all TV shows",
++        false, Modifier.padding(start = 12.dp)) { open(tab) }
++}
++
+ @Composable
+ internal fun PetalixHomeNavigation(modifier: Modifier, contentFocus: FocusRequester, open: (HomeTab) -> Unit) {
+     val hidden = com.nuvio.tv.petalix.petalixHomeLayout().hiddenToolbarTabs

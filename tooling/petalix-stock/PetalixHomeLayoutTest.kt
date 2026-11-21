@@ -23,9 +23,9 @@ class PetalixHomeLayoutTest {
     }
 
     @Test fun toolbarDefaultsAndOverrides() {
-        assertEquals(setOf("library"), PetalixHomeLayout.from(emptyMap()).hiddenToolbarTabs)
+        assertEquals(setOf("library", "movies", "series"), PetalixHomeLayout.from(emptyMap()).hiddenToolbarTabs)
         val edited = PetalixHomeLayout.from(mapOf("petalix_toolbar_library" to true,
-            "petalix_toolbar_movies" to false))
+            "petalix_toolbar_series" to true, "petalix_toolbar_movies" to false))
         assertEquals(setOf("movies"), edited.hiddenToolbarTabs)
     }
 

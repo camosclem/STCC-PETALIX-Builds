@@ -3308,7 +3308,7 @@
     "targets": [
       "layout_settings"
     ],
-    "default": true,
+    "default": false,
     "requiresCapability": "petalix-toolbar-v1"
   },
   "petalix_toolbar_series": {
@@ -3319,7 +3319,7 @@
     "targets": [
       "layout_settings"
     ],
-    "default": true,
+    "default": false,
     "requiresCapability": "petalix-toolbar-v1"
   }
 }
