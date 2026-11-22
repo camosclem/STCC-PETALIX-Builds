@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Trusted runner entry points. Gradle source is built in a separate, keyless job."""
-import base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile, urllib.parse, urllib.request, urllib.error, zipfile
+import base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tempfile, urllib.parse, urllib.request, urllib.error, uuid, zipfile
 ORIGIN='https://petalix-control.caroliinaconsultant.chatgpt.site'
 REPOSITORY=os.environ.get('GITHUB_REPOSITORY','')
 CERTIFICATE='b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1'
@@ -13,6 +13,21 @@ NATIVE_PANEL_RECIPES = {
     ),
 }
 PETALIX_UNIVERSAL_LIMIT_BYTES = 159_000_000
+GLASS_PANEL_BASE_RECIPE = 'petalix-native-panel-13-2-v1'
+
+
+def glass_candidate():
+    return os.environ.get('PETALIX_GLASS_CANDIDATE') == 'true'
+
+
+def verify_glass_job(item):
+    if not item or item.get('recipeRevision') != GLASS_PANEL_BASE_RECIPE or (
+        item.get('source', {}).get('sha') != NATIVE_PANEL_RECIPES[GLASS_PANEL_BASE_RECIPE][1]
+    ):
+        raise RuntimeError('The panel must authorize a Petalix 13.2 build for the guide candidate.')
+    if item['versionCode'] <= 1794797682:
+        raise RuntimeError('The guide candidate needs a higher version than the previous published Petalix candidate.')
+
 MOTION_CUE_HASHES={
  'apple':'7ec46ef15537e2cf99504e6be1da26a9042a8eb08399c7f0d60ee44d91e5294f',
  'disney':'88a28a203d198b97ec46055d41ee8b4421f3aa3a869b414604f7975c40b28cf5',
@@ -55,17 +70,26 @@ def panel(action,body):
 def job():return json.loads(os.environ['PANEL_JOB'])
 def run(args,**kw):return subprocess.run([str(v) for v in args],check=True,**kw)
 def claim():
+    glass = glass_candidate()
     repair=pathlib.Path('tooling/android-build/repair-request.json')
-    if repair.exists():
+    if repair.exists() and not glass:
         request=json.loads(repair.read_text())
         panel('repair',request)
     rebuild=os.environ.get('REBUILD_BUILD_ID','').strip()
+    if glass and (not rebuild or os.environ.get('PETALIX_UI2_TEST') == 'true'):
+        raise RuntimeError('Choose a finished Petalix 13.2 build and the guide candidate option only.')
     if os.environ.get('PETALIX_UI2_TEST')=='true' and not rebuild:
         raise RuntimeError('Petalix 2 UI can only use an explicitly authorized manual panel rebuild ID')
     if rebuild:
         if os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch' or not re.fullmatch(r'[a-f0-9-]{36}',rebuild):raise RuntimeError('Choose a valid finished panel build for a manual rebuild.')
-        panel('rebuild',{'id':rebuild,**({'ui2Test':True} if os.environ.get('PETALIX_UI2_TEST')=='true' else {})})
+        if glass:
+            request = str(uuid.uuid5(uuid.NAMESPACE_URL, REPOSITORY + '/actions/runs/' + os.environ['GITHUB_RUN_ID']))
+            panel('repair', {'requestId': request, 'buildId': rebuild, 'recipeRevision': GLASS_PANEL_BASE_RECIPE})
+        else:
+            panel('rebuild',{'id':rebuild,**({'ui2Test':True} if os.environ.get('PETALIX_UI2_TEST')=='true' else {})})
     value=panel('claim',{})['job']
+    if glass:
+        verify_glass_job(value)
     if os.environ.get('PETALIX_UI2_TEST')=='true' and not value:
         raise RuntimeError('The Petalix Control server did not authorize a rebuild job; no APK was signed.')
     if os.environ.get('PETALIX_UI2_TEST')=='true' and value.get('recipeRevision')!='petalix2-fullscreen-test-v1':
@@ -99,6 +123,9 @@ def sign_and_release():
     recipe = item.get('recipeRevision')
     native = recipe in NATIVE_PANEL_RECIPES
     latest_native = recipe == 'petalix-native-panel-13-2-v1'
+    glass = glass_candidate()
+    if glass:
+        verify_glass_job(item)
     if native and item.get('source', {}).get('sha') != NATIVE_PANEL_RECIPES[recipe][1]:
         raise RuntimeError('Native customer build identity changed')
     ui2=os.environ.get('PETALIX_UI2_TEST')=='true'
@@ -249,11 +276,17 @@ def sign_and_release():
             if latest_native:
                 with zipfile.ZipFile(apk) as verified_apk:
                     verified_dex=b''.join(verified_apk.read(n) for n in verified_apk.namelist() if re.fullmatch(r'classes\d*\.dex',n))
-                    if b'PetalixHomeHeader' in verified_dex:
+                    if not glass and b'PetalixHomeHeader' in verified_dex:
                         raise RuntimeError('The removed Home top menu is still present')
                     for marker in [b'petalixVodFirstStreams',b'balancedPetalixStream',b'PetalixPlaybackRecovery',b'petalixStartupChoice',b'guide-only-feeds-v1',b'petalixShowGuideFeed',b'petalixHomeLiveCollection',b'finishPetalixVodLoad',b'petalixSoftwareAv1Recovery',b'Make yourself at home.',b'petalixSportsChannelSignature',b'petalixActiveManagedValues',b'petalixBoundRawValues']:
-                        if marker not in verified_dex:
+                        if (not glass or marker != b'petalixHomeLiveCollection') and marker not in verified_dex:
                             raise RuntimeError('Navigation and focus repair missing: '+marker.decode())
+                    if glass:
+                        if b'Browse Live TV' in verified_dex:
+                            raise RuntimeError('The Home Live TV category shelf is still present')
+                        for marker in (b'petalix-guide-logo', b'petalix-guide-art', b'petalix_better_posters_v1', b'Live TV Guide'):
+                            if marker not in verified_dex:
+                                raise RuntimeError('Guide art loading missing: ' + marker.decode())
                 meta.update(
                     supportsPanelPenguPlay=True,
                     supportsPenguPlay=True,
@@ -263,7 +296,23 @@ def sign_and_release():
                           'Pengu fallback prefers ordinary 1080p links over heavy 4K/remux links. Manual source selection and configured quality filters are respected. Native Home focus now tracks Live TV shortcuts and streaming-service hero titles, with separate rows and changing backdrops. VOD import failures stay visible with a Retry action and movies appear before series finish importing. Hardware video decoders remain first, with one startup MPV recovery for Libgav1 AV1 initialization failures. One ZIP-selected locals group and panel-controlled movie/show trailer previews. Home/Guide/last-channel startup, remembered guide focus and clear playback recovery actions. Keeps alternate feeds available behind a compact guide, with major sports networks in the guide and event feeds in the Sports Hub. '
                           'Sports Hub rematches renamed provider events without changing stream identities or saved favorites. Customer send remains a separate action after owner testing.'
                 )
+            if glass:
+                meta.update(
+                    upstreamTag='1.2.0-beta.2.1 · BetterPosters',
+                    upstreamCommit='f3fcb2aebd1b44a02f63f56715712fbdee11e5f6',
+                    petalixRecipeCommit='1471f80a0724f01e819c3e7f82ee8edea528742a',
+                    notes='Petalix OTA candidate for owner review for the existing Android TV package. '
+                          'BetterPosters, Live TV Guide startup focus, Sports Hub event artwork, service backdrops, '
+                          'and the removal of Browse Live TV from Home. Preserves activation, '
+                          'managed playlists, favorites, Sports Hub, and targeted device updates. '
+                          'Stage for owner review and use Send updates after testing.',
+                )
             (out/(brand+'-release.json')).write_text(json.dumps(meta,indent=2)+'\n')
+    if glass:
+        corresponding_source = list(artifacts.rglob('openvpn2-corresponding-source.tar.gz'))
+        if len(corresponding_source) != 1:
+            raise RuntimeError('OpenVPN corresponding source is required for the guide candidate.')
+        shutil.copyfile(corresponding_source[0], out / corresponding_source[0].name)
     tag='panel-'+item['id'];assets=[str(p) for p in out.iterdir()]
     notes=out/'release-notes.md';notes.write_text('STCC and Petalix builds from upstream commit '+item['source']['sha']+'.\n\nThese builds are prepared for testing. Deploy each service from the shared panel when ready. Matching GPL source archives are included.\n')
     existing=subprocess.run(['gh','release','view',tag,'--repo',REPOSITORY,'--json','id'],capture_output=True,text=True)
