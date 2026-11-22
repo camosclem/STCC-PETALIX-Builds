@@ -81,6 +81,7 @@ tasks.withType<Test>().configureEach {
     copy2(HERE / "ViewingLabels.kt", java / "petalix/ViewingLabels.kt")
     subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "viewing-labels.patch")], cwd=root, check=True)
     subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "guide-art-and-entry.patch")], cwd=root, check=True)
+    subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "guide-and-preview-refinements.patch")], cwd=root, check=True)
     coordinator = java / "petalix/PetalixManagedCoordinator.kt"
     capabilities = coordinator.read_text()
     marker = '"favorites-backup-v1"'

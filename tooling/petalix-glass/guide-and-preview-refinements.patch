@@ -1,0 +1,312 @@
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/player/LiveTvPlaybackController.kt b/app/src/main/java/com/nuvio/tv/livetv/player/LiveTvPlaybackController.kt
+index 5d6b1e5..8f1f8a5 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/player/LiveTvPlaybackController.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/player/LiveTvPlaybackController.kt
+@@ -1689,7 +1689,7 @@ class LiveTvPlaybackController @Inject constructor(
+             "small" -> listOf(10_000, 30_000, 1_000, 2_000)
+             "large" -> listOf(40_000, 90_000, 3_000, 6_000)
+             "xlarge" -> listOf(60_000, 150_000, 5_000, 10_000)
+-            else -> listOf(25_000, 60_000, 2_000, 4_000)
++            else -> listOf(25_000, 60_000, 1_000, 4_000)
+         }
+         val loadControl = DefaultLoadControl.Builder()
+             .setBufferDurationsMs(minMs, maxMs, startMs, rebufferMs)
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+index 343afd8..2c21f25 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+@@ -161,7 +161,7 @@ private val LIST_WIDTH = 470.dp
+  *
+  *  - OK on a game: its game page (channels, score by period, scoring plays, follow, remind).
+  *  - Hold OK on a game: watch it straight away (in the window, or full screen when it's off).
+- *  - On the game page, OK on a channel plays it in the window; OK on it again goes full screen.
++ *  - On a live game page, focus previews the feed and OK opens it full screen.
+  *
+  * The window is the same video player as Live TV's preview and full screen, so the picture
+  * carries on without restarting from the list to the game page, to full screen and back.
+@@ -283,7 +283,7 @@ fun SportsScreen(
+     fun choose(ev: SportsEvent, m: ChannelMatch) {
+         when {
+             !videoOn -> watch(ev, m)
+-            ev.state == GameState.POST -> watch(ev, m)
++            ev.state == GameState.POST || ev.state == GameState.LIVE -> watch(ev, m)
+             playingKey == m.channel.key -> watch(ev, m)
+             else -> viewModel.playHere(m)
+         }
+@@ -750,6 +750,7 @@ private fun SportsHub(
+             onQuickWatch = onQuickWatch,
+             leaguesLine = if (effectiveChip == CHIP_ALL && leagueView == null) leaguesLine else null,
+             leaguesBarReq = leaguesBarReq,
++            onPreview = if (videoOn) viewModel::previewLive else null,
+             onChooseLeagues = { leaguesOpen = true }
+         )
+     }
+@@ -909,6 +910,20 @@ private fun SportsHub(
+     }
+ }
+ 
++@Composable
++private fun Modifier.liveSportsPreview(match: ChannelMatch?, onPreview: (ChannelMatch) -> Unit): Modifier {
++    if (match == null) return this
++    var focused by remember { mutableStateOf(false) }
++    val latestPreview by androidx.compose.runtime.rememberUpdatedState(onPreview)
++    LaunchedEffect(focused, match.channel.key) {
++        if (focused) {
++            delay(350)
++            latestPreview(match)
++        }
++    }
++    return onFocusChanged { focused = it.isFocused }
++}
++
+ @Composable
+ private fun GameList(
+     modifier: Modifier,
+@@ -936,6 +951,7 @@ private fun GameList(
+     /** All Events only: the "Choose Leagues" bar above the games (null: no bar). */
+     leaguesLine: String? = null,
+     leaguesBarReq: FocusRequester? = null,
++    onPreview: ((ChannelMatch) -> Unit)? = null,
+     onChooseLeagues: () -> Unit = {}
+ ) {
+     fun playing(ev: SportsEvent) = playingKey != null && matches[ev.id]?.any { it.channel.key == playingKey } == true
+@@ -977,7 +993,9 @@ private fun GameList(
+                                 use24h = use24h,
+                                 hideScores = settings.hideScores,
+                                 playing = playing(ev),
+-                                modifier = Modifier.weight(1f).then(if (i == 0) rowFirst else Modifier).focusRequester(requesterFor(ev.id)),
++                                modifier = Modifier.weight(1f).then(if (i == 0) rowFirst else Modifier).focusRequester(requesterFor(ev.id))
++                                    .then(if (onPreview != null && ev.state == GameState.LIVE)
++                                        Modifier.liveSportsPreview(matches[ev.id]?.firstOrNull(), onPreview) else Modifier),
+                                 onClick = { onOpen(ev) },
+                                 onLongClick = { onQuickWatch(ev) }
+                             )
+@@ -1484,7 +1502,8 @@ private fun GamePage(
+                         eventStartMs = ev.startMs,
+                         use24h = use24h,
+                         copies = g.drop(1),
+-                        modifier = if (i == 0 && regionButton) Modifier.focusProperties { up = regionFocus } else Modifier,
++                        modifier = Modifier.liveSportsPreview(m.takeIf { videoOn && ev.state == GameState.LIVE }, viewModel::previewLive)
++                            .then(if (i == 0 && regionButton) Modifier.focusProperties { up = regionFocus } else Modifier),
+                         onClick = { onChoose(m) }
+                     )
+                 }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsViewModel.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsViewModel.kt
+index bd31519..98f5e43 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsViewModel.kt
+@@ -141,6 +141,11 @@ class SportsViewModel @Inject constructor(
+     fun detachPlayer() { playback.detach() }
+     fun onSurfaceAttached() = playback.onSurfaceAttached()
+ 
++    /** A focus preview shares the player without adding a channel to Recently Watched. */
++    fun previewLive(match: ChannelMatch) {
++        if (playingKey.value != match.channel.key) playback.play(match.channel)
++    }
++
+     /** Plays the channel in the Sports page's window (no full screen), remembered as last watched. */
+     fun playHere(m: ChannelMatch) {
+         if (playback.playingChannel?.key == m.channel.key && playingKey.value != null) return
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+index 33afd1e..294ee66 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -892,7 +892,7 @@ private fun PetalixLiveSession(
+     // Browsing changes the program details, while the preview follows the player.
+     val showLivePreview = settings.showPreview && playback.channelKey != null
+     val headerProgramKey = headerChannel?.key to headerBlock?.program?.startMs
+-    val headerPoster = androidx.compose.runtime.key(headerProgramKey) { androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey, settings.showPosters, settings.showProgramDetails) {
++    val headerPoster = if (showLivePreview) null else androidx.compose.runtime.key(headerProgramKey) { androidx.compose.runtime.produceState<String?>(initialValue = null, headerProgramKey, settings.showPosters, settings.showProgramDetails) {
+         value = null
+         if (!settings.showProgramDetails || !settings.showPosters) return@produceState
+         // 24/7 channels with no real listings (no guide, or one long block named after the
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+index 5941742..e7dddb0 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+@@ -1819,16 +1819,18 @@ internal fun buildUi(
+         .map { g -> ChannelGroup(g.id, g.name, g.channelKeys.count { it in customPool }, locked = g.id in lockedIds) }
+     regular += custom
+     val playlistGroups = LinkedHashMap<String, Pair<String, Int>>()
+-    shown.filter { com.nuvio.tv.petalix.showPetalixGuideGroup(it.groupId, it.group, hasZipSelection) }.forEach { c ->
++    val groupSource = HashMap<String, String>()
++    val sourceIndex = HashMap<String, Int>()
++    val groupVisibility = HashMap<String, Boolean>()
++    for (c in shown) {
++        groupSource.putIfAbsent(c.groupId, c.sourceId)
++        sourceIndex.putIfAbsent(c.sourceId, sourceIndex.size)
++        if (hasZipSelection && c.groupId != com.nuvio.tv.petalix.PETALIX_ZIP_LOCALS &&
++            !groupVisibility.getOrPut(c.group) { com.nuvio.tv.petalix.showPetalixGuideGroup(c.groupId, c.group, true) }) continue
+         val cur = playlistGroups[c.groupId]
+         playlistGroups[c.groupId] = (cur?.first ?: c.group) to ((cur?.second ?: 0) + 1)
+     }
+-    val groupSource = HashMap<String, String>()
+-    shown.forEach { c -> groupSource.putIfAbsent(c.groupId, c.sourceId) }
+-    // Each playlist's groups in the provider's own order where it gave one (Xtream logins),
+-    // not the order their channels happen to come in. Groups it didn't name follow.
+     val providerRanks = com.nuvio.tv.livetv.model.PlaylistGroupOrder.ranks
+-    val sourceIndex = HashMap<String, Int>().also { m -> shown.forEach { c -> m.putIfAbsent(c.sourceId, m.size) } }
+     val playlistGroupList = if (providerRanks.isEmpty()) playlistGroups.entries.toList()
+     else playlistGroups.entries.sortedWith(
+         compareBy({ sourceIndex[groupSource[it.key]] ?: Int.MAX_VALUE }, { providerRanks[it.key] ?: Int.MAX_VALUE })
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+index e068776..e3ef49a 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/PetalixGlassSurface.kt
+@@ -87,61 +87,49 @@ internal fun PetalixGlassHero(
+         }
+         if (settings.showProgramDetails && channel != null) {
+             val short = maxHeight < 166.dp || compact
+-            Row(Modifier.align(Alignment.CenterStart).fillMaxWidth(.52f)
++            Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(.52f)
+                 .padding(start = 24.dp, end = 10.dp, bottom = 16.dp),
+-                verticalAlignment = Alignment.CenterVertically,
+-                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+-                if (settings.showPosters && artwork.isNotEmpty()) {
+-                    val width = if (short) 84.dp else 112.dp
+-                    PetalixGuideProgramArt(artwork, channel, name, settings.showChannelLogos,
+-                        Modifier.width(width).aspectRatio(16f / 9f))
+-                }
+-                Column(Modifier.weight(1f),
+-                    verticalArrangement = Arrangement.spacedBy(if (short) 3.dp else 6.dp)) {
+-                    val showChannel = GuideInfoPart.CHANNEL !in hidden
+-                    val showTags = GuideInfoPart.TAGS !in hidden
+-                    if (showChannel || (showTags && (program?.isLive(now) == true || channel.catchup != null))) {
+-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+-                            if (showChannel && settings.showChannelLogos) {
+-                                PetalixGuideLogo(channel, if (short) 43.dp else 64.dp, if (short) 24.dp else 35.dp)
+-                            }
+-                            if (showChannel && title != null) LiveText(name, color = GlassMuted, size = 13.sp)
+-                            if (showTags && program?.isLive(now) == true)
+-                                LiveText("● LIVE", color = PetalixLiveAccent, size = 11.sp, weight = FontWeight.Bold)
+-                            if (showTags && channel.catchup != null)
+-                                LiveText("Catch-up", color = GuideSilver, size = 11.sp)
+-                        }
++                verticalArrangement = Arrangement.spacedBy(if (short) 3.dp else 6.dp)) {
++                val showChannel = GuideInfoPart.CHANNEL !in hidden
++                val showTags = GuideInfoPart.TAGS !in hidden
++                if (showChannel || (showTags && (program?.isLive(now) == true || channel.catchup != null))) {
++                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                        if (showChannel && title != null) LiveText(name, color = GlassMuted, size = 13.sp)
++                        if (showTags && program?.isLive(now) == true)
++                            LiveText("● LIVE", color = PetalixLiveAccent, size = 11.sp, weight = FontWeight.Bold)
++                        if (showTags && channel.catchup != null)
++                            LiveText("Catch-up", color = GuideSilver, size = 11.sp)
+                     }
+-                    if (GuideInfoPart.TITLE !in hidden)
+-                        LiveText(title ?: name, color = Color.White, size = if (short) 24.sp else 31.sp,
+-                            weight = FontWeight.Medium, maxLines = 1)
+-                    if (settings.showPlaylistInInfo && ViewingLabels.source(channel.sourceName) != null)
+-                        LiveText(channel.sourceName, color = GlassMuted, size = 11.sp)
+-                    val minutesLeft = program?.takeIf { it.isLive(now) && GuideInfoPart.LEFT !in hidden }
+-                        ?.let { (it.stopMs - now + 59_999L) / 60_000L }
+-                    if (program != null && GuideInfoPart.TIME !in hidden) {
+-                        val minutes = (program.stopMs - program.startMs).coerceAtLeast(0L) / 60_000L
+-                        val duration = when {
+-                            minutes < 60 -> "${minutes}m"
+-                            minutes % 60 == 0L -> "${minutes / 60}h"
+-                            else -> "${minutes / 60}h ${minutes % 60}m"
+-                        }
+-                        val verb = if (program.startMs > now) "Starts" else "Started"
+-                        val timeLeft = minutesLeft?.let { " · ${it}m left" }.orEmpty()
+-                        LiveText("$duration · $verb at ${formatClock(program.startMs, settings.use24HourClock)}$timeLeft",
+-                            color = GlassMuted, size = 13.sp, weight = FontWeight.SemiBold)
+-                    } else if (minutesLeft != null) {
+-                        LiveText("${minutesLeft}m left", color = GlassMuted, size = 13.sp, weight = FontWeight.SemiBold)
++                }
++                if (GuideInfoPart.TITLE !in hidden)
++                    LiveText(title ?: name, color = Color.White, size = if (short) 24.sp else 31.sp,
++                        weight = FontWeight.Medium, maxLines = 1)
++                if (settings.showPlaylistInInfo && ViewingLabels.source(channel.sourceName) != null)
++                    LiveText(channel.sourceName, color = GlassMuted, size = 11.sp)
++                val minutesLeft = program?.takeIf { it.isLive(now) && GuideInfoPart.LEFT !in hidden }
++                    ?.let { (it.stopMs - now + 59_999L) / 60_000L }
++                if (program != null && GuideInfoPart.TIME !in hidden) {
++                    val minutes = (program.stopMs - program.startMs).coerceAtLeast(0L) / 60_000L
++                    val duration = when {
++                        minutes < 60 -> "${minutes}m"
++                        minutes % 60 == 0L -> "${minutes / 60}h"
++                        else -> "${minutes / 60}h ${minutes % 60}m"
+                     }
+-                    val description = program?.description?.takeIf { it.isNotBlank() } ?: details?.description ?: about?.description
+-                    if (GuideInfoPart.DESCRIPTION !in hidden && !description.isNullOrBlank())
+-                        LiveText(description, color = Color(0xFFF1F1F2), size = 14.sp, lineHeight = 19.sp,
+-                            maxLines = if (short) 1 else 3)
+-                    if (!short && GuideInfoPart.PROGRESS !in hidden && program?.isLive(now) == true)
+-                        Box(Modifier.size(210.dp, 2.5.dp).background(Color(0x24FFFFFF), progressShape)) {
+-                            Box(Modifier.fillMaxHeight().fillMaxWidth(program.progress(now)).background(GuideSilver, progressShape))
+-                        }
++                    val verb = if (program.startMs > now) "Starts" else "Started"
++                    val timeLeft = minutesLeft?.let { " · ${it}m left" }.orEmpty()
++                    LiveText("$duration · $verb at ${formatClock(program.startMs, settings.use24HourClock)}$timeLeft",
++                        color = GlassMuted, size = 13.sp, weight = FontWeight.SemiBold)
++                } else if (minutesLeft != null) {
++                    LiveText("${minutesLeft}m left", color = GlassMuted, size = 13.sp, weight = FontWeight.SemiBold)
+                 }
++                val description = program?.description?.takeIf { it.isNotBlank() } ?: details?.description ?: about?.description
++                if (GuideInfoPart.DESCRIPTION !in hidden && !description.isNullOrBlank())
++                    LiveText(description, color = Color(0xFFF1F1F2), size = 14.sp, lineHeight = 19.sp,
++                        maxLines = if (short) 1 else 3)
++                if (!short && GuideInfoPart.PROGRESS !in hidden && program?.isLive(now) == true)
++                    Box(Modifier.size(210.dp, 2.5.dp).background(Color(0x24FFFFFF), progressShape)) {
++                        Box(Modifier.fillMaxHeight().fillMaxWidth(program.progress(now)).background(GuideSilver, progressShape))
++                    }
+             }
+         }
+         Row(Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 3.dp)
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
+index e0c9e14..a63b818 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
+@@ -9,7 +9,12 @@ private val artworkByService = mapOf(
+ )
+ 
+ internal fun petalixServiceArtworkUri(folderId: String): String? =
+-    if (folderId == "folder-petalix-britbox") "file:///android_asset/petalix/home-art/britbox-v2.png" else artworkByService[folderId]?.let(::homeArtworkUri) ?: when (folderId) {
++    if (folderId == "folder-petalix-britbox") britboxArtwork
++    else artworkByService[folderId]?.let(::homeArtworkUri) ?: serviceBackdropUrl(folderId)
++
++private const val britboxArtwork = "file:///android_asset/petalix/home-art/britbox-v2.png"
++
++private fun serviceBackdropUrl(folderId: String): String? = when (folderId) {
+     "folder-WFGY1XPD" -> "https://art.kaptain.stream/streaming-services/netflix/live/backdrop.jpg"
+     "folder-AT8KYHZO" -> "https://art.kaptain.stream/streaming-services/prime-video/live/backdrop.jpg"
+     "folder-8ZBZOMW9" -> "https://art.kaptain.stream/streaming-services/disney/live/backdrop.jpg"
+@@ -23,10 +28,10 @@ internal fun petalixServiceArtworkUri(folderId: String): String? =
+ 
+ private fun homeArtworkUri(name: String) = "file:///android_asset/petalix/home-art/$name.webp"
+ 
+-/** The same artwork used on Home's service tiles, including the bundled fallback. */
+-internal fun petalixServiceHeroArtwork(folderId: String, configuredArtwork: Map<String, String>): String? {
+-    configuredArtwork[folderId]?.let { return it }
+-    val artwork = petalixServiceArtworkUri(folderId) ?: return null
+-    return if (artwork.startsWith("https://art.kaptain.stream/"))
+-        "file:///android_asset/petalix/service-art-v1/$folderId.jpg" else artwork
+-}
++/** Full-size backgrounds have their own bundled assets; the narrow cards are for the shelf. */
++internal fun petalixServiceHeroArtwork(folderId: String, configuredArtwork: Map<String, String>): String? =
++    configuredArtwork[folderId] ?: when {
++        folderId == "folder-petalix-britbox" -> britboxArtwork
++        serviceBackdropUrl(folderId) != null -> "file:///android_asset/petalix/service-art-v1/$folderId.jpg"
++        else -> null
++    }
+diff --git a/app/src/test/java/com/nuvio/tv/petalix/PetalixArtworkTest.kt b/app/src/test/java/com/nuvio/tv/petalix/PetalixArtworkTest.kt
+index 78a3a9b..618ff6d 100644
+--- a/app/src/test/java/com/nuvio/tv/petalix/PetalixArtworkTest.kt
++++ b/app/src/test/java/com/nuvio/tv/petalix/PetalixArtworkTest.kt
+@@ -5,6 +5,15 @@ import org.junit.Assert.assertNull
+ import org.junit.Test
+ 
+ class PetalixArtworkTest {
++    @Test
++    fun serviceHeroesUseWideArtworkAndHonorPanelOverrides() {
++        val id = "folder-WFGY1XPD"
++        assertEquals("file:///android_asset/petalix/service-art-v1/$id.jpg", petalixServiceHeroArtwork(id, emptyMap()))
++        assertEquals("file:///android_asset/petalix/home-art/netflix.webp", petalixServiceArtworkUri(id))
++        assertEquals("https://panel.example/hero.jpg", petalixServiceHeroArtwork(id, mapOf(id to "https://panel.example/hero.jpg")))
++        assertNull(petalixServiceHeroArtwork("unknown", emptyMap()))
++    }
++
+     @Test
+     fun upgradesTmdbArtworkAtTheRequestedDisplaySize() {
+         val image = "https://image.tmdb.org/t/p/w342/art.jpg"
