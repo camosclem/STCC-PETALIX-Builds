@@ -459,3 +459,59 @@ index eaebd6a..ac79f10 100644
                      val heroBackdrop = firstNonBlank(
                          serviceArtwork,
                          resolvedHero?.backdrop,
+diff --git a/app/src/main/java/com/nuvio/tv/data/local/AddonPreferences.kt b/app/src/main/java/com/nuvio/tv/data/local/AddonPreferences.kt
+index 8203046..6195322 100644
+--- a/app/src/main/java/com/nuvio/tv/data/local/AddonPreferences.kt
++++ b/app/src/main/java/com/nuvio/tv/data/local/AddonPreferences.kt
+@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.combine
+ import kotlinx.coroutines.flow.distinctUntilChanged
+ import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.flow.flatMapLatest
++import kotlinx.coroutines.flow.onStart
+ import kotlinx.coroutines.flow.map
+ import javax.inject.Inject
+ import javax.inject.Singleton
+@@ -63,6 +64,34 @@ class AddonPreferences @Inject constructor(
+         return cleanPath + query
+     }
+ 
++    private val betterPostersInstalled = androidx.datastore.preferences.core.booleanPreferencesKey("petalix_better_posters_v1")
++    private val betterPostersHost = "https://nuvio-better-posters.nuvio-better-posters-addon.workers.dev/"
++    private val betterPostersUrl = betterPostersHost +
++        "eyJ2ZXJzaW9uIjoxLCJ1cHN0cmVhbXMiOlsiaHR0cHM6Ly92My1jaW5lbWV0YS5zdHJlbS5pby9tYW5pZmVzdC5qc29uIl19"
++
++    /** Install once per effective profile. Later removals and custom configurations are respected. */
++    private suspend fun installBetterPosters(profileId: Int) {
++        val ds = store(profileId)
++        if (ds.data.first()[betterPostersInstalled] == true) return
++        ds.edit { prefs ->
++            if (prefs[betterPostersInstalled] == true) return@edit
++            val urls = getCurrentList(prefs).toMutableList()
++            if (urls.none { canonicalizeUrl(it).startsWith(betterPostersHost) }) {
++                val cinemeta = "https://v3-cinemeta.strem.io"
++                val pos = urls.indexOfFirst { canonicalizeUrl(it) == cinemeta }
++                urls.add(if (pos < 0) urls.size else pos, betterPostersUrl)
++                prefs[orderedUrlsKey] = gson.toJson(urls)
++                prefs.remove(legacyUrlsKey)
++                if (pos >= 0) {
++                    val states = getCurrentEnabledStates(prefs).toMutableMap()
++                    states[cinemeta] = false
++                    prefs[addonEnabledStatesKey] = gson.toJson(states)
++                }
++            }
++            prefs[betterPostersInstalled] = true
++        }
++    }
++
+     val installedAddonUrls: Flow<List<String>> = effectiveProfileIdFlow.flatMapLatest { pid ->
+         factory.get(pid, FEATURE).data.map { preferences ->
+             val json = preferences[orderedUrlsKey]
+@@ -72,7 +101,7 @@ class AddonPreferences @Inject constructor(
+                 val legacySet = preferences[legacyUrlsKey] ?: getDefaultAddons()
+                 legacySet.toList()
+             }
+-        }
++        }.onStart { installBetterPosters(pid) }
+     }
+ 
+     val addonEnabledStates: Flow<Map<String, Boolean>> = effectiveProfileIdFlow.flatMapLatest { pid ->
