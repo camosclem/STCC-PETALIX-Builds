@@ -284,7 +284,7 @@ def sign_and_release():
                     if glass:
                         if b'Browse Live TV' in verified_dex:
                             raise RuntimeError('The Home Live TV category shelf is still present')
-                        for marker in (b'petalix-guide-logo', b'petalix-guide-art'):
+                        for marker in (b'petalix-guide-logo', b'petalix-guide-art', b'petalix_better_posters_v1', b'Live TV Guide'):
                             if marker not in verified_dex:
                                 raise RuntimeError('Guide art loading missing: ' + marker.decode())
                 meta.update(
@@ -298,11 +298,11 @@ def sign_and_release():
                 )
             if glass:
                 meta.update(
-                    upstreamTag='1.2.0-beta.2.1',
+                    upstreamTag='1.2.0-beta.2.1 · BetterPosters',
                     upstreamCommit='f3fcb2aebd1b44a02f63f56715712fbdee11e5f6',
-                    petalixRecipeCommit='e35786f5f649550c25e9e50fc4e78ca5f0ec61ad',
+                    petalixRecipeCommit='1471f80a0724f01e819c3e7f82ee8edea528742a',
                     notes='Petalix OTA candidate for owner review for the existing Android TV package. '
-                          'Rounded guide cells, sharper artwork, one synopsis in service details, '
+                          'BetterPosters, Live TV Guide startup focus, Sports Hub event artwork, service backdrops, '
                           'and the removal of Browse Live TV from Home. Preserves activation, '
                           'managed playlists, favorites, Sports Hub, and targeted device updates. '
                           'Stage for owner review and use Send updates after testing.',
