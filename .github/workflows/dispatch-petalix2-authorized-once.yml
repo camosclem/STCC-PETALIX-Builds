@@ -1,5 +1,4 @@
-# Authorized native Nuvio guide restore; ZIP locals removed; source d557c3e5023b74572a0e8666eb1cc2c1e57d7a2e
-name: Request Petalix-only signed test APK
+name: Stage BetterPosters customer update
 on:
   push:
     branches: [fix/petalix2-authorized-pipeline]
@@ -12,10 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Request fresh authorized Petalix-only test
+      - name: Request signed customer candidate for panel selection
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          test "$GITHUB_REPOSITORY" = "camosclem/STCC-PETALIX-Builds"
-          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref main -f rebuild_build=a169ba3b-3792-473a-8b3a-b0ade721fdd9 -f ui2_test=true -f petalix_only=true
+          gh workflow run panel-build.yml --repo "$GITHUB_REPOSITORY" --ref main -f rebuild_build=a169ba3b-3792-473a-8b3a-b0ade721fdd9 -f glass_candidate=true -f petalix_only=true
