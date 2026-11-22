@@ -1,0 +1,461 @@
+diff --git a/app/src/main/java/com/nuvio/tv/MainActivity.kt b/app/src/main/java/com/nuvio/tv/MainActivity.kt
+index 148dedc..f376dca 100644
+--- a/app/src/main/java/com/nuvio/tv/MainActivity.kt
++++ b/app/src/main/java/com/nuvio/tv/MainActivity.kt
+@@ -999,7 +999,7 @@ open class MainActivity : ComponentActivity() {
+                     } else {
+                     // Live TV fork: "Open the App On": that page is the first screen, in place of
+                     // Home (read once, so the first screen never changes underneath).
+-                    val openOnRoute = remember { if (petalixBridge.homeServicesMigrationPending) null else com.nuvio.tv.livetv.startup.StartPage.cachedRoute(this@MainActivity) }
++                    val openOnRoute = remember { if (petalixBridge.homeServicesMigrationPending) null else com.nuvio.tv.livetv.startup.StartPage.cachedRoute(this@MainActivity)?.takeUnless { it == Screen.LiveTv.route } }
+                     val startDestination = when {
+                         needsExperienceSelection -> Screen.ExperienceModeSelection.route
+                         layoutChosen -> openOnRoute ?: Screen.Home.route
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvRepository.kt b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvRepository.kt
+index 6f9c428..24a40b7 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvRepository.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvRepository.kt
+@@ -116,6 +116,8 @@ class LiveTvRepository @Inject constructor(
+     private val _status = MutableStateFlow(LiveTvStatus())
+     val status: StateFlow<LiveTvStatus> = _status.asStateFlow()
+ 
++    private val _initialChannelsRead = MutableStateFlow(false)
++    val initialChannelsRead = _initialChannelsRead.asStateFlow()
+     private var initialized = false
+     /** The start-up update check has run (later checks may start). */
+     @Volatile private var firstCheckDone = false
+@@ -130,6 +132,7 @@ class LiveTvRepository @Inject constructor(
+             withContext(Dispatchers.IO) { runCatching { File(baseDir, "epg_channel_lists.bin").delete() } }
+             // Saved channels and guide first: reading them only uses the device's storage.
+             loadFromCache()
++            if (channels.value.isNotEmpty()) _initialChannelsRead.value = true
+             // Settings left behind by playlists deleted before this was done on delete (or deleted
+             // on another TV and synced here). Not with no playlists at all: a fresh install or a
+             // restore still on its way.
+@@ -153,8 +156,12 @@ class LiveTvRepository @Inject constructor(
+             scheduleCompact()
+             // Checking for playlist / guide updates uses the network and a lot of processing,
+             // so when this starts with the app it waits a little, out of Nuvio's way.
+-            if (updateCheckDelayMs > 0) delay(updateCheckDelayMs)
+-            refreshStale()
++            if (updateCheckDelayMs > 0 && channels.value.isNotEmpty()) delay(updateCheckDelayMs)
++            try {
++                refreshStale()
++            } finally {
++                _initialChannelsRead.value = true
++            }
+             firstCheckDone = true
+             // Then keep checking while the app stays open. TV boxes keep the app running for
+             // days (Home only sends it to the background), and the check used to happen only
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
+index 3da45b4..2fb121d 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/home/LiveTvHomeRow.kt
+@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
+ 
+ import androidx.compose.foundation.layout.size
+ 
++import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.focusable
+ 
+ import androidx.compose.foundation.ExperimentalFoundationApi
+@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.lazy.LazyRow
+ import androidx.compose.foundation.lazy.itemsIndexed
+ import androidx.compose.ui.focus.focusRequester
++import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.launch
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.runtime.Composable
+@@ -64,6 +66,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
+ data class LiveTvHomeActions(
+     /** True only on Nuvio's real home screen (the same layouts are reused for collections). */
+     val onHome: Boolean = false,
++    val openGuide: () -> Unit = {},
+     val openChannel: (String) -> Unit = {}
+ )
+ 
+@@ -197,8 +200,8 @@ fun LiveTvHomeRow(
+ }
+ 
+ /** The home screen opens on the Live TV row (when it's on top) once per app start. */
+-private object HomeRowFocus {
+-    @Volatile var done = false
++internal object HomeRowFocus {
++    var focusedLaunch = -1
+     /** When the home screen first appeared this app start (after any profile picker). */
+     @Volatile var homeShownAt = 0L
+ }
+@@ -305,6 +308,17 @@ private fun LiveTvHomeRowContent(
+         val target = lastFocusedKey?.let { cardFocus[it] }
+         runCatching { (target ?: firstCard).requestFocus() }.onFailure { runCatching { firstCard.requestFocus() } }
+     }
++    val launch = com.nuvio.tv.livetv.ui.LiveTvAppOpens.count
++    val menuExpanded = com.nuvio.tv.LocalSidebarExpanded.current
++    androidx.compose.runtime.LaunchedEffect(launch, persistent, takeInitialFocus, menuExpanded) {
++        if (!persistent || !takeInitialFocus || menuExpanded || HomeRowFocus.focusedLaunch == launch) return@LaunchedEffect
++        val lastKey = LiveTvHomeFocus.lastKeyAt
++        androidx.compose.runtime.snapshotFlow { listState.layoutInfo.visibleItemsInfo.any { it.index == 0 } }.first { it }
++        androidx.compose.runtime.withFrameNanos { }
++        if (LiveTvHomeFocus.lastKeyAt == lastKey && runCatching { firstCard.requestFocus() }.getOrDefault(false)) {
++            HomeRowFocus.focusedLaunch = launch
++        }
++    }
+     val alpha by androidx.compose.animation.core.animateFloatAsState(
+         1f, label = "liveRowAlpha"
+     )
+@@ -361,10 +375,24 @@ private fun LiveTvHomeRowContent(
+                 contentPadding = PaddingValues(start = startPadding, end = maxOf(startPadding, 24.dp)),
+                 horizontalArrangement = Arrangement.spacedBy(10.dp)
+             ) {
++                if (persistent) item(key = "petalix-open-guide") {
++                    var focused by remember { mutableStateOf(false) }
++                    val shape = RoundedCornerShape(10.dp)
++                    Box(Modifier.focusRequester(firstCard)
++                        .width(if (settings.homeRowCompact) 180.dp else 230.dp)
++                        .height(if (settings.homeRowCompact) 54.dp else 72.dp)
++                        .clip(shape).border(if (focused) 3.dp else 1.dp, Color.White.copy(alpha = if (focused) 1f else .3f), shape)
++                        .onFocusChanged { focused = it.isFocused }
++                        .clickable(onClick = actions.openGuide), contentAlignment = Alignment.Center) {
++                        coil3.compose.AsyncImage("file:///android_asset/petalix/home-art/home.webp", null,
++                            Modifier.matchParentSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop, alpha = .55f)
++                        LiveText("Live TV Guide", color = Color.White, size = 16.sp, weight = FontWeight.Bold)
++                    }
++                }
+                 itemsIndexed(entries, key = { _, it -> it.channel.key }) { index, e ->
+                     val requester = cardFocus.getOrPut(e.channel.key) { androidx.compose.ui.focus.FocusRequester() }
+                     HomeCard(
+-                        modifier = (if (index == 0) Modifier.focusRequester(firstCard) else Modifier).focusRequester(requester),
++                        modifier = (if (!persistent && index == 0) Modifier.focusRequester(firstCard) else Modifier).focusRequester(requester),
+                         // Keep the highlighted card fully on screen, and the very start of the row
+                         // in view at the first card.
+                         onFocused = {
+@@ -375,11 +403,12 @@ private fun LiveTvHomeRowContent(
+                                 val fullyVisible = visible.filter {
+                                     it.offset >= 0 && it.offset + it.size <= info.viewportEndOffset - info.afterContentPadding
+                                 }.map { it.index }
++                                val position = if (persistent) index + 1 else index
+                                 when {
+                                     index == 0 -> listState.animateScrollToItem(0)
+-                                    fullyVisible.isEmpty() || index < fullyVisible.first() -> listState.animateScrollToItem(index)
+-                                    index > fullyVisible.last() ->
+-                                        listState.animateScrollToItem((index - (fullyVisible.size - 1).coerceAtLeast(0)).coerceAtLeast(0))
++                                    fullyVisible.isEmpty() || position < fullyVisible.first() -> listState.animateScrollToItem(position)
++                                    position > fullyVisible.last() ->
++                                        listState.animateScrollToItem((position - (fullyVisible.size - 1).coerceAtLeast(0)).coerceAtLeast(0))
+                                 }
+                             }
+                         },
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt
+index 79f116f..c8308d6 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsDesign.kt
+@@ -162,7 +162,7 @@ internal fun Modifier.sportsFrame(
+ internal fun LeagueMark(league: League?, size: Dp) {
+     val logo = league?.let { SportsFeeds.leagueLogos[it.id] }
+     when {
+-        logo != null -> SportsLogoImage(logo, size, league?.name)
++        logo != null -> SportsArtwork(listOf(logo), size) { LiveText(league?.short.orEmpty(), size = 10.sp, color = Color.White) }
+         // A wrestling promotion without an approved logo (AEW, TNA): its name in its colour,
+         // lettering only (like the NXT tile), rather than the sport's symbol.
+         league != null && league.sport == Sport.WRESTLING && league.short.length <= 4 -> Box(
+@@ -235,6 +235,28 @@ internal fun TeamLogo(team: TeamInfo?, size: Dp) {
+     }
+ }
+ 
++/** Try programme and channel images in order, including when a feed returns a broken URL. */
++@Composable
++internal fun SportsArtwork(urls: List<String>, size: Dp, fallback: @Composable () -> Unit) {
++    val candidates = remember(urls) { urls.filter { it.isNotBlank() }.distinct() }
++    var index by remember(candidates) { mutableStateOf(0) }
++    val url = candidates.getOrNull(index)
++    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
++        if (url == null) fallback()
++        else androidx.compose.runtime.key(url) {
++            AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Fit,
++                modifier = Modifier.fillMaxSize(), onError = { index++ })
++        }
++    }
++}
++
++@Composable
++internal fun SportsChannelArtwork(channel: com.nuvio.tv.livetv.model.LiveChannel, programIcon: String?, size: Dp) {
++    SportsArtwork(listOfNotNull(programIcon, channel.logo) + channel.guideLogoFallbacks, size) {
++        LiveText(channel.name.trim().take(4).uppercase(), size = 10.sp, color = Color.White, weight = FontWeight.Bold)
++    }
++}
++
+ /** A small rounded label: LIVE, PLAYING, FINAL, a start time… */
+ @Composable
+ internal fun SportsBadge(text: String, background: Color, color: Color, modifier: Modifier = Modifier) {
+@@ -381,6 +403,7 @@ internal object GameFocus {
+ @Composable
+ internal fun GameCard(
+     ev: SportsEvent,
++    match: ChannelMatch?,
+     follows: SportsFollows,
+     now: Long,
+     use24h: Boolean,
+@@ -415,7 +438,13 @@ internal fun GameCard(
+                 Modifier.width(48.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.03f))
+                     .drawBehind { drawRect(SportsLook.Divider, topLeft = Offset(size.width - 1.dp.toPx(), 0f), size = Size(1.dp.toPx(), size.height)) },
+                 contentAlignment = Alignment.Center
+-            ) { EventMark(ev, league, 28.dp) }
++            ) {
++                val art = ev.guideHits.firstNotNullOfOrNull { it.second.icon?.takeIf(String::isNotBlank) }
++                    ?: match?.program?.icon?.takeIf(String::isNotBlank)
++                SportsArtwork(listOfNotNull(art, match?.channel?.logo), 38.dp) {
++                    EventMark(ev, league, 28.dp)
++                }
++            }
+             Column(Modifier.weight(1f).fillMaxHeight()) {
+                 if (sides.size == 2) {
+                     val showScore = ev.hasScore && !hideScores
+@@ -864,7 +893,7 @@ internal fun SportsChannelRow(
+                 Modifier.size(width = 46.dp, height = 30.dp).clip(RoundedCornerShape(6.dp))
+                     .background(Color.White.copy(alpha = 0.08f)),
+                 contentAlignment = Alignment.Center
+-            ) { ChannelLogo(m.channel.logo, 24.dp) }
++            ) { SportsChannelArtwork(m.channel, m.program?.icon, 24.dp) }
+             Spacer(Modifier.width(11.dp))
+             Column(Modifier.weight(1f)) {
+                 // The channel, and which of your playlists (providers) it comes from.
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsGameStrip.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsGameStrip.kt
+index 207e648..007043c 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsGameStrip.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsGameStrip.kt
+@@ -601,7 +601,7 @@ private fun StripStreamCard(
+             horizontalArrangement = Arrangement.spacedBy(6.dp),
+             verticalAlignment = Alignment.CenterVertically,
+         ) {
+-            ChannelLogo(match.channel.logo, 24.dp)
++            SportsChannelArtwork(match.channel, match.program?.icon, 24.dp)
+             LiveText(game.event.title, Modifier.weight(1f), size = 10.sp,
+                 color = NuvioTheme.colors.TextSecondary)
+             if (playing) SportsBadge("PLAYING", accent, NuvioTheme.colors.OnSecondary)
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt
+index 3af9b1e..fe0aaaa 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsLeagueNetworks.kt
+@@ -371,9 +371,7 @@ private fun NetworkCard(
+             )
+     ) {
+         Row(Modifier.fillMaxSize().padding(horizontal = 12.dp).alpha(if (found) 1f else 0.6f), verticalAlignment = Alignment.CenterVertically) {
+-            if (found) {
+-                ChannelLogo(logo, 40.dp)
+-            } else {
++            SportsArtwork(listOfNotNull(logo), 40.dp) {
+                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(9.dp)).background(Color(color)), contentAlignment = Alignment.Center) {
+                     LiveText(mark, color = Color.White, size = 12.sp, weight = FontWeight.ExtraBold)
+                 }
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+index 2c21f25..01882d7 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+@@ -988,6 +988,7 @@ private fun GameList(
+                         row.forEachIndexed { i, ev ->
+                             GameCard(
+                                 ev = ev,
++                                match = matches[ev.id]?.firstOrNull(),
+                                 follows = follows,
+                                 now = now,
+                                 use24h = use24h,
+@@ -1872,7 +1873,7 @@ internal fun ChannelLine(channel: LiveChannel, detail: String, modifier: Modifie
+             .padding(horizontal = 12.dp, vertical = 8.dp),
+         verticalAlignment = Alignment.CenterVertically
+     ) {
+-        ChannelLogo(channel.logo, 22.dp)
++        SportsChannelArtwork(channel, null, 22.dp)
+         Spacer(Modifier.width(10.dp))
+         LiveText(ViewingLabels.channel(channel.name), color = Color.White, size = 14.sp, weight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+         LiveText(detail, color = SportsLook.Dim, size = 11.sp)
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/startup/LiveTvStartup.kt b/app/src/main/java/com/nuvio/tv/livetv/startup/LiveTvStartup.kt
+index 3e12ca8..234dfc0 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/startup/LiveTvStartup.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/startup/LiveTvStartup.kt
+@@ -42,7 +42,6 @@ object LiveTvPreload {
+         // Reading the saved channel list and guide is quick and only uses storage, so it starts
+         // almost straight away, as the app opens. Checking for updates (network, heavy) waits
+         // until the app has settled.
+-        kotlinx.coroutines.delay(300)
+         val prefs = entry.liveTvPreferences()
+         val settings = prefs.settings.first()
+         val playlists = prefs.playlists.first()
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+index 294ee66..b5655e7 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvGuideScreen.kt
+@@ -187,7 +187,9 @@ internal fun PetalixLiveTvScreen(
+     val settingsLoaded by viewModel.settingsLoaded.collectAsStateWithLifecycle()
+     val menuLoaded by viewModel.menuStyleLoaded.collectAsStateWithLifecycle()
+     if (!settingsLoaded || !menuLoaded) {
+-        Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background))
++        Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background), contentAlignment = Alignment.Center) {
++            EmptyGuideMessage(title = "Opening Live TV guide…", body = null, action = null)
++        }
+         return
+     }
+     PetalixLiveSession(
+@@ -579,6 +581,7 @@ private fun PetalixLiveSession(
+             cursorMs = now
+         }
+     }
++    val initialChannelsRead by viewModel.initialChannelsRead.collectAsStateWithLifecycle()
+     val returningToGuide = remember { viewModel.isReturningFromFullscreen() }
+     // Start on the schedule. A category shortcut and player handoff own their own selection.
+     LaunchedEffect(Unit) {
+@@ -586,7 +589,7 @@ private fun PetalixLiveSession(
+         val toGroups = returningToGuide && viewModel.consumeGroupsOnReturn()
+         if (!returningToGuide && !homeCategoryRequested && !viewModel.settings.value.rememberLastGroup) {
+             val loaded = viewModel.uiState.first { it.guideReady }
+-            if (!fullscreenComing && !fullscreen) viewModel.selectGroup(loaded.defaultGroupId)
++            if (!fullscreenComing && !fullscreen && loaded.allVisibleChannels.isNotEmpty()) viewModel.selectGroup(loaded.defaultGroupId)
+         }
+         viewModel.uiState.first { it.guideReady }
+         androidx.compose.runtime.withFrameNanos { }
+@@ -1726,7 +1729,7 @@ private fun PetalixLiveSession(
+                             .focusable()
+                     ) {
+                         when {
+-                            !ui.guideReady -> EmptyGuideMessage(title = "Loading guide…", body = "", action = null)
++                            (!ui.guideReady || (ui.hasSources && channels.isEmpty() && !initialChannelsRead)) -> EmptyGuideMessage(title = "Loading guide…", body = "", action = null)
+                             !ui.hasSources -> EmptyGuideMessage(
+                                 title = "No playlists yet",
+                                 body = "Add an M3U playlist, Xtream login or XMLTV guide in Settings › Live TV.",
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+index e7dddb0..6a8c039 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+@@ -155,6 +155,7 @@ class LiveTvViewModel @Inject constructor(
+         viewModelScope.launch { prefs.setPictureShape(channelKey, shape) }
+     }
+ 
++    val initialChannelsRead = repository.initialChannelsRead
+     val status: StateFlow<LiveTvStatus> = repository.status
+     val playbackState: StateFlow<LivePlaybackState> = playback.state
+ 
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
+index a63b818..0dc5ceb 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixServiceArtwork.kt
+@@ -28,6 +28,10 @@ private fun serviceBackdropUrl(folderId: String): String? = when (folderId) {
+ 
+ private fun homeArtworkUri(name: String) = "file:///android_asset/petalix/home-art/$name.webp"
+ 
++internal fun petalixFullBackdrop(url: String?): String? =
++    url?.takeIf { it.isNotBlank() }?.replace(Regex("""^https://image\.tmdb\.org/t/p/w\d+/"""),
++        "https://image.tmdb.org/t/p/original/")
++
+ /** Full-size backgrounds have their own bundled assets; the narrow cards are for the shelf. */
+ internal fun petalixServiceHeroArtwork(folderId: String, configuredArtwork: Map<String, String>): String? =
+     configuredArtwork[folderId] ?: when {
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
+index 9a017f4..7960f8c 100644
+--- a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
+@@ -72,6 +72,12 @@ fun DistinctPetalixServiceScreen(onHome: () -> Unit, onDetail: (String,String,St
+         .filter { (view!=HubView.MOVIES || it.type==ContentType.MOVIE) &&
+             (view!=HubView.SERIES || it.type==ContentType.SERIES) }
+     val hero = all.getOrNull(featured.coerceIn(0,(all.size-1).coerceAtLeast(0)))
++    val context = androidx.compose.ui.platform.LocalContext.current
++    val feature = com.nuvio.tv.petalix.petalixFullBackdrop(hero?.background ?: hero?.landscapePoster)
++    LaunchedEffect(service.id, feature) {
++        val folder = PetalixServices.folderId(service.id) ?: return@LaunchedEffect
++        if (feature != null) context.getSharedPreferences("petalix_feature_art", 0).edit().putString(folder, feature).apply()
++    }
+     val page = HubPage(service,state.rows,hero,
+         open={ onDetail(it.id,it.apiType,it.sourceAddonBaseUrl.orEmpty()) },
+         collection={ collection=it.catalogName; query=""; search=false },
+@@ -197,10 +203,15 @@ private fun HubNavigation(s:PetalixService,selected:HubView,home:()->Unit,choose
+ @Composable private fun HubBackdrop(p:HubPage,modifier:Modifier=Modifier) {
+     Box(modifier.background(p.service.background)) {
+         val configuredArtwork = com.nuvio.tv.petalix.petalixHomeLayout().serviceArtwork
+-        val backdrop = PetalixServices.folderId(p.service.id)
+-            ?.let { com.nuvio.tv.petalix.petalixServiceHeroArtwork(it, configuredArtwork) } ?: p.hero?.backdropUrl
+-        Crossfade(backdrop,label="${p.service.id}FeatureArtwork") { art ->
+-            AsyncImage(petalixArtwork(art, 1280),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
++        val folder = PetalixServices.folderId(p.service.id)
++        val backdrop = configuredArtwork[folder]
++            ?: com.nuvio.tv.petalix.petalixFullBackdrop(p.hero?.background ?: p.hero?.landscapePoster)
++            ?: folder?.let { com.nuvio.tv.petalix.petalixServiceHeroArtwork(it, emptyMap()) }
++        val fallback = folder?.let { com.nuvio.tv.petalix.petalixServiceHeroArtwork(it, emptyMap()) }
++        var failed by remember(backdrop) { mutableStateOf(false) }
++        Crossfade(if (failed) fallback else backdrop,label="${p.service.id}FeatureArtwork") { art ->
++            AsyncImage(petalixArtwork(art, 1280),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop,
++                onError = { if (art == backdrop) failed = true })
+         }
+     }
+ }
+diff --git a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+index 1835bcf..9127f49 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/navigation/NuvioNavHost.kt
+@@ -367,6 +367,7 @@ private fun PlaybackNavHost(
+                 },
+                 com.nuvio.tv.livetv.home.LocalLiveTvHomeActions provides com.nuvio.tv.livetv.home.LiveTvHomeActions(
+                     onHome = true,
++                    openGuide = { openLiveTv() },
+                     openChannel = { openLiveTv(channelKey = it) }
+                 )
+             ) {
+diff --git a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
+index eaebd6a..ac79f10 100644
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
+@@ -216,9 +216,14 @@ fun ModernHomeContent(
+     val activeRowKeys = carouselLookups.activeRowKeys
+     val activeCatalogItemIds = carouselLookups.activeCatalogItemIds
+ 
++    val isHome = com.nuvio.tv.livetv.home.LocalLiveTvHomeActions.current.onHome
++    val openCount = com.nuvio.tv.livetv.ui.LiveTvAppOpens.count
++    val startAtTop = remember(openCount, isHome) {
++        isHome && com.nuvio.tv.livetv.home.HomeRowFocus.focusedLaunch != openCount
++    }
+     val verticalRowListState = rememberLazyListState(
+-        initialFirstVisibleItemIndex = focusState.verticalScrollIndex,
+-        initialFirstVisibleItemScrollOffset = focusState.verticalScrollOffset
++        initialFirstVisibleItemIndex = if (startAtTop) 0 else focusState.verticalScrollIndex,
++        initialFirstVisibleItemScrollOffset = if (startAtTop) 0 else focusState.verticalScrollOffset
+     )
+     val isVerticalRowsScrollingState = remember(verticalRowListState) {
+         derivedStateOf { verticalRowListState.isScrollInProgress }
+@@ -464,7 +469,7 @@ fun ModernHomeContent(
+             }
+         }
+ 
+-        if (!restoredFromSavedState.value && focusState.hasSavedFocus) {
++        if (!startAtTop && !restoredFromSavedState.value && focusState.hasSavedFocus) {
+             val savedRowKey = focusState.focusedRowKey ?: when {
+                 focusState.focusedRowIndex == -1 && uiState.continueWatchingEnabled && uiState.continueWatchingItems.isNotEmpty() -> "continue_watching"
+                 focusState.focusedRowIndex >= 0 -> rowKeyByGlobalRowIndex.map[focusState.focusedRowIndex]
+@@ -533,6 +538,7 @@ fun ModernHomeContent(
+     }
+ 
+     LaunchedEffect(focusState.verticalScrollIndex, focusState.verticalScrollOffset) {
++        if (startAtTop) return@LaunchedEffect
+         val targetIndex = focusState.verticalScrollIndex
+         val targetOffset = focusState.verticalScrollOffset
+         if (verticalRowListState.firstVisibleItemIndex == targetIndex &&
+@@ -732,7 +738,9 @@ fun ModernHomeContent(
+             }
+ 
+             val configuredServiceArtwork = com.nuvio.tv.petalix.petalixHomeLayout().serviceArtwork
+-            val resolvedHeroState = remember(activeCarouselItemState, enrichedPreviews, enrichingItemId, heroItem, uiState.heroEnrichmentEnabled, uiState.homeImdbRatingsVisibility, failedEnrichmentIds, configuredServiceArtwork) {
++            val artContext = androidx.compose.ui.platform.LocalContext.current
++            val featureArt = remember(artContext) { artContext.getSharedPreferences("petalix_feature_art", 0).all }
++            val resolvedHeroState = remember(featureArt, activeCarouselItemState, enrichedPreviews, enrichingItemId, heroItem, uiState.heroEnrichmentEnabled, uiState.homeImdbRatingsVisibility, failedEnrichmentIds, configuredServiceArtwork) {
+                 derivedStateOf {
+                     val activeCarouselItem = activeCarouselItemState.value
+                     val activeItemId = activeCarouselItem?.metaPreview?.id
+@@ -789,7 +797,10 @@ fun ModernHomeContent(
+                         (enrichedHero == null && activeItemId != null && heroEnrichmentEnabled && !enrichmentFailed)
+                     
+                     val serviceArtwork = (activeCarouselItem?.payload as? ModernPayload.CollectionFolder)
+-                        ?.folderId?.let { com.nuvio.tv.petalix.petalixServiceHeroArtwork(it, configuredServiceArtwork) }
++                        ?.folderId?.let { folder ->
++                            configuredServiceArtwork[folder] ?: featureArt[folder] as? String
++                                ?: com.nuvio.tv.petalix.petalixServiceHeroArtwork(folder, emptyMap())
++                        }
+                     val heroBackdrop = firstNonBlank(
+                         serviceArtwork,
+                         resolvedHero?.backdrop,
