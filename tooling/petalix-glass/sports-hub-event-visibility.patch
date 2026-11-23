@@ -1,0 +1,23 @@
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+--- a/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/sports/SportsScreen.kt
+@@ -561,7 +561,7 @@
+         sportChip != null && followedSports.none { CHIP_SPORT + it.name == sportChip } -> if (follows.isEmpty) CHIP_ALL else CHIP_MINE
+         // Old saved filters (a sport's name on its own, from before): My Teams.
+         chip != null && Sport.entries.any { it.name == chip } -> if (follows.isEmpty) CHIP_ALL else CHIP_MINE
+-        else -> chip ?: if (follows.isEmpty) CHIP_ALL else CHIP_MINE
++        else -> chip ?: CHIP_ALL
+     }
+     val rowsSport: Sport? = effectiveChip.takeIf { it.startsWith(CHIP_SPORT) }?.let { c -> followedSports.firstOrNull { CHIP_SPORT + it.name == c } }
+     val rowsPage = effectiveChip == CHIP_MINE || rowsSport != null
+diff --git a/app/src/main/java/com/nuvio/tv/petalix/PetalixSportsGuide.kt b/app/src/main/java/com/nuvio/tv/petalix/PetalixSportsGuide.kt
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixSportsGuide.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixSportsGuide.kt
+@@ -47,5 +47,6 @@
+ internal fun petalixSportsGuideOnlyFeed(channel: LiveChannel): Boolean {
+     val group = words(channel.group)
+     return !roundTheClockGroup.containsMatchIn(group) &&
+-        (leaguePackage.containsMatchIn(group) || (eventLeague.containsMatchIn(group) && eventSlots.containsMatchIn(group)))
++        (leaguePackage.containsMatchIn(group) || eventLeague.matches(group) ||
++            (eventLeague.containsMatchIn(group) && eventSlots.containsMatchIn(group)))
+ }

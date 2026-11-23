@@ -42,10 +42,12 @@ class PetalixGlassGuideTest {
 
     @Test fun hidingEventGroupsLeavesSportsEligibleWhileIndividualHidesStillApply() {
         for (league in listOf("NFL", "NHL", "NBA")) {
-            val event = channel(league, "$league 01", "$league Games")
-            val hiddenGroup = setOf(event.groupId)
-            assertFalse(hiddenFromSportMatching(event, emptySet(), hiddenGroup))
-            assertTrue(hiddenFromSportMatching(event, setOf(event.key), hiddenGroup))
+            for (group in listOf(league, "$league Games", "$league Teams")) {
+                val event = channel(league, "$league 01", group)
+                val hiddenGroup = setOf(event.groupId)
+                assertFalse(hiddenFromSportMatching(event, emptySet(), hiddenGroup))
+                assertTrue(hiddenFromSportMatching(event, setOf(event.key), hiddenGroup))
+            }
         }
         val ordinary = channel("espn", "ESPN", "Sports")
         assertTrue(hiddenFromSportMatching(ordinary, emptySet(), setOf(ordinary.groupId)))
