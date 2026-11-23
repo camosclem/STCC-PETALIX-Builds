@@ -1,4 +1,4 @@
-name: Stage BetterPosters customer update
+name: Stage BetterPosters and Sports Hub customer update
 on:
   push:
     branches: [fix/petalix2-authorized-pipeline]
