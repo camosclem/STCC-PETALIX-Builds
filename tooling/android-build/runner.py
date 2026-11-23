@@ -300,7 +300,7 @@ def sign_and_release():
                 meta.update(
                     upstreamTag='1.2.0-beta.2.1 · BetterPosters',
                     upstreamCommit='f3fcb2aebd1b44a02f63f56715712fbdee11e5f6',
-                    petalixRecipeCommit='1471f80a0724f01e819c3e7f82ee8edea528742a',
+                    petalixRecipeCommit='9572757193b34a2354f3624e594766893d9236e2',
                     notes='Petalix OTA candidate for owner review for the existing Android TV package. '
                           'BetterPosters, Live TV Guide startup focus, Sports Hub event artwork, service backdrops, '
                           'and the removal of Browse Live TV from Home. Preserves activation, '
