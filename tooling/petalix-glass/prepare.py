@@ -91,5 +91,10 @@ tasks.withType<Test>().configureEach {
         raise ValueError("Expected the Favorites backup capability")
     coordinator.write_text(capabilities.replace(marker, marker + ', "favorites-edit-v1"'))
 
+    # Apply the next guide and artwork refinements on this owner review branch.
+    import runpy
+    review = runpy.run_path(str(HERE.parent / "petalix-owner-review" / "prepare.py"))
+    review["prepare"](root)
+
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())
