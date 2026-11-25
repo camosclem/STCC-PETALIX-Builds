@@ -97,6 +97,7 @@ tasks.withType<Test>().configureEach {
     review["prepare"](root)
     retirement = runpy.run_path(str(HERE / "retire_playback_addon.py"))
     retirement["apply"](root)
+    subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "streamlined-home.patch")], cwd=root, check=True)
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())
