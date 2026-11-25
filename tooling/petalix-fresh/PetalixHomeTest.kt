@@ -7,7 +7,9 @@ import com.nuvio.tv.domain.model.CollectionFolder
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.livetv.model.ChannelGroup
 import org.junit.Assert.assertEquals
+import com.nuvio.tv.livetv.model.PlaylistSource
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class PetalixHomeTest {
@@ -19,6 +21,21 @@ class PetalixHomeTest {
         assertEquals(locals, guideGroup("locals", listOf(ChannelGroup("other", "Locals", 20), locals)))
         assertNull(guideGroup("locals", listOf(ChannelGroup("other", "Locals", 20))))
         assertEquals(news, guideGroup("news", listOf(locked, news)))
+    }
+
+    @Test fun panelRefreshKeepsPersonalPlaylistChoices() {
+        val personal = PlaylistSource("personal", "My list", "https://example.invalid/list")
+        val managed = PlaylistSource(
+            id = "petalix-managed", name = "My TV Source", url = "",
+            enabled = false, importLive = false, importVod = false, streamFormat = "ts",
+            xtreamServer = "https://old.example.invalid", xtreamUsername = "old", xtreamPassword = "old"
+        )
+        val original = listOf(personal, managed)
+        val refreshed = refreshPetalixConnection(original, "https://new.example.invalid", "new", "new")
+        assertEquals(listOf(personal, managed.copy(
+            xtreamServer = "https://new.example.invalid", xtreamUsername = "new", xtreamPassword = "new"
+        )), refreshed)
+        assertSame(refreshed, refreshPetalixConnection(refreshed, "https://new.example.invalid", "new", "new"))
     }
 
     @Test fun netflixChartsComeFromAnInstalledMatchingCatalog() {
