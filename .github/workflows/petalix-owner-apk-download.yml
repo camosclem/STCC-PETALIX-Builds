@@ -1,0 +1,49 @@
+name: Petalix owner APK download
+on:
+  push:
+    branches: [test/petalix-owner-apk-download]
+    paths: [.github/workflows/petalix-owner-apk-download.yml]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: petalix-preview-validation-only
+          run-id: '45709078270'
+          github-token: ${{ github.token }}
+          path: input
+      - name: Keep verified APK in an unpublished release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          apk=Petalix-Fresh-Preview-1795643914-TEST.apk
+          mv input/Petalix-Preview-VALIDATION-ONLY.apk "$apk"
+          echo "820921a7c18815640586b87a4263d032994caeb889c599973d8acc968ddefeab  $apk" | sha256sum -c -
+          tag="owner-apk-download-$GITHUB_RUN_ID"
+          draft=$(gh release create "$tag" "$apk" --repo "$GITHUB_REPOSITORY" --draft --prerelease --latest=false --target "$GITHUB_SHA" --title 'Petalix 1795643914 owner validation' --notes 'Manual validation APK from the existing workflow artifact. Signed with the validation key only.')
+          asset_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/${draft##*/}" --jq ".assets[] | select(.name == \"$apk\").id")
+          [[ "$asset_id" =~ ^[0-9]+$ ]]
+          mkdir -p delivery
+          curl -fsS --max-time 65 -D "$RUNNER_TEMP/asset-headers" -o /dev/null \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
+          python3 - "$RUNNER_TEMP/asset-headers" <<'PY'
+          import pathlib, sys, urllib.parse
+          headers = pathlib.Path(sys.argv[1]).read_text().splitlines()
+          url = next(line.split(':', 1)[1].strip() for line in headers if line.lower().startswith('location:'))
+          parts = urllib.parse.urlsplit(url)
+          assert parts.scheme == 'https' and parts.hostname in ('release-assets.githubusercontent.com', 'objects.githubusercontent.com')
+          pathlib.Path('delivery/url.txt').write_text(url)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: temporary-owner-apk-url
+          path: delivery/url.txt
+          if-no-files-found: error
+          retention-days: 1
