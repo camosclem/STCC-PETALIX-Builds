@@ -1,0 +1,68 @@
+name: Petalix fresh upstream validation
+on:
+  push:
+    branches: [test/petalix-fresh-beta41]
+    paths:
+      - 'tooling/petalix-fresh/**'
+      - '.github/workflows/petalix-fresh-validation.yml'
+permissions:
+  contents: read
+concurrency:
+  group: petalix-fresh-owner-validation
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      CI_USE_DEBUG_SIGNING: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Prepare pinned Nuvio source and Android SDK
+        run: |
+          git clone --no-recurse-submodules --depth 1 --branch 1.2.0-beta.4.1 https://github.com/homelessbrian/NuvioPlusIPTV.git launcher
+          python3 -m pip install --disable-pip-version-check Pillow
+          python3 tooling/petalix-fresh/prepare.py launcher --version-code "$(date +%s)"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+          chmod +x launcher/gradlew
+      - name: Run wrapper and native IPTV checks
+        working-directory: launcher
+        run: ./gradlew --console=plain :app:testFullReleaseUnitTest --tests '*PetalixHomeTest' --tests '*SportsWatchPolicyTest' --tests '*ForkDnsLookupTest' --stacktrace
+      - name: Assemble validation package
+        working-directory: launcher
+        run: ./gradlew --console=plain :app:assembleFullRelease --stacktrace
+      - name: Verify Preview package and reject retired playback
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, shutil, subprocess, zipfile
+          outputs = pathlib.Path('launcher/app/build/outputs/apk/full/release')
+          elements = json.loads((outputs / 'output-metadata.json').read_text())['elements']
+          [release] = [item for item in elements if not item.get('filters')]
+          apk = outputs / release['outputFile']
+          aapt = pathlib.Path(os.environ['ANDROID_HOME']) / 'build-tools/36.0.0/aapt'
+          package = subprocess.check_output([aapt, 'dump', 'badging', apk], text=True).splitlines()[0]
+          assert "name='com.petalix.iptv.preview'" in package, package
+          assert release['versionCode'] > 1795632277
+          with zipfile.ZipFile(apk) as z:
+              dex = [z.read(name) for name in z.namelist() if name.startswith('classes') and name.endswith('.dex')]
+              assert dex and not any(b'Pengu Play is not assigned' in data for data in dex)
+              assert any(b'device-updates-v1' in data for data in dex)
+          pathlib.Path('out').mkdir()
+          shutil.copyfile(apk, 'out/Petalix-Preview-VALIDATION-ONLY.apk')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: petalix-preview-validation-only
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
