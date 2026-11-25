@@ -95,6 +95,8 @@ tasks.withType<Test>().configureEach {
     import runpy
     review = runpy.run_path(str(HERE.parent / "petalix-owner-review" / "prepare.py"))
     review["prepare"](root)
+    retirement = runpy.run_path(str(HERE / "retire_playback_addon.py"))
+    retirement["apply"](root)
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())
