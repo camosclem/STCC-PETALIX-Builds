@@ -117,6 +117,17 @@ android.defaultConfig.ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
     edit(main, "import androidx.lifecycle.lifecycleScope", "import androidx.lifecycle.lifecycleScope\nimport androidx.lifecycle.repeatOnLifecycle")
     edit(main, "androidx.lifecycle.repeatOnLifecycle(this@MainActivity.lifecycle, androidx.lifecycle.Lifecycle.State.STARTED)",
          "this@MainActivity.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED)")
+    remote = (TOOLING / "android-build/PetalixRemoteControl.kt").read_text()
+    (petalix / "PetalixRemoteControl.kt").write_text(
+        remote.replace("coordinator:ManagedCoordinator", "coordinator:PetalixManagedCoordinator")
+    )
+    edit(main, "    override fun onResume() {\n        super.onResume()",
+         "    override fun onResume() {\n        super.onResume()\n"
+         "        if (petalix.ready) com.nuvio.tv.petalix.PetalixRemoteControl.attach(this, petalix)")
+    edit(main, "    override fun onPause() {",
+         "    override fun onPause() {\n"
+         "        com.nuvio.tv.petalix.PetalixRemoteControl.detach(this, petalix)")
+
     coordinator = petalix / "PetalixManagedCoordinator.kt"
     edit(coordinator, "import kotlinx.coroutines.Dispatchers",
          "import kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.flow.collectLatest\nimport kotlinx.coroutines.flow.first")
@@ -127,8 +138,17 @@ android.defaultConfig.ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
     edit(coordinator, "    suspend fun activate(pin: String)", """    init { PetalixRuntimeConfig.load(context) }
 
     private val pendingUpdate = kotlinx.coroutines.flow.MutableStateFlow("")
+    private var catalogRevision = ""
+    private var catalogProfileId: Int? = null
+    private var catalogApplied = 0
     val updateRequests: kotlinx.coroutines.flow.StateFlow<String> get() = pendingUpdate
     suspend fun appUpdate(): JSONObject = post("update", report(), token())
+
+    suspend fun remoteControl(sessionId: String, action: String, ack: Long): JSONObject {
+        if (!ready) throw PetalixActivationRequired()
+        return post("remote-control", report().put("sessionId", sessionId)
+            .put("action", action).put("ack", ack), token())
+    }
 
     val localsZip: String get() = prefs.getString("localsZip", "").orEmpty()
 
@@ -152,12 +172,15 @@ android.defaultConfig.ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
         prefs.edit().putString("localsZip", zip).putBoolean("localsPromptResolvedV2", true).apply()
     }
 
+    private fun bundledServiceCollection(): com.nuvio.tv.domain.model.Collection =
+        context.assets.open("petalix/streaming-services.json").bufferedReader().use {
+            collections.importFromJson(it.readText()).single()
+        }
+
     suspend fun seedHome() {
         profiles.activeProfileReady.first { it }
         profiles.activeProfileId.collectLatest { profileId ->
-            val bundled = context.assets.open("petalix/streaming-services.json").bufferedReader().use { it.readText() }
-            val serviceCollection = collections.importFromJson(bundled).single()
-            collections.addPetalixDefaults(profileId, listOf(liveCollection(), serviceCollection))
+            collections.addPetalixDefaults(profileId, listOf(liveCollection(), bundledServiceCollection()))
         }
     }
 
@@ -177,11 +200,31 @@ android.defaultConfig.ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
         val serverRaw""", """    private suspend fun applySettings(doc: JSONObject) {
         pendingUpdate.value = doc.optJSONObject("appUpdate")?.optString("requestId").orEmpty()
         val config = doc.optJSONObject("nativeConfig")
+        val management = doc.optJSONObject("management")
+        val revision = management?.optString("revision").orEmpty()
+        if (revision.matches(Regex("[a-f0-9]{64}"))) {
+            profiles.activeProfileReady.first { it }
+            val profile = profiles.activeProfileId.value
+            if (profile != catalogProfileId || revision != catalogRevision) {
+                val payload = management?.optJSONObject("values")
+                    ?.optString("pref:collections:collections_json").orEmpty()
+                if (payload.isNotBlank()) {
+                    val service = collections.importFromJson(payload).firstOrNull { it.id == SERVICES_COLLECTION }
+                    val bundled = bundledServiceCollection()
+                    catalogApplied = if (service != null &&
+                        collections.applyPetalixServiceDefault(profile, bundled, service)) 1 else 0
+                } else catalogApplied = 0
+                catalogRevision = revision
+                catalogProfileId = profile
+            }
+        }
         config?.optString("tmdbApiKey")?.takeIf { it.matches(Regex("[a-fA-F0-9]{32}")) }
             ?.let { PetalixRuntimeConfig.store(context, it) }
         val serverRaw""")
     edit(coordinator, 'JSONArray(listOf("playlist-v1"))',
-         'JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1", "guide-only-feeds-v1", "device-updates-v1"))')
+         'JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1", "guide-only-feeds-v1", "device-updates-v1", "remote-control-v1", "petalix-catalog-defaults-v1", "management-v2", "service-hubs-v1", "home-services-first-v1"))')
+    edit(coordinator, '.put("settingsRevision", prefs.getString("revision", ""))',
+         '.put("settingsRevision", catalogRevision)\n        .put("settingsApplied", catalogApplied)')
 
     edit(coordinator, """        live.updatePlaylists { existing ->
             val old = existing.firstOrNull { it.id == "petalix-managed" }
@@ -250,6 +293,34 @@ android.defaultConfig.ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
             prefs[collectionsKey] = gson.toJson(merged.map { it.toSerializable() })
             prefs[marker] = "1"
         }
+    }
+
+    internal suspend fun applyPetalixServiceDefault(
+        profileId: Int, bundled: Collection, remote: Collection
+    ): Boolean {
+        val lastDefault = stringPreferencesKey("petalix_service_default")
+        val seeded = stringPreferencesKey("petalix_seeded_collections")
+        fun stamp(collection: Collection): String = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(gson.toJson(collection.toSerializable()).toByteArray())
+            .joinToString("") { byte -> "%02x".format(byte) }
+        val remoteStamp = stamp(remote)
+        var applied = false
+        store(profileId).edit { prefs ->
+            val current = parseCollections(prefs[collectionsKey])
+            val index = current.indexOfFirst { it.id == remote.id }
+            if (index == -1 && prefs[seeded] == "1") return@edit
+            if (index >= 0) {
+                val existingStamp = stamp(current[index])
+                val previous = prefs[lastDefault] ?: stamp(bundled)
+                if (existingStamp != previous && existingStamp != remoteStamp) return@edit
+            }
+            val updated = current.toMutableList()
+            if (index >= 0) updated[index] = remote else updated.add(0, remote)
+            if (updated != current) prefs[collectionsKey] = gson.toJson(updated.map { it.toSerializable() })
+            prefs[lastDefault] = remoteStamp
+            applied = true
+        }
+        return applied
     }
 
     suspend fun addCollection(collection: Collection) {""")
