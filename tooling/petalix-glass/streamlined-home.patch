@@ -1,0 +1,674 @@
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeShortcuts.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeShortcuts.kt
+@@ -9,8 +9,13 @@
+ internal val petalixHomeShortcuts = listOf(
+     PetalixHomeShortcut("locals", "My Locals", "The local stations selected for your ZIP code."),
+     PetalixHomeShortcut("entertainment", "Entertainment", "Browse your entertainment channels."),
+-    PetalixHomeShortcut("sports", "Sports", "Your sports networks and live coverage."),
+-    PetalixHomeShortcut("news", "News", "Live news and current affairs.")
++    PetalixHomeShortcut("news", "News & Weather", "Live news and weather coverage."),
++    PetalixHomeShortcut("sports", "Sports Networks", "Live sports coverage and networks."),
++    PetalixHomeShortcut("movies", "Movie Night", "Browse live movie channels."),
++    PetalixHomeShortcut("kids", "Kids & Family", "Browse children's and family channels."),
++    PetalixHomeShortcut("lifestyle", "Home & Living", "Browse home and lifestyle channels."),
++    PetalixHomeShortcut("documentaries", "Docs & Discovery", "Browse documentary and discovery channels."),
++    PetalixHomeShortcut("music", "Music Mix", "Browse live music channels.")
+ )
+ internal fun petalixHomeShortcut(folderId: String): PetalixHomeShortcut? =
+     petalixHomeShortcuts.firstOrNull { folderId == "petalix-home-live-${it.slug}" }
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixLiveArtwork.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixLiveArtwork.kt
+@@ -5,6 +5,16 @@
+ /** Current programme backdrops shared by native shortcut cards and the focus hero. */
+ internal object PetalixLiveArtwork {
+     val images = mutableStateOf<Map<String, String>>(emptyMap())
+-    fun forCategory(slug: String) = images.value[slug]
+-        ?: "file:///android_asset/petalix/home-art/$slug.webp"
++    private val fallbackArt = mapOf(
++        "movies" to "live/westerns.jpg",
++        "kids" to "disney.webp",
++        "lifestyle" to "home.webp",
++        "documentaries" to "live/around-clock.jpg",
++        "music" to "live/entertainment.jpg"
++    )
++
++    fun forCategory(slug: String): String {
++        val asset = fallbackArt[slug] ?: "$slug.webp"
++        return images.value[slug] ?: "file:///android_asset/petalix/home-art/$asset"
++    }
+ }
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixNativeHomeShortcut.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixNativeHomeShortcut.kt
+@@ -11,9 +11,15 @@
+     }
+     if (nativeId != null) return groups.firstOrNull { it.id == nativeId }?.id
+     val names = when (target) {
+-        "Sports" -> listOf("Sports Networks", "Sports")
++        "Sports", "Sports Networks" -> listOf("Sports Networks", "Sports")
++        "News & Weather" -> listOf("News & Weather", "News", "Weather")
++        "Movie Night" -> listOf("Movie Night", "Movies", "Movie Channels")
++        "Kids & Family" -> listOf("Kids & Family", "Kids", "Children")
++        "Home & Living" -> listOf("Home & Living", "Lifestyle")
++        "Docs & Discovery" -> listOf("Docs & Discovery", "Documentaries", "Discovery")
++        "Music Mix" -> listOf("Music Mix", "Music")
+         "24/7 Channels" -> listOf("24/7 Channels", "24/7", "24/7 TV")
+         else -> listOf(target)
+     }
+-    return names.firstNotNullOfOrNull { name -> groups.firstOrNull { it.title.trim().equals(name, true) }?.id }
++    return names.firstNotNullOfOrNull { name -> groups.firstOrNull { ViewingLabels.guideCategory(it.title).equals(name, true) }?.id }
+ }
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeRepairPolicy.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeRepairPolicy.kt
+@@ -20,6 +20,9 @@
+ ): List<com.nuvio.tv.ui.screens.home.HomeRow> {
+     val native = source.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow>()
+         .filter { layout.showServices && it.collection.id == PETALIX_SERVICES_COLLECTION }
+-    return native + charts.filter { it.catalogId.removePrefix("petalix-home-") in layout.charts }
++    val live = if (layout.showLiveTv) {
++        listOf(com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow(petalixHomeLiveCollection()))
++    } else emptyList()
++    return live + native + charts.filter { it.catalogId.removePrefix("petalix-home-") in layout.charts }
+         .map { com.nuvio.tv.ui.screens.home.HomeRow.Catalog(it) }
+ }
+--- a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeLayout.kt
+@@ -9,7 +9,7 @@
+     val showLiveTv: Boolean = true,
+     val showRecentLiveTv: Boolean = true,
+     val showServices: Boolean = true,
+-    val charts: Set<String> = setOf("trending/movie/day", "trending/tv/day"),
++    val charts: Set<String> = emptySet(),
+     val serviceArtwork: Map<String, String> = emptyMap(),
+     val hiddenToolbarTabs: Set<String> = defaultHiddenToolbarTabs
+ ) {
+@@ -30,7 +30,7 @@
+                 showRecentLiveTv = enabled("petalix_home_recent_live_tv", true),
+                 showServices = enabled("petalix_home_services", true),
+                 charts = PetalixCatalogPolicy.charts.filter {
+-                    enabled(it.preference, it.defaultEnabled)
++                    enabled(it.preference, false)
+                 }.map { it.path }.toSet(),
+                 serviceArtwork = artwork,
+                 hiddenToolbarTabs = listOf("search", "library", "live_tv", "sports", "movies", "series")
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeContent.kt
+@@ -1148,10 +1148,9 @@
+                     .fillMaxWidth(0.47f)
+             }
+ 
+-            val openHomeTab = LocalPetalixHomeTab.current
+-            if (openHomeTab != null) PetalixHomeNavigation(
+-                Modifier.align(Alignment.TopCenter).padding(top = 12.dp), contentFocusRequester, openHomeTab
+-            ) else PetalixCinemaHeader(Modifier.align(Alignment.TopStart).padding(start = rowHorizontalPadding, top = 20.dp))
++            PetalixCinemaHeader(
++                Modifier.align(Alignment.TopStart).padding(start = rowHorizontalPadding, top = 20.dp)
++            )
+             PetalixCinemaHero(
+                 scene = heroSceneStateLambda,
+                 selection = { activeCarouselItemState.value?.payload },
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomePresentation.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomePresentation.kt
+@@ -328,9 +328,10 @@
+         cache.collectionRows.keys.retainAll(activeCollectionKeys)
+     }
+ 
+-    val lookups = buildCarouselRowLookups(rows)
++    val orderedRows = com.nuvio.tv.petalix.petalixServicesFirst(rows) { it.key }
++    val lookups = buildCarouselRowLookups(orderedRows)
+     return ModernHomePresentationState(
+-        rows = rows.asStable(),
++        rows = orderedRows.asStable(),
+         lookups = lookups
+     )
+ }
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRowsList.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/home/ModernHomeRowsList.kt
+@@ -382,8 +382,9 @@
+                 // Live TV fork: the Live TV row sits with Continue watching (above or below it),
+                 // or above the first row when there's no Continue watching.
+                 val hasContinueWatching = carouselRows.list.any { it.key == MODERN_CONTINUE_WATCHING_ROW_KEY }
+-                val liveTvHere = liveTvRowAbove != null &&
+-                    (if (hasContinueWatching) row.key == MODERN_CONTINUE_WATCHING_ROW_KEY else rowIndex == 0)
++                val firstSection = if (liveTvRowAbove == true || !hasContinueWatching) rowIndex == 0
++                    else row.key == MODERN_CONTINUE_WATCHING_ROW_KEY
++                val liveTvHere = liveTvRowAbove != null && firstSection
+                 val stableOnContinueWatchingOptions = remember(onContinueWatchingOptions) {
+                     { item: ContinueWatchingItem -> onContinueWatchingOptions(item) }
+                 }
+--- a/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/LiveTvPreferences.kt
+@@ -1484,10 +1484,12 @@
+     }
+ 
+     suspend fun setFavoritesOrder(keys: List<String>) {
+-        store.edit { p ->
+-            val cur = decodeStringList(p[my(Keys.favorites)])
+-            // Keep any favorites that weren't in the list (e.g. hidden ones) at the end.
+-            p[my(Keys.favorites)] = encodeStringList(keys.filter { it in cur } + cur.filter { it !in keys })
++        val favoritesKey = my(Keys.favorites)
++        store.edit { p ->
++            val current = decodeStringList(p[favoritesKey]).toSet()
++            val ordered = keys.filter { it in current }.toSet()
++            // Keep hidden favorites in their saved order at the end.
++            p[favoritesKey] = encodeStringList((ordered + current).toList())
+         }
+     }
+ 
+@@ -1605,14 +1607,15 @@
+     }
+ 
+     suspend fun moveFavorite(key: String, delta: Int) {
+-        store.edit { p ->
+-            val cur = decodeStringList(p[my(Keys.favorites)]).toMutableList()
++        val favoritesKey = my(Keys.favorites)
++        store.edit { p ->
++            val cur = decodeStringList(p[favoritesKey]).distinct().toMutableList()
+             val idx = cur.indexOf(key)
+             if (idx < 0) return@edit
+             val target = (idx + delta).coerceIn(0, cur.lastIndex)
+             cur.removeAt(idx)
+             cur.add(target, key)
+-            p[my(Keys.favorites)] = encodeStringList(cur)
++            p[favoritesKey] = encodeStringList(cur)
+         }
+     }
+ 
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvViewModel.kt
+@@ -1869,8 +1869,8 @@
+     }
+     fun nativeChannels(nativeId: String): List<LiveChannel> = when {
+         nativeId == ChannelGroup.ALL && s.showAllChannelsGroup -> ordered(ChannelGroup.ALL, visible)
+-        // "Playlist order" keeps your own order here; Number / Name sort these too.
+-        nativeId == ChannelGroup.FAVORITES -> sorted(favorites)
++        // Favorites have a profile-specific manual order independent of playlist sorting.
++        nativeId == ChannelGroup.FAVORITES -> favorites
+         nativeId == ChannelGroup.RECENT -> recent
+         nativeId == ChannelGroup.SEARCH -> {
+             val q = query.trim()
+@@ -1893,9 +1893,9 @@
+     val defaultGroupId = when {
+         regularForGuide.any { !it.locked && it.count > 0 } ->
+             regularForGuide.first { !it.locked && it.count > 0 }.id
+-        s.showAllChannelsGroup -> ChannelGroup.ALL
+         s.showFavoritesGroup && favorites.isNotEmpty() -> ChannelGroup.FAVORITES
+         s.showRecentGroup && recent.isNotEmpty() -> ChannelGroup.RECENT
++        s.showAllChannelsGroup -> ChannelGroup.ALL
+         else -> ChannelGroup.ALL
+     }
+     val groupId = if (exactGroup) requestedGroupId ?: "" else
+--- a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServiceLayouts.kt
+@@ -4,10 +4,8 @@
+ import androidx.activity.compose.BackHandler
+ import androidx.compose.animation.Crossfade
+ import androidx.compose.foundation.background
+-import androidx.compose.foundation.border
+ import androidx.compose.foundation.layout.*
+ import androidx.compose.foundation.lazy.*
+-import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.ArrowBack
+@@ -37,19 +35,39 @@
+ import com.nuvio.tv.domain.model.CatalogRow
+ import com.nuvio.tv.domain.model.ContentType
+ import com.nuvio.tv.domain.model.MetaPreview
+-
+-private enum class HubView { HOME, MOVIES, SERIES, COLLECTIONS }
++import com.nuvio.tv.domain.model.stableKey
++import com.nuvio.tv.ui.screens.collection.FolderDetailViewModel
++
++private enum class HubView { HOME, MOVIES, SERIES, COLLECTIONS, MY_LIST }
+ private data class HubPage(
+     val service: PetalixService, val rows: List<CatalogRow>, val hero: MetaPreview?,
+     val open: (MetaPreview) -> Unit, val collection: (CatalogRow) -> Unit,
+     val step: (Int) -> Unit
+ )
+ 
+-/** Shared catalog state and detail routes; every service below owns its landing composition. */
++/** Shared landing, navigation and detail routes use the configured service artwork and palette. */
+ @Composable
+ fun DistinctPetalixServiceScreen(onHome: () -> Unit, onDetail: (String,String,String) -> Unit,
+-    viewModel: PetalixServiceViewModel) {
+-    val state by viewModel.state.collectAsStateWithLifecycle()
++    viewModel: PetalixServiceViewModel,
++    folderViewModel: FolderDetailViewModel? = null
++) {
++    val fallbackState by viewModel.state.collectAsStateWithLifecycle()
++    val folders = folderViewModel?.uiState?.collectAsStateWithLifecycle()?.value
++    val tabs = folders?.tabs.orEmpty().filterNot { it.isAllTab }
++    val configured = folders?.folder?.sources?.isNotEmpty() == true
++    val configuredRows = tabs.mapNotNull { tab ->
++        tab.catalogRow?.takeIf { !it.isLoading && it.items.isNotEmpty() }?.copy(catalogName = tab.label)
++    }.distinctBy { it.stableKey() }
++    val state = when {
++        configured -> PetalixServiceState(
++            rows = configuredRows,
++            loading = tabs.any { it.isLoading },
++            error = tabs.firstNotNullOfOrNull { it.error }.takeIf { configuredRows.isEmpty() },
++            more = tabs.any { it.catalogRow?.hasMore == true }
++        )
++        folders?.isLoading == true -> PetalixServiceState()
++        else -> fallbackState
++    }
+     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
+     val service = viewModel.service
+     if(service==null) {
+@@ -68,9 +86,12 @@
+     var featured by rememberSaveable(service.id) { mutableStateOf(0) }
+     val searchFocus = remember { FocusRequester() }
+     val all = state.rows.flatMap { it.items }.distinctBy { "${it.apiType}:${it.id}" }
++    val savedItems by viewModel.libraryItems.collectAsStateWithLifecycle(initialValue = emptyList())
++    val savedKeys = remember(savedItems) { savedItems.map { "${it.type}:${it.id}" }.toSet() }
+     val visible = (if(search && query.isNotBlank()) searchState.items else (collection?.let { title -> state.rows.firstOrNull { it.catalogName==title }?.items } ?: all))
+         .filter { (view!=HubView.MOVIES || it.type==ContentType.MOVIE) &&
+-            (view!=HubView.SERIES || it.type==ContentType.SERIES) }
++            (view!=HubView.SERIES || it.type==ContentType.SERIES) &&
++            (view != HubView.MY_LIST || "${it.apiType}:${it.id}" in savedKeys) }
+     val hero = all.getOrNull(featured.coerceIn(0,(all.size-1).coerceAtLeast(0)))
+     val context = androidx.compose.ui.platform.LocalContext.current
+     val feature = com.nuvio.tv.petalix.petalixFullBackdrop(hero?.background ?: hero?.landscapePoster)
+@@ -119,7 +140,9 @@
+             if(state.loading && all.isEmpty()) Text("Loading ${service.name}…",color=Color.White,modifier=Modifier.padding(28.dp))
+             if(state.error!=null) Row(Modifier.padding(horizontal=28.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                 Text(state.error.orEmpty(),color=Color.White,modifier=Modifier.weight(1f),fontSize=12.sp)
+-                PetalixAction("Retry",accent=service.accent){viewModel.load()}
++                PetalixAction("Retry",accent=service.accent) {
++                    if (configured) folderViewModel?.reloadServiceCatalog() else viewModel.load()
++                }
+             }
+             Box(Modifier.weight(1f)) {
+                 when {
+@@ -132,22 +155,19 @@
+                         }
+                         HubResults(page, visible, heading, showEmpty = !search || (query.isNotBlank() && !searchState.loading))
+                     }
+-                    service.id=="netflix" -> NetflixLanding(page)
+-                    service.id=="disney" -> DisneyLanding(page)
+-                    service.id=="prime" -> PrimeLanding(page)
+-                    service.id=="hulu" -> HuluLanding(page)
+-                    service.id=="max" -> MaxLanding(page)
+-                    service.id=="paramount" -> ParamountLanding(page)
+-                    service.id=="apple" -> AppleLanding(page)
+-                    service.id=="peacock" -> PeacockLanding(page)
+-                    service.id=="tubi" -> TubiLanding(page)
+-                    service.id=="britbox" -> BritBoxLanding(page)
+-                    else -> PlutoLanding(page)
++                    else -> ServiceLanding(page)
++                }
++            }
++            if (!search && !state.loading && state.more) {
++                PetalixAction("More titles", accent = service.accent, modifier = Modifier.padding(start = 28.dp)) {
++                    if (configured) folders?.tabs?.forEachIndexed { index, tab ->
++                        if (!tab.isAllTab && tab.catalogRow?.hasMore == true) folderViewModel?.loadMoreItems(index)
++                    } else viewModel.load(next = true)
+                 }
+             }
+             if(search && query.isNotBlank() && searchState.more && !searchState.loading)PetalixAction("More search results",accent=service.accent,
+                 modifier=Modifier.padding(start=28.dp,top=4.dp,bottom=4.dp)){viewModel.search(query,true)}
+-            Text("US availability: JustWatch via TMDB • Playback through your configured sources",
++            Text("Petalix • Playback through your configured provider",
+                 color=Color(0xFF9BAABE),fontSize=9.sp,modifier=Modifier.padding(horizontal=28.dp,vertical=4.dp))
+         }
+     }
+@@ -168,7 +188,7 @@
+             horizontalArrangement=if(centered)Arrangement.Center else Arrangement.spacedBy(12.dp)) {
+             if(!centered){PetalixAction("Petalix",Icons.Default.ArrowBack,accent=s.accent,onClick=home);HubWordmark(s,110)}
+             listOf(homeLabel to HubView.HOME,"Movies" to HubView.MOVIES,
+-                (if(s.id=="netflix"||s.id=="hulu")"TV Shows" else "Series") to HubView.SERIES,collectionsLabel to HubView.COLLECTIONS).forEach { (title,destination) ->
++                (if(s.id=="netflix"||s.id=="hulu")"TV Shows" else "Series") to HubView.SERIES,collectionsLabel to HubView.COLLECTIONS,"My List" to HubView.MY_LIST).forEach { (title,destination) ->
+                 PetalixAction(title,selected=selected==destination,accent=s.accent,
+                     modifier=Modifier.padding(horizontal=if(centered)6.dp else 0.dp)){choose(destination)}
+             }
+@@ -224,215 +244,23 @@
+         }
+     }
+ }
+-@Composable private fun HubCollections(p:HubPage,shape:String="cards",height:Int=84) {
+-    LazyRow(Modifier.focusRestorer(),contentPadding=PaddingValues(horizontal=28.dp,vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(14.dp)) {
+-        items(p.rows,key={it.catalogName}) { row ->
+-            val circle=shape=="circles"
+-            PetalixTile(Modifier.width(if(circle)112.dp else if(shape=="editorial")330.dp else 184.dp).height(if(circle)112.dp else height.dp),p.service.accent,onClick={p.collection(row)}) {
+-                Box(Modifier.fillMaxSize().clip(if(circle)CircleShape else RoundedCornerShape(14.dp)).background(p.service.accent.copy(alpha=.18f))) {
+-                    if(shape !in setOf("type","circles"))AsyncImage(petalixArtwork(row.items.firstOrNull()?.backdropUrl, 1280),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,p.service.background.copy(alpha=.9f)))))
+-                    Text(if(shape=="type")row.catalogName.uppercase() else row.catalogName,color=if(shape=="type")p.service.accent else Color.White,
+-                        fontWeight=FontWeight.Bold,fontSize=if(shape=="editorial")20.sp else 13.sp,maxLines=3,
+-                        modifier=Modifier.align(if(circle||shape=="type")Alignment.Center else Alignment.BottomStart).padding(12.dp))
+-                }
+-            }
+-        }
+-    }
+-}
+-@Composable private fun HubDoubleFeature(p:HubPage) {
+-    Row(Modifier.fillMaxWidth().padding(horizontal=28.dp,vertical=10.dp),horizontalArrangement=Arrangement.spacedBy(18.dp)) {
+-        p.rows.take(2).forEach { row ->
+-            PetalixTile(Modifier.weight(1f).height(174.dp),p.service.accent,onClick={p.collection(row)}) {
+-                AsyncImage(petalixArtwork(row.items.firstOrNull()?.backdropUrl, 1280),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,p.service.background))))
+-                Text(row.catalogName,color=Color.White,fontSize=22.sp,fontWeight=FontWeight.Bold,modifier=Modifier.align(Alignment.BottomStart).padding(18.dp),maxLines=2)
+-            }
+-        }
+-    }
+-}
+-
+-@Composable private fun NetflixLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("netflix-billboard") {
+-            Box(Modifier.fillMaxWidth().height(310.dp)) {
+-                HubBackdrop(p,Modifier.fillMaxSize())
+-                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Black,Color.Black.copy(alpha=.3f),Color.Transparent))))
+-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,p.service.background))))
+-                Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p,large=true)}
+-            }
+-        }
+-        p.rows.firstOrNull()?.let { row -> item("netflix-ranked"){HubShelf(p,row,width=252,ranked=true)} }
+-        item("netflix-collections"){HubCollections(p,height=96)}
+-        items(p.rows.drop(1),key={it.catalogName}){HubShelf(p,it)}
+-    }
+-}
+-@Composable private fun DisneyLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("disney-carousel") {
+-            Box(Modifier.fillMaxWidth().padding(horizontal=36.dp,vertical=16.dp).height(265.dp).clip(RoundedCornerShape(14.dp)).border(1.dp,Color(0xFF516FA8),RoundedCornerShape(14.dp))) {
+-                HubBackdrop(p,Modifier.fillMaxSize())
+-                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF061236),Color.Transparent))))
+-                Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p)}
+-            }
+-        }
+-        item("disney-brand-deck"){HubCollections(p,height=112)}
+-        items(p.rows,key={it.catalogName}){HubShelf(p,it,width=248)}
+-    }
+-}
+-@Composable private fun PrimeLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("prime-feature-split") {
+-            Row(Modifier.fillMaxWidth().height(286.dp).background(Color(0xFF001322)),verticalAlignment=Alignment.CenterVertically) {
+-                Box(Modifier.weight(.43f)){HubHeroCopy(p,large=true)}
+-                Box(Modifier.weight(.57f).fillMaxHeight()) {
+-                    HubBackdrop(p,Modifier.fillMaxSize())
+-                    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF001322),Color.Transparent))))
+-                }
+-            }
+-        }
+-        item("prime-category-ribbon"){HubCollections(p,shape="type",height=48)}
+-        p.rows.firstOrNull()?.let{item("prime-super-carousel"){HubShelf(p,it,width=310)}}
+-        items(p.rows.drop(1),key={it.catalogName}){HubShelf(p,it,width=236)}
+-    }
+-}
+-@Composable private fun HuluLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("hulu-feature-mosaic") {
+-            Row(Modifier.fillMaxWidth().height(288.dp).padding(24.dp),horizontalArrangement=Arrangement.spacedBy(16.dp),verticalAlignment=Alignment.CenterVertically) {
+-                Box(Modifier.weight(1f)){HubHeroCopy(p,large=true)}
+-                Box(Modifier.weight(1.05f).fillMaxHeight().clip(RoundedCornerShape(14.dp))){HubBackdrop(p,Modifier.fillMaxSize())}
+-                Column(Modifier.weight(.48f).fillMaxHeight(),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+-                    p.rows.drop(1).take(2).forEach { row ->
+-                        PetalixTile(Modifier.weight(1f).fillMaxWidth(),p.service.accent,onClick={p.collection(row)}) {
+-                            AsyncImage(petalixArtwork(row.items.firstOrNull()?.backdropUrl, 1280),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+-                            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black))))
+-                            Text(row.catalogName,color=Color.White,fontSize=12.sp,modifier=Modifier.align(Alignment.BottomStart).padding(8.dp),maxLines=2)
+-                        }
+-                    }
+-                }
+-            }
+-        }
+-        item("hulu-hubs"){HubCollections(p,shape="type",height=72)}
+-        items(p.rows,key={it.catalogName}){HubShelf(p,it,width=264)}
+-    }
+-}
+-@Composable private fun MaxLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("max-theatrical") {
+-            Box(Modifier.fillMaxWidth().height(300.dp)) {
+-                HubBackdrop(p,Modifier.fillMaxSize())
+-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color(0xFF100C2B)))))
+-                Box(Modifier.align(Alignment.BottomCenter)){HubHeroCopy(p,center=true)}
+-            }
+-        }
+-        item("max-editorial-duet"){HubDoubleFeature(p)}
+-        item("max-collections"){HubCollections(p,shape="editorial",height=130)}
+-        items(p.rows,key={it.catalogName}){HubShelf(p,it,width=284)}
+-    }
+-}
+-@Composable private fun ParamountLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("paramount-marquee") {
+-            Box(Modifier.fillMaxWidth().height(286.dp)) {
+-                HubBackdrop(p,Modifier.fillMaxSize())
+-                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF073EAA),Color.Transparent))))
+-                Box(Modifier.align(Alignment.CenterStart)){HubHeroCopy(p,large=true)}
+-            }
+-        }
+-        item("paramount-brand-circles"){HubCollections(p,shape="circles")}
+-        items(p.rows,key={it.catalogName}){HubShelf(p,it,width=238)}
+-    }
+-}
+-@Composable private fun AppleLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("apple-editorial-cover") {
+-            Box(Modifier.fillMaxWidth().height(360.dp)) {
+-                HubBackdrop(p,Modifier.fillMaxSize())
+-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black))))
+-                Box(Modifier.align(Alignment.BottomCenter)){HubHeroCopy(p,center=true,large=true)}
+-            }
+-        }
+-        p.rows.firstOrNull()?.let{item("apple-premiere-deck"){HubShelf(p,it,width=390)}}
+-        item("apple-story-collections"){HubCollections(p,shape="editorial",height=160)}
+-        items(p.rows.drop(1),key={it.catalogName}){HubShelf(p,it,width=310)}
+-    }
+-}
+-@Composable private fun PeacockLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("peacock-offset-feature") {
+-            Box(Modifier.fillMaxWidth().height(284.dp).padding(start=28.dp,top=14.dp,end=28.dp)) {
+-                HubBackdrop(p,Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)))
+-                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF080C11),Color.Transparent))))
+-                Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p,large=true)}
+-            }
+-        }
+-        item("peacock-content-pillars"){HubCollections(p,shape="type",height=58)}
+-        item("peacock-double-spotlight"){HubDoubleFeature(p)}
+-        items(p.rows,key={it.catalogName}){HubShelf(p,it,width=260)}
+-    }
+-}
+-@Composable private fun TubiLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("tubi-bold-feature") {
+-            Row(Modifier.fillMaxWidth().height(260.dp).background(Color(0xFF3A086C)),verticalAlignment=Alignment.CenterVertically) {
+-                Column(Modifier.weight(.44f).padding(start=30.dp)) {
+-                    Text("FIND YOUR\nNEXT RABBIT HOLE.",color=p.service.accent,fontSize=32.sp,fontWeight=FontWeight.Black)
+-                    p.hero?.let { meta ->
+-                        Text(meta.name,color=Color.White,fontSize=22.sp,fontWeight=FontWeight.Bold,maxLines=2,modifier=Modifier.padding(vertical=12.dp))
+-                        PetalixAction("View Details",accent=p.service.accent){p.open(meta)}
+-                    }
+-                }
+-                Box(Modifier.weight(.56f).fillMaxHeight()){HubBackdrop(p,Modifier.fillMaxSize())}
+-            }
+-        }
+-        item("tubi-explore-grid"){HubTitle("Explore the collection",p.service.accent);HubCollectionGrid(p)}
+-        items(p.rows,key={it.catalogName}){HubShelf(p,it,width=244)}
+-    }
+-}
+-@Composable private fun PlutoLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("pluto-collection-dial"){HubCollections(p,shape="type",height=48)}
+-        item("pluto-feature-and-next") {
+-            Row(Modifier.fillMaxWidth().height(290.dp).padding(horizontal=28.dp),horizontalArrangement=Arrangement.spacedBy(18.dp)) {
+-                Box(Modifier.weight(1.6f).fillMaxHeight().border(2.dp,p.service.accent,RoundedCornerShape(14.dp))) {
+-                    HubBackdrop(p,Modifier.fillMaxSize())
+-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black))))
+-                    Box(Modifier.align(Alignment.BottomStart)){HubHeroCopy(p)}
+-                }
+-                Column(Modifier.weight(.7f).fillMaxHeight(),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+-                    Text("KEEP EXPLORING",color=p.service.accent,fontSize=13.sp,fontWeight=FontWeight.Black)
+-                    p.rows.take(3).forEach { row ->
+-                        PetalixTile(Modifier.fillMaxWidth().weight(1f),p.service.accent,onClick={p.collection(row)}) {
+-                            Row(Modifier.fillMaxSize().background(Color(0xFF222222)).padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
+-                                Text("▶",color=p.service.accent,fontSize=22.sp)
+-                                Text(row.catalogName,color=Color.White,fontSize=14.sp,modifier=Modifier.padding(start=14.dp),maxLines=2)
+-                            }
+-                        }
+-                    }
+-                }
+-            }
+-        }
+-        items(p.rows,key={it.catalogName}){HubShelf(p,it,width=250)}
+-    }
+-}
+-/** BritBox is the requested addition to the recovered service designs. */
+-@Composable private fun BritBoxLanding(p:HubPage) {
+-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)) {
+-        item("britbox-editorial-feature") {
+-            Row(Modifier.fillMaxWidth().height(300.dp).padding(28.dp),horizontalArrangement=Arrangement.spacedBy(24.dp)) {
+-                Box(Modifier.weight(1.15f).fillMaxHeight().clip(RoundedCornerShape(14.dp))) {
+-                    HubBackdrop(p,Modifier.fillMaxSize())
+-                }
+-                Box(Modifier.weight(1f).fillMaxHeight().background(Color(0xFF261021),RoundedCornerShape(14.dp)),contentAlignment=Alignment.CenterStart) {
+-                    HubHeroCopy(p)
+-                }
+-            }
+-        }
+-        item("britbox-editorial-collections"){HubCollections(p,shape="editorial",height=112)}
+-        items(p.rows,key={it.catalogName}){HubShelf(p,it,width=264)}
+-    }
+-}
++@Composable
++private fun ServiceLanding(page: HubPage) {
++    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
++        if (page.hero != null) {
++            item("featured") {
++                Box(Modifier.fillMaxWidth().height(290.dp)) {
++                    HubBackdrop(page, Modifier.fillMaxSize())
++                    Box(Modifier.align(Alignment.BottomStart)) { HubHeroCopy(page, large = true) }
++                }
++            }
++        }
++        items(page.rows, key = { it.stableKey() }) { row ->
++            HubShelf(page, row, width = 248)
++        }
++    }
++}
++
+ @Composable private fun HubCollectionGrid(p:HubPage) {
+     Column(Modifier.padding(horizontal=28.dp,vertical=10.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+         p.rows.chunked(3).forEach { group ->
+--- a/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServices.kt
++++ b/app/src/main/java/com/nuvio/tv/petalix/ui2/PetalixServices.kt
+@@ -3,6 +3,7 @@
+ 
+ import android.content.Context
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.ui.graphics.Color
+ import androidx.hilt.navigation.compose.hiltViewModel
+ import androidx.lifecycle.SavedStateHandle
+@@ -60,7 +61,11 @@
+ 
+ data class PetalixServiceState(val rows:List<CatalogRow> = emptyList(),val loading:Boolean=true,val error:String?=null,val page:Int=1,val more:Boolean=true)
+ @HiltViewModel
+-class PetalixServiceViewModel @Inject constructor(saved:SavedStateHandle,private val resolver:TmdbCollectionSourceResolver,private val tmdbApi:com.nuvio.tv.data.remote.api.TmdbApi,@ApplicationContext context:Context,private val panelFactory:com.nuvio.tv.data.local.ProfileDataStoreFactory,private val panelProfiles:com.nuvio.tv.core.profile.ProfileManager):ViewModel() {
++class PetalixServiceViewModel @Inject constructor(saved:SavedStateHandle,private val resolver:TmdbCollectionSourceResolver,private val tmdbApi:com.nuvio.tv.data.remote.api.TmdbApi,@ApplicationContext context:Context,private val panelFactory:com.nuvio.tv.data.local.ProfileDataStoreFactory,private val panelProfiles:com.nuvio.tv.core.profile.ProfileManager,
++    library: com.nuvio.tv.domain.repository.LibraryRepository
++): ViewModel() {
++    val libraryItems = library.libraryItems
++    val usesCollectionRoute = saved.get<String>("collectionId") != null
+     val service=PetalixServices.find(saved.get<String>("serviceId").orEmpty())
+         ?: PetalixServices.findFolder(saved.get<String>("folderId").orEmpty())
+     private val sources=service?.let { selected ->
+@@ -91,7 +96,7 @@
+               catch(error:Exception){_searchState.update { it.copy(loading=false,error=error.message ?: "Search failed. Please retry.") }}
+         }
+     }
+-    init { load() }
++    init { if (!usesCollectionRoute) load() }
+     fun load(next:Boolean=false) {
+         val selected=service ?: run { _state.value=PetalixServiceState(loading=false,error="This service is not configured.");return }
+         if(next && (_state.value.loading || !_state.value.more))return
+@@ -119,7 +124,16 @@
+ 
+ @Composable
+ fun PetalixServiceScreen(onHome:()->Unit,onDetail:(String,String,String)->Unit,viewModel:PetalixServiceViewModel=hiltViewModel()) {
+-    DistinctPetalixServiceScreen(onHome,onDetail,viewModel)
++    val folderId = viewModel.service?.id?.let(PetalixServices::folderId)
++    val folderViewModel: com.nuvio.tv.ui.screens.collection.FolderDetailViewModel? =
++        if (folderId != null && viewModel.usesCollectionRoute) hiltViewModel() else null
++    LaunchedEffect(folderViewModel) {
++        if (folderViewModel != null) {
++            val resolved = folderViewModel.uiState.first { !it.isLoading }
++            if (resolved.folder?.sources.isNullOrEmpty()) viewModel.load()
++        }
++    }
++    DistinctPetalixServiceScreen(onHome,onDetail,viewModel,folderViewModel)
+ }
+ 
+ /** Import the saved, service-specific queries. Never broaden an empty provider result into a
+--- a/app/src/main/java/com/nuvio/tv/ui/screens/collection/FolderDetailViewModel.kt
++++ b/app/src/main/java/com/nuvio/tv/ui/screens/collection/FolderDetailViewModel.kt
+@@ -232,6 +232,11 @@
+             return state.tabs.firstOrNull()?.isAllTab == true && folder.sources.size >= 2
+         }
+ 
++    fun reloadServiceCatalog() {
++        val state = _uiState.value
++        if (state.tabs.none { it.isLoading }) loadFolder()
++    }
++
+     private fun loadFolder() {
+         viewModelScope.launch {
+             val collections = collectionsDataStore.collections.first()
+--- a/app/src/test/java/com/nuvio/tv/petalix/PetalixHomeRecoveryTest.kt
++++ b/app/src/test/java/com/nuvio/tv/petalix/PetalixHomeRecoveryTest.kt
+@@ -11,9 +11,10 @@
+     @Test fun liveShortcutsUseDistinctNativeFocusAndBackdropMetadata() {
+         val collection = petalixHomeLiveCollection()
+         val cards = collection.folders.map { buildCollectionFolderItem(collection, it) }
+-        assertEquals(listOf("My Locals", "Entertainment", "Sports", "News"), cards.map { it.heroPreview.title })
+-        assertEquals(4, cards.map { it.key }.toSet().size)
+-        assertEquals(4, cards.map { it.heroPreview.backdrop }.toSet().size)
++        assertEquals(listOf("My Locals", "Entertainment", "News & Weather", "Sports Networks", "Movie Night",
++            "Kids & Family", "Home & Living", "Docs & Discovery", "Music Mix"), cards.map { it.heroPreview.title })
++        assertEquals(9, cards.map { it.key }.toSet().size)
++        assertEquals(9, cards.map { it.heroPreview.backdrop }.toSet().size)
+         assertTrue(cards.all { !it.heroPreview.description.isNullOrBlank() })
+         assertTrue(collection.folders.all { petalixHomeShortcut(it.id)?.title == it.title })
+         assertNull(petalixHomeShortcut("unrelated-folder"))
+--- a/app/src/test/java/com/nuvio/tv/petalix/PetalixHomeRepairPolicyTest.kt
++++ b/app/src/test/java/com/nuvio/tv/petalix/PetalixHomeRepairPolicyTest.kt
+@@ -21,24 +21,29 @@
+         val ordered = petalixServicesFirst(keys) { it }
+         assertEquals(listOf("collection_$PETALIX_LIVE_SHORTCUT_COLLECTION", PETALIX_SERVICES_ROW, "trending"), ordered)
+     }
+-    @Test fun defaultHomeStartsWithServicesAndOmitsLiveShortcuts() {
++    @Test fun defaultHomeStartsWithLiveShortcutsThenServices() {
+         val service = com.nuvio.tv.domain.model.Collection(id = PETALIX_SERVICES_COLLECTION, title = "Streaming Services")
+         val rendered = petalixRepairedHomeRows(listOf(com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow(service)), emptyList())
+         val collections = rendered.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.CollectionRow>()
+-        assertEquals(listOf(PETALIX_SERVICES_COLLECTION), collections.map { it.collection.id })
+-        val enabled = petalixRepairedHomeRows(emptyList(), emptyList(), PetalixHomeLayout(showLiveTv = true))
+-        assertTrue("Home must not duplicate the separately rendered category row", enabled.isEmpty())
++        assertEquals(listOf(PETALIX_LIVE_SHORTCUT_COLLECTION, PETALIX_SERVICES_COLLECTION),
++            collections.map { it.collection.id })
++        val disabled = petalixRepairedHomeRows(emptyList(), emptyList(), PetalixHomeLayout(showLiveTv = false))
++        assertTrue(disabled.isEmpty())
+     }
+ 
+     @Test fun homeUsesExistingChartTilesWithoutAdditionalProviderShelves() {
+         val chart = com.nuvio.tv.domain.model.CatalogRow(addonId = "tmdb", addonName = "TMDB", addonBaseUrl = "",
+             catalogId = "petalix-home-trending/movie/day", catalogName = "Trending Movies Today", type = com.nuvio.tv.domain.model.ContentType.MOVIE,
+             items = emptyList())
+-        val rendered = petalixRepairedHomeRows(emptyList(), listOf(chart))
++        val layout = PetalixHomeLayout(charts = setOf("trending/movie/day"))
++        assertFalse(petalixRepairedHomeRows(emptyList(), listOf(chart)).any {
++            it is com.nuvio.tv.ui.screens.home.HomeRow.Catalog
++        })
++        val rendered = petalixRepairedHomeRows(emptyList(), listOf(chart), layout)
+         val catalogs = rendered.filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.Catalog>()
+         assertEquals(listOf(chart), catalogs.map { it.row })
+         val removed = chart.copy(catalogId = "petalix-home-movie/popular", catalogName = "Popular Movies")
+-        val filtered = petalixRepairedHomeRows(emptyList(), listOf(chart, removed))
++        val filtered = petalixRepairedHomeRows(emptyList(), listOf(chart, removed), layout)
+             .filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.Catalog>()
+         assertEquals(listOf(chart), filtered.map { it.row })
+     }
