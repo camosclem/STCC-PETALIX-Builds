@@ -183,6 +183,24 @@ android.defaultConfig.ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
     edit(coordinator, 'JSONArray(listOf("playlist-v1"))',
          'JSONArray(listOf("panel-session-origin-v1", "petalix-stock-native-v1", "guide-only-feeds-v1", "device-updates-v1"))')
 
+    edit(coordinator, """        live.updatePlaylists { existing ->
+            val old = existing.firstOrNull { it.id == "petalix-managed" }
+            val same = old != null && old.xtreamServer == server &&
+                old.xtreamUsername == username && old.xtreamPassword == password &&
+                old.importLive && old.importVod && old.enabled
+            changed = !same
+            val assigned = if (same) old!! else PlaylistSource(
+                id = "petalix-managed", name = "Petalix", url = "",
+                xtreamServer = server, xtreamUsername = username, xtreamPassword = password,
+                importLive = true, importVod = true, streamFormat = "auto"
+            )
+            listOf(assigned) + existing.filter { it.id != "petalix-managed" }
+        }""", """        live.updatePlaylists { existing ->
+            val refreshed = refreshPetalixConnection(existing, server, username, password)
+            changed = refreshed != existing
+            refreshed
+        }""")
+
     preferences = java / "data/local/AddonPreferences.kt"
     edit(preferences, "import kotlinx.coroutines.flow.map", "import kotlinx.coroutines.flow.map\nimport kotlinx.coroutines.flow.onStart")
     edit(preferences, "    val addonEnabledStates: Flow", """    private val retiredAssignment = stringPreferencesKey("managed_panel_pengu")
