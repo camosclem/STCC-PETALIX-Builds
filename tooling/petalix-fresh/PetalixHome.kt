@@ -6,6 +6,7 @@ import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.CollectionFolder
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.livetv.model.ChannelGroup
+import com.nuvio.tv.livetv.model.PlaylistSource
 
 internal const val LOCALS_GROUP = "custom:petalix_locals"
 internal const val LIVE_COLLECTION = "petalix-home-live-categories"
@@ -87,4 +88,29 @@ internal fun withServiceCharts(folder: CollectionFolder, addons: List<Addon>): C
         existing.none { it.type == chart.type && it.catalogId == chart.catalogId }
     }
     return folder.copy(sources = additions + folder.sources)
+}
+
+
+internal fun refreshPetalixConnection(
+    sources: List<PlaylistSource>,
+    server: String,
+    username: String,
+    password: String
+): List<PlaylistSource> {
+    val index = sources.indexOfFirst { it.id == "petalix-managed" }
+    if (index == -1) {
+        return listOf(
+            PlaylistSource(
+                id = "petalix-managed", name = "Petalix", url = "",
+                xtreamServer = server, xtreamUsername = username, xtreamPassword = password,
+                importLive = true, importVod = true, streamFormat = "auto"
+            )
+        ) + sources
+    }
+    val current = sources[index]
+    val updated = current.copy(
+        xtreamServer = server, xtreamUsername = username, xtreamPassword = password
+    )
+    if (current == updated) return sources
+    return sources.toMutableList().apply { this[index] = updated }
 }
