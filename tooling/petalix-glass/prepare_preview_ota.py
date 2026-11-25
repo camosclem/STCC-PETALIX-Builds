@@ -13,6 +13,22 @@ PREVIEW_SOURCE_SHA = "42a53f6d49dd6510f588b538c0bce7e4ae3e45b3d29893fa75b7bc4120
 PREVIEW_CERTIFICATE = "b6809a3733b57474d01a7b77bcddef1241b7f85f35f04142d52ed68071cd1ba1"
 
 
+RETIRED_PLAYBACK_ERROR = b"Pengu Play is not assigned"
+
+
+def verify_apk_playback(apk):
+    """Reject packaged legacy playback before offering any Preview candidate."""
+    with zipfile.ZipFile(apk) as package:
+        dex_files = [
+            name for name in package.namelist()
+            if name.startswith("classes") and name.endswith(".dex") and "/" not in name
+        ]
+        if not dex_files:
+            raise ValueError("Expected an APK containing application DEX files.")
+        if any(RETIRED_PLAYBACK_ERROR in package.read(name) for name in dex_files):
+            raise ValueError("APK still contains the retired Pengu Play playback error.")
+
+
 def replace_once(path, old, new):
     text = path.read_text()
     if text.count(old) != 1:
@@ -56,13 +72,25 @@ def prepare(archive, output, version_code):
         or PREVIEW_CERTIFICATE not in updater
     ):
         raise ValueError("Preview package, OTA capability, or trusted signer changed.")
+    stream_repository = java / "data/repository/StreamRepositoryImpl.kt"
+    if RETIRED_PLAYBACK_ERROR in stream_repository.read_bytes():
+        raise ValueError("Preview source still contains the retired playback fallback.")
     return root
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("archive", type=Path)
-    parser.add_argument("output", type=Path, help="New folder for the prepared Android source")
-    parser.add_argument("--version-code", type=int, required=True)
+    parser.add_argument("archive", type=Path, nargs="?")
+    parser.add_argument("output", type=Path, nargs="?", help="New folder for the prepared Android source")
+    parser.add_argument("--version-code", type=int)
+    parser.add_argument("--verify-apk", type=Path)
     args = parser.parse_args()
-    print(prepare(args.archive, args.output, args.version_code))
+    if args.verify_apk is not None:
+        if args.archive is not None or args.output is not None or args.version_code is not None:
+            parser.error("--verify-apk takes only the APK path")
+        verify_apk_playback(args.verify_apk)
+        print("Retired playback error is absent from the APK DEX files.")
+    else:
+        if args.archive is None or args.output is None or args.version_code is None:
+            parser.error("provide the source archive, output folder, and --version-code")
+        print(prepare(args.archive, args.output, args.version_code))
