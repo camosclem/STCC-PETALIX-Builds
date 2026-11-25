@@ -1,12 +1,12 @@
-name: Petalix playback retirement owner test
+name: Petalix streamlined owner test
 on:
   push:
-    branches: [test/petalix-retire-playback-addon]
+    branches: [test/petalix-streamlined-owner]
     paths: ['.github/workflows/petalix-glass-13-2.yml', 'tooling/petalix-glass/**']
 permissions:
   contents: read
 concurrency:
-  group: petalix-beta-2-1-owner-test
+  group: petalix-streamlined-owner-test
   cancel-in-progress: true
 jobs:
   test-apk:
@@ -46,6 +46,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           python3 tooling/petalix-stock/prepare.py --upstream launcher --version "$VERSION" --owner-test
           python3 tooling/petalix-glass/prepare.py launcher
+          git -C launcher apply --whitespace=error "$GITHUB_WORKSPACE/tooling/petalix-glass/upstream-beta41-dns.patch"
           mkdir -p out
           git -C launcher add -A
           SOURCE_TREE=$(git -C launcher write-tree)
@@ -66,6 +67,7 @@ jobs:
             --tests 'com.nuvio.tv.petalix.*' --tests 'com.nuvio.tv.ui.screens.home.PetalixCategoryHeroTest' \
             --tests 'com.nuvio.tv.livetv.sports.SportsWatchPolicyTest' --tests '*AutoPlaySourceFallbackTest' \
             --tests '*SourceFallbackHandoffTest' --tests '*EpisodeAutoPlayLoadingTest' --tests '*EpisodeRatingsAlignmentTest' \
+            --tests '*DnsFallbackResolverTest' --tests '*ForkDnsLookupTest' \
             --tests '*AddonEventDispatcherTest' --tests '*StyledSubtitlePresenterTest' --stacktrace
       - name: Preserve test reports on failure
         if: failure()
@@ -76,6 +78,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - name: Assemble the ARM owner-test APK
+        id: assemble
         working-directory: launcher
         run: ./gradlew --console=plain -PpetalixOwnerArm=true :app:assembleFullRelease --stacktrace
       - name: Verify TV installation identity and both ARM architectures
@@ -93,10 +96,10 @@ jobs:
           info = subprocess.check_output([sdk / 'aapt', 'dump', 'badging', apk], text=True)
           signature = subprocess.check_output([sdk / 'apksigner', 'verify', '--verbose', '--print-certs', apk], text=True)
           version = int(os.environ['VERSION'])
-          assert version > 1795198995
+          assert version > 1795457465
           assert f"name='com.petalix.iptv.hometest' versionCode='{version}'" in info.splitlines()[0], info.splitlines()[0]
           assert 'leanback-launchable-activity:' in info or 'android.software.leanback' in info
-          assert apk.stat().st_size < 145225879, 'Release must be smaller than the tested Shield APK'
+          assert apk.stat().st_size < 145225879, 'Release must stay under the existing Shield download size limit'
           import zipfile
           with zipfile.ZipFile(apk) as z:
               abis = {p.split('/')[1] for p in z.namelist() if p.startswith('lib/') and p.endswith('.so')}
@@ -111,15 +114,23 @@ jobs:
           PYVERIFY
           (cd out && sha256sum *.apk > SHA256SUMS.txt)
           python3 launcher/vpn-android/ci/package-openvpn2-sources.py --output out/openvpn2-corresponding-source.tar.gz
+      - name: Preserve the compiled APK if identity verification fails
+        if: failure() && steps.assemble.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unverified-owner-build
+          path: launcher/app/build/outputs/apk/full/release/*.apk
+          if-no-files-found: ignore
+          retention-days: 3
       - uses: actions/upload-artifact@v4
         with:
           name: petalix-glass-owner-test
           path: out/*
           if-no-files-found: error
           retention-days: 14
-      - name: Publish isolated test download only
+      - name: Stage a draft for repository maintainers
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
-          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual update for Petalix Home Test on ARM Android TV. Includes Nuvio + IPTV 1.2.0-beta.2.1 with per-playlist guide links, DNS options, M3U movies and series, recurring recordings, and up to 14 days of guide history. Retains the rounded Petalix guide and streaming-service detail pages. Install on the Shield to verify remote navigation and playback."
+          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --draft --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual ARM update for the Petalix Home Test package. Includes restored Home categories, the shared streaming service screen, favorites ordering, and the bounded DNS fallback from Nuvio + IPTV 1.2.0-beta.4.1. Panel OTA is disabled for this APK."
