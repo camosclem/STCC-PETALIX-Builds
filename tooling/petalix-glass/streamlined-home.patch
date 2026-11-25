@@ -55,7 +55,7 @@
          else -> listOf(target)
      }
 -    return names.firstNotNullOfOrNull { name -> groups.firstOrNull { it.title.trim().equals(name, true) }?.id }
-+    return names.firstNotNullOfOrNull { name -> groups.firstOrNull { ViewingLabels.guideCategory(it.title).equals(name, true) }?.id }
++    return names.firstNotNullOfOrNull { name -> groups.firstOrNull { ViewingLabels.guideCategory(it.title).equals(ViewingLabels.guideCategory(name), true) }?.id }
  }
 --- a/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeRepairPolicy.kt
 +++ b/app/src/main/java/com/nuvio/tv/petalix/PetalixHomeRepairPolicy.kt
@@ -672,3 +672,30 @@
              .filterIsInstance<com.nuvio.tv.ui.screens.home.HomeRow.Catalog>()
          assertEquals(listOf(chart), filtered.map { it.row })
      }
+--- a/app/src/test/java/com/nuvio/tv/petalix/PetalixHomeLayoutTest.kt
++++ b/app/src/test/java/com/nuvio/tv/petalix/PetalixHomeLayoutTest.kt
+@@ -4,12 +4,12 @@
+ import org.junit.Test
+ 
+ class PetalixHomeLayoutTest {
+-    @Test fun defaultSectionsAreServicesAndTheTwoDailyTrendingCharts() {
++    @Test fun defaultSectionsShowLiveTvAndServicesWithoutExtraCharts() {
+         val layout = PetalixHomeLayout.from(emptyMap())
+         assertTrue(layout.showLiveTv)
+         assertTrue(layout.showRecentLiveTv)
+         assertTrue(layout.showServices)
+-        assertEquals(setOf("trending/movie/day", "trending/tv/day"), layout.charts)
++        assertTrue(layout.charts.isEmpty())
+     }
+ 
+     @Test fun explicitPanelPreferencesCanChangeEachSection() {
+--- a/app/src/test/java/com/nuvio/tv/petalix/PetalixGuideGroupIndexTest.kt
++++ b/app/src/test/java/com/nuvio/tv/petalix/PetalixGuideGroupIndexTest.kt
+@@ -50,5 +50,7 @@
+         assertEquals(1, index.groups.first().count)
+         assertEquals(3, index.groups.size)
+         assertEquals("open", petalixNativeHomeGroup("News", index.groups))
++        assertEquals("open", petalixNativeHomeGroup("News & Weather", index.groups))
++        assertEquals("movies", petalixNativeHomeGroup("Movie Night", listOf(ChannelGroup("movies", "Movies", 1))))
+     }
+ }
