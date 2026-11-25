@@ -1,7 +1,7 @@
-name: Petalix Beta 2.1 owner test
+name: Petalix playback retirement owner test
 on:
   push:
-    branches: [dev/petalix-glass-beta-2-1]
+    branches: [test/petalix-retire-playback-addon]
     paths: ['.github/workflows/petalix-glass-13-2.yml', 'tooling/petalix-glass/**']
 permissions:
   contents: read
