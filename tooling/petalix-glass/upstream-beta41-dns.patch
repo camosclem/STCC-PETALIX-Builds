@@ -1,0 +1,496 @@
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/ForkDns.kt b/app/src/main/java/com/nuvio/tv/livetv/data/ForkDns.kt
+--- a/app/src/main/java/com/nuvio/tv/livetv/data/ForkDns.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/ForkDns.kt
+@@ -7,10 +7,7 @@
+ import com.nuvio.vpn.android.VpnPlaybackProtection
+ import okhttp3.Dns
+ import okhttp3.OkHttpClient
+-import okhttp3.Request
+-import org.json.JSONObject
+ import java.net.InetAddress
+-import java.net.UnknownHostException
+ import java.util.concurrent.ConcurrentHashMap
+ import java.util.concurrent.TimeUnit
+ 
+@@ -31,13 +28,13 @@
+  *   and its own lookup stays in charge.
+  *
+  * Answers are remembered for a few minutes, so only the first lookup of a server is slower.
++ * All HTTPS fallback attempts share an eight-second budget. The normal Android resolver
++ * retains its platform timing (including local names and lookups while the VPN is on).
+  * Per device (not synced): which lookup works depends on the network the device is on.
+  */
+ object ForkDns {
+     private const val FILE = "livetv_dns"
+     private const val KEY = "choice"
+-    private const val MIN_TTL_S = 60L
+-    private const val MAX_TTL_S = 600L
+     private const val MAX_CACHE = 256
+     private const val MAX_PROVIDER_HOSTS = 500
+     private const val VPN_CHECK_MS = 5_000L
+@@ -73,13 +70,13 @@
+     }
+ 
+     /** Sports, Calendar, sync: the chosen service, no automatic retry. */
+-    val app: Dns = Lookup { false }
++    val app: Dns = lookup { false }
+ 
+     /** Clients that only talk to IPTV providers (playlists, guides, On Demand, portals). */
+-    val provider: Dns = Lookup { host -> addProviderHost(host); true }
++    val provider: Dns = lookup { host -> addProviderHost(host); true }
+ 
+     /** The player: the chosen service; the automatic retry only for IPTV provider servers. */
+-    val playback: Dns = Lookup { host -> host in providerHosts }
++    val playback: Dns = lookup { host -> host in providerHosts }
+ 
+     /** The servers a playlist's channels play from, so playback gets the retry for them too. */
+     fun addProviderHosts(channels: List<LiveChannel>) {
+@@ -104,41 +101,15 @@
+         return host.lowercase().takeIf { it.isNotEmpty() }
+     }
+ 
+-    private class Lookup(private val retryFor: (String) -> Boolean) : Dns {
+-        override fun lookup(hostname: String): List<InetAddress> {
+-            val host = hostname.lowercase()
+-            val allowRetry = retryFor(host)
+-            if (!isPublicName(host)) return Dns.SYSTEM.lookup(hostname)
+-            val chosen = choice
+-            if (chosen != DnsChoice.SYSTEM && !vpnIsOn()) {
+-                cached(host)?.let { return it }
+-                resolve(chosen, hostname)?.let { return it }
+-                return Dns.SYSTEM.lookup(hostname)
+-            }
+-            try {
+-                return Dns.SYSTEM.lookup(hostname)
+-            } catch (notFound: UnknownHostException) {
+-                if (!allowRetry || vpnIsOn()) throw notFound
+-                cached(host)?.let { return it }
+-                for (service in listOf(DnsChoice.CLOUDFLARE, DnsChoice.GOOGLE)) {
+-                    val found = resolve(service, hostname) ?: continue
+-                    if (reported.add(host)) LiveTvLoadReport.add("DNS: normal lookup couldn't find $host; ${label(service)} found it")
+-                    return found
+-                }
+-                if (reported.add(host)) LiveTvLoadReport.add("DNS: $host not found (normal lookup, Cloudflare and Google)")
+-                throw notFound
+-            }
++    private fun lookup(retryFor: (String) -> Boolean): Dns = ForkDnsLookup(
++        retryFor, { choice }, ::vpnIsOn, ::cached, ::resolve,
++        report = { host, service ->
++            if (reported.add(host)) LiveTvLoadReport.add(
++                if (service == null) "DNS: $host not found (normal lookup, Cloudflare and Google)"
++                else "DNS: normal lookup couldn't find $host; ${label(service)} found it"
++            )
+         }
+-    }
+-
+-    /** Home-network names, plain IPs and "localhost" always use the normal lookup. */
+-    private fun isPublicName(host: String): Boolean {
+-        if (host.isEmpty() || '.' !in host || host == "localhost") return false
+-        if (host.startsWith("[") || ':' in host) return false
+-        if (host.all { it.isDigit() || it == '.' }) return false
+-        val local = listOf(".local", ".lan", ".home", ".internal", ".localdomain", ".home.arpa")
+-        return local.none { host.endsWith(it) }
+-    }
++    )
+ 
+     private fun vpnIsOn(): Boolean {
+         val now = System.currentTimeMillis()
+@@ -172,52 +143,13 @@
+         DnsChoice.SYSTEM -> emptyList()
+     }
+ 
+-    /** The service's answer (IPv4 first, then IPv6), or null if it found nothing or couldn't be reached. */
+-    private fun resolve(service: DnsChoice, hostname: String): List<InetAddress>? {
+-        for (endpoint in endpoints(service)) {
+-            val v4 = query(endpoint, hostname, type = 1) ?: continue
+-            val all = if (v4.first.isNotEmpty()) v4 else (query(endpoint, hostname, type = 28) ?: v4)
+-            if (all.first.isEmpty()) return null
+-            val ttl = all.second.coerceIn(MIN_TTL_S, MAX_TTL_S)
+-            if (cache.size >= MAX_CACHE) cache.clear()
+-            cache[hostname.lowercase()] = Answer(all.first, System.currentTimeMillis() + ttl * 1000)
+-            return all.first
+-        }
+-        return null
+-    }
++    private val fallback by lazy { DnsFallbackResolver(client, ::endpoints) }
+ 
+-    /** One question to one server: (addresses, shortest TTL), or null if the server couldn't be asked. */
+-    private fun query(endpoint: String, hostname: String, type: Int): Pair<List<InetAddress>, Long>? = try {
+-        val request = Request.Builder()
+-            .url("$endpoint?name=${java.net.URLEncoder.encode(hostname, "UTF-8")}&type=$type")
+-            .header("Accept", "application/dns-json")
+-            .build()
+-        client.newCall(request).execute().use { response ->
+-            if (!response.isSuccessful) return null
+-            val json = JSONObject(response.body?.string().orEmpty())
+-            val status = json.optInt("Status", -1)
+-            // 0 = found, 3 = no such name: both are real answers. Anything else: ask the next server.
+-            if (status != 0 && status != 3) return null
+-            val answers = json.optJSONArray("Answer")
+-            val list = ArrayList<InetAddress>()
+-            var ttl = MAX_TTL_S
+-            if (answers != null) for (i in 0 until answers.length()) {
+-                val a = answers.optJSONObject(i) ?: continue
+-                if (a.optInt("type") != type) continue
+-                val data = a.optString("data")
+-                val literal = when (type) {
+-                    1 -> data.takeIf { d -> d.isNotEmpty() && d.all { it.isDigit() || it == '.' } }
+-                    else -> data.takeIf { d -> d.isNotEmpty() && ':' in d && d.all { it.isLetterOrDigit() || it == ':' || it == '.' } }
+-                } ?: continue
+-                // A literal address: no lookup happens here.
+-                val parsed = runCatching { InetAddress.getByName(literal) }.getOrNull() ?: continue
+-                list += InetAddress.getByAddress(hostname, parsed.address)
+-                ttl = minOf(ttl, a.optLong("TTL", MAX_TTL_S))
+-            }
+-            list to ttl
+-        }
+-    } catch (_: Exception) {
+-        null
++    private fun resolve(services: List<DnsChoice>, hostname: String): DnsFallbackAnswer? {
++        val answer = fallback.resolve(services, hostname) ?: return null
++        if (cache.size >= MAX_CACHE) cache.clear()
++        cache[hostname.lowercase()] = Answer(answer.addresses, System.currentTimeMillis() + answer.ttlSeconds * 1000)
++        return answer
+     }
+ 
+     fun label(value: DnsChoice): String = when (value) {
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/ForkDnsLookup.kt b/app/src/main/java/com/nuvio/tv/livetv/data/ForkDnsLookup.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/ForkDnsLookup.kt
+@@ -0,0 +1,46 @@
++package com.nuvio.tv.livetv.data
++
++import okhttp3.Dns
++import java.net.InetAddress
++import java.net.UnknownHostException
++
++/** Resolver policy stays separate from the bounded HTTPS fallback operation. */
++internal class ForkDnsLookup(
++    private val retryFor: (String) -> Boolean,
++    private val choice: () -> DnsChoice,
++    private val vpnOn: () -> Boolean,
++    private val cached: (String) -> List<InetAddress>?,
++    private val resolve: (List<DnsChoice>, String) -> DnsFallbackAnswer?,
++    private val report: (String, DnsChoice?) -> Unit,
++    private val system: Dns = Dns.SYSTEM
++) : Dns {
++    override fun lookup(hostname: String): List<InetAddress> {
++        val host = hostname.lowercase()
++        val allowRetry = retryFor(host)
++        if (!isPublicName(host)) return system.lookup(hostname)
++        val selected = choice()
++        if (selected != DnsChoice.SYSTEM && !vpnOn()) {
++            cached(host)?.let { return it }
++            resolve(listOf(selected), hostname)?.let { return it.addresses }
++            return system.lookup(hostname)
++        }
++        try {
++            return system.lookup(hostname)
++        } catch (notFound: UnknownHostException) {
++            if (!allowRetry || vpnOn()) throw notFound
++            cached(host)?.let { return it }
++            resolve(listOf(DnsChoice.CLOUDFLARE, DnsChoice.GOOGLE), hostname)?.let {
++                report(host, it.service)
++                return it.addresses
++            }
++            report(host, null)
++            throw notFound
++        }
++    }
++
++    private fun isPublicName(host: String): Boolean {
++        if (host.isEmpty() || '.' !in host || host == "localhost") return false
++        if (host.startsWith("[") || ':' in host || host.all { it.isDigit() || it == '.' }) return false
++        return listOf(".local", ".lan", ".home", ".internal", ".localdomain", ".home.arpa").none { host.endsWith(it) }
++    }
++}
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/data/DnsFallbackResolver.kt b/app/src/main/java/com/nuvio/tv/livetv/data/DnsFallbackResolver.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/nuvio/tv/livetv/data/DnsFallbackResolver.kt
+@@ -0,0 +1,88 @@
++package com.nuvio.tv.livetv.data
++
++import okhttp3.OkHttpClient
++import okhttp3.HttpUrl.Companion.toHttpUrl
++import okhttp3.Request
++import org.json.JSONObject
++import java.net.InetAddress
++import java.util.concurrent.TimeUnit
++
++internal data class DnsFallbackAnswer(val service: DnsChoice, val addresses: List<InetAddress>, val ttlSeconds: Long)
++
++/** One deadline for all DoH fallback requests, including alternate endpoints and IPv6. */
++internal class DnsFallbackResolver(
++    private val client: OkHttpClient,
++    private val endpoints: (DnsChoice) -> List<String>,
++    private val budgetMs: Long = 8_000L
++) {
++    init { require(budgetMs > 0) }
++
++    fun resolve(services: List<DnsChoice>, hostname: String): DnsFallbackAnswer? {
++        val choices = services.distinct().filter { it != DnsChoice.SYSTEM }
++        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(budgetMs)
++        for ((serviceIndex, service) in choices.withIndex()) {
++            // Reserve time for another permitted service instead of letting the first use
++            // the whole budget. A selected custom service still gets the entire budget.
++            val serviceDeadline = share(deadline, choices.size - serviceIndex) ?: break
++            val urls = endpoints(service)
++            for ((endpointIndex, endpoint) in urls.withIndex()) {
++                val endpointDeadline = share(serviceDeadline, urls.size - endpointIndex) ?: break
++                val v4 = query(endpoint, hostname, 1, endpointDeadline) ?: continue
++                val found = if (v4.addresses.isNotEmpty()) v4 else query(endpoint, hostname, 28, endpointDeadline) ?: v4
++                if (found.addresses.isNotEmpty()) {
++                    return DnsFallbackAnswer(service, found.addresses, found.ttlSeconds.coerceIn(60L, 600L))
++                }
++                // A real empty answer is not a transport failure. Preserve the existing
++                // policy: try the next permitted service (or return to the system resolver).
++                break
++            }
++        }
++        return null
++    }
++
++    private fun share(deadline: Long, remaining: Int): Long? {
++        val now = System.nanoTime()
++        val left = deadline - now
++        return if (left <= 0L || remaining <= 0 || Thread.currentThread().isInterrupted) null else now + left / remaining
++    }
++
++    private data class Answer(val addresses: List<InetAddress>, val ttlSeconds: Long)
++
++    private fun query(endpoint: String, hostname: String, type: Int, deadline: Long): Answer? {
++        if (System.nanoTime() >= deadline || Thread.currentThread().isInterrupted) return null
++        return try {
++            val url = endpoint.toHttpUrl().newBuilder().addQueryParameter("name", hostname)
++                .addQueryParameter("type", type.toString()).build()
++            val call = client.newCall(Request.Builder().url(url).header("Accept", "application/dns-json").build())
++            // Call timeout covers connection, headers and a trickling/chunked body together.
++            call.timeout().deadlineNanoTime(deadline)
++            call.execute().use { response ->
++                if (!response.isSuccessful) return null
++                val source = response.body?.source() ?: return null
++                source.request(MAX_JSON_BYTES + 1)
++                if (source.buffer.size > MAX_JSON_BYTES || System.nanoTime() >= deadline) return null
++                val json = JSONObject(source.readUtf8())
++                val status = json.optInt("Status", -1)
++                if (status != 0 && status != 3) return null
++                val records = json.optJSONArray("Answer")
++                val addresses = ArrayList<InetAddress>()
++                var ttl = 600L
++                if (records != null) for (i in 0 until records.length()) {
++                    val record = records.optJSONObject(i) ?: continue
++                    if (record.optInt("type") != type) continue
++                    val data = record.optString("data")
++                    val literal = when (type) {
++                        1 -> data.takeIf { value -> value.isNotEmpty() && value.all { it.isDigit() || it == '.' } }
++                        else -> data.takeIf { value -> value.isNotEmpty() && ':' in value && value.all { it.isLetterOrDigit() || it == ':' || it == '.' } }
++                    } ?: continue
++                    val parsed = runCatching { InetAddress.getByName(literal) }.getOrNull() ?: continue
++                    addresses += InetAddress.getByAddress(hostname, parsed.address)
++                    ttl = minOf(ttl, record.optLong("TTL", 600L))
++                }
++                Answer(addresses, ttl)
++            }
++        } catch (_: Exception) { null }
++    }
++
++    private companion object { const val MAX_JSON_BYTES = 64L * 1024 }
++}
+diff --git a/app/src/test/java/com/nuvio/tv/livetv/data/DnsFallbackResolverTest.kt b/app/src/test/java/com/nuvio/tv/livetv/data/DnsFallbackResolverTest.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/nuvio/tv/livetv/data/DnsFallbackResolverTest.kt
+@@ -0,0 +1,110 @@
++package com.nuvio.tv.livetv.data
++
++import okhttp3.OkHttpClient
++import okhttp3.mockwebserver.Dispatcher
++import okhttp3.mockwebserver.MockResponse
++import okhttp3.mockwebserver.MockWebServer
++import okhttp3.mockwebserver.RecordedRequest
++import okhttp3.mockwebserver.SocketPolicy
++import org.junit.Assert.*
++import org.junit.Test
++import java.net.InetAddress
++import java.util.concurrent.TimeUnit
++
++class DnsFallbackResolverTest {
++    private val client = OkHttpClient.Builder().connectTimeout(5, TimeUnit.SECONDS)
++        .readTimeout(5, TimeUnit.SECONDS).callTimeout(10, TimeUnit.SECONDS)
++        .retryOnConnectionFailure(false).build()
++    private fun answer(type: Int = 1, value: String = "203.0.113.7", ttl: Int = 120) =
++        """{"Status":0,"Answer":[{"type":$type,"data":"$value","TTL":$ttl}]}"""
++
++    @Test fun `selected service uses its backup endpoint and preserves IPv4 preference and TTL clamp`() {
++        MockWebServer().use { server ->
++            server.enqueue(MockResponse().setResponseCode(503))
++            server.enqueue(MockResponse().setBody(answer(ttl = 5)))
++            val resolver = DnsFallbackResolver(client, { service ->
++                assertEquals(DnsChoice.GOOGLE, service)
++                listOf(server.url("/first").toString(), server.url("/backup").toString())
++            }, 2_000)
++            val found = resolver.resolve(listOf(DnsChoice.GOOGLE), "provider.example")!!
++            assertEquals("203.0.113.7", found.addresses.single().hostAddress)
++            assertEquals(60L, found.ttlSeconds)
++            assertEquals(DnsChoice.GOOGLE, found.service)
++            assertEquals("1", server.takeRequest().requestUrl!!.queryParameter("type"))
++            val backup = server.takeRequest().requestUrl!!
++            assertEquals("/backup", backup.encodedPath)
++            assertEquals("provider.example", backup.queryParameter("name"))
++            assertEquals("1", backup.queryParameter("type"))
++            assertEquals(2, server.requestCount)
++        }
++    }
++
++    @Test fun `IPv6-only answers use the same endpoint budget and retain maximum TTL`() {
++        MockWebServer().use { server ->
++            server.enqueue(MockResponse().setBody("""{"Status":0,"Answer":[{"type":5,"data":"alias.example"}]}"""))
++            server.enqueue(MockResponse().setBody(answer(28, "2001:db8::1", 9_000)))
++            val resolver = DnsFallbackResolver(client, { listOf(server.url("/dns").toString()) }, 2_000)
++            val found = resolver.resolve(listOf(DnsChoice.CLOUDFLARE), "provider.example")!!
++            assertArrayEquals(InetAddress.getByName("2001:db8::1").address, found.addresses.single().address)
++            assertEquals(600L, found.ttlSeconds)
++            assertEquals("1", server.takeRequest().requestUrl!!.queryParameter("type"))
++            assertEquals("28", server.takeRequest().requestUrl!!.queryParameter("type"))
++        }
++    }
++
++    @Test(timeout = 6_000) fun `slow first service leaves time for healthy second service`() {
++        MockWebServer().use { server ->
++            server.dispatcher = object : Dispatcher() {
++                override fun dispatch(request: RecordedRequest): MockResponse =
++                    if (request.path!!.startsWith("/cf")) MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
++                    else MockResponse().setBody(answer())
++            }
++            val resolver = DnsFallbackResolver(client, { service ->
++                if (service == DnsChoice.CLOUDFLARE) listOf(server.url("/cf/1").toString(), server.url("/cf/2").toString())
++                else listOf(server.url("/google").toString())
++            }, 800)
++            val started = System.nanoTime()
++            val found = resolver.resolve(listOf(DnsChoice.CLOUDFLARE, DnsChoice.GOOGLE), "provider.example")!!
++            assertEquals(DnsChoice.GOOGLE, found.service)
++            assertTrue("Fallback exceeded its shared budget", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) < 2_000)
++            assertEquals(3, server.requestCount)
++        }
++    }
++
++    @Test(timeout = 6_000) fun `all blocked endpoints share one deadline instead of multiplying call timeouts`() {
++        MockWebServer().use { server ->
++            server.dispatcher = object : Dispatcher() {
++                override fun dispatch(request: RecordedRequest) = MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
++            }
++            val resolver = DnsFallbackResolver(client, { service ->
++                listOf(server.url("/${service.name}/1").toString(), server.url("/${service.name}/2").toString())
++            }, 800)
++            val started = System.nanoTime()
++            assertNull(resolver.resolve(listOf(DnsChoice.CLOUDFLARE, DnsChoice.GOOGLE), "provider.example"))
++            val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
++            assertTrue("Four blocked endpoints took $elapsed ms", elapsed < 2_000)
++            assertTrue(server.requestCount in 2..4)
++        }
++    }
++
++    @Test(timeout = 6_000) fun `IPv4 then IPv6 trickling bodies cannot each get a fresh timeout`() {
++        MockWebServer().use { server ->
++            server.enqueue(MockResponse().setBody("""{"Status":0}""").setBodyDelay(200, TimeUnit.MILLISECONDS))
++            server.enqueue(MockResponse().setBody(answer(28, "2001:db8::1")).setBodyDelay(400, TimeUnit.MILLISECONDS))
++            val resolver = DnsFallbackResolver(client, { listOf(server.url("/dns").toString()) }, 450)
++            val started = System.nanoTime()
++            assertNull(resolver.resolve(listOf(DnsChoice.GOOGLE), "provider.example"))
++            assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) < 1_500)
++            assertEquals(2, server.requestCount)
++        }
++    }
++
++    @Test fun `oversized response is rejected without parsing unlimited JSON`() {
++        MockWebServer().use { server ->
++            server.enqueue(MockResponse().setBody("x".repeat(65_537)))
++            val resolver = DnsFallbackResolver(client, { listOf(server.url("/dns").toString()) }, 2_000)
++            assertNull(resolver.resolve(listOf(DnsChoice.GOOGLE), "provider.example"))
++            assertEquals(1, server.requestCount)
++        }
++    }
++}
+diff --git a/app/src/test/java/com/nuvio/tv/livetv/data/ForkDnsLookupTest.kt b/app/src/test/java/com/nuvio/tv/livetv/data/ForkDnsLookupTest.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/nuvio/tv/livetv/data/ForkDnsLookupTest.kt
+@@ -0,0 +1,76 @@
++package com.nuvio.tv.livetv.data
++
++import okhttp3.Dns
++import org.junit.Assert.*
++import org.junit.Test
++import java.net.InetAddress
++import java.net.UnknownHostException
++
++class ForkDnsLookupTest {
++    private val address = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 7))
++    private fun system(action: (String) -> List<InetAddress>) = object : Dns {
++        override fun lookup(hostname: String) = action(hostname)
++    }
++    private fun lookup(
++        selected: DnsChoice = DnsChoice.SYSTEM, vpn: Boolean = false, retry: Boolean = true,
++        cache: List<InetAddress>? = null,
++        systemDns: Dns = system { listOf(address) },
++        resolve: (List<DnsChoice>, String) -> DnsFallbackAnswer? = { _, _ -> throw AssertionError("Unexpected public DNS request") },
++        report: (String, DnsChoice?) -> Unit = { _, _ -> }
++    ) = ForkDnsLookup({ retry }, { selected }, { vpn }, { cache }, resolve, report, systemDns)
++
++    @Test fun `home names and literal addresses always use system DNS`() {
++        val queried = ArrayList<String>()
++        val resolver = lookup(DnsChoice.CLOUDFLARE, systemDns = system { queried += it; listOf(address) })
++        for (host in listOf("nas.local", "nas.home.arpa", "nas.lan", "localhost", "printer", "192.168.1.2", "[2001:db8::1]", "2001:db8::1")) {
++            assertEquals(listOf(address), resolver.lookup(host))
++        }
++        assertEquals(8, queried.size)
++    }
++
++    @Test fun `VPN keeps both explicit and automatic lookups on the system resolver`() {
++        for (selected in DnsChoice.entries) {
++            val failure = UnknownHostException("fixture blocked")
++            val resolver = lookup(selected, vpn = true, systemDns = system { throw failure })
++            try { resolver.lookup("provider.example"); fail("Expected system resolver failure") }
++            catch (actual: UnknownHostException) { assertSame(failure, actual) }
++        }
++    }
++
++    @Test fun `chosen Google service does not query Cloudflare and can return to system DNS`() {
++        var calls = 0
++        val resolver = lookup(DnsChoice.GOOGLE, resolve = { services, host ->
++            assertEquals(listOf(DnsChoice.GOOGLE), services)
++            assertEquals("provider.example", host)
++            calls++
++            null
++        })
++        assertEquals(listOf(address), resolver.lookup("provider.example"))
++        assertEquals(1, calls)
++    }
++
++    @Test fun `healthy system and non-provider failures do not query public fallback services`() {
++        assertEquals(listOf(address), lookup().lookup("provider.example"))
++        val failure = UnknownHostException("fixture no retry")
++        val resolver = lookup(retry = false, systemDns = system { throw failure })
++        try { resolver.lookup("ordinary.example"); fail("Expected original failure") }
++        catch (actual: UnknownHostException) { assertSame(failure, actual) }
++    }
++
++    @Test fun `automatic provider retry keeps service order and original failure on exhaustion`() {
++        val failure = UnknownHostException("original system failure")
++        val reports = ArrayList<DnsChoice?>()
++        val resolver = lookup(systemDns = system { throw failure }, resolve = { services, _ ->
++            assertEquals(listOf(DnsChoice.CLOUDFLARE, DnsChoice.GOOGLE), services)
++            null
++        }, report = { _, service -> reports += service })
++        try { resolver.lookup("provider.example"); fail("Expected original failure") }
++        catch (actual: UnknownHostException) { assertSame(failure, actual) }
++        assertEquals(listOf<DnsChoice?>(null), reports)
++    }
++
++    @Test fun `cached custom answer avoids both fallback and system calls`() {
++        val resolver = lookup(DnsChoice.CLOUDFLARE, cache = listOf(address), systemDns = system { throw AssertionError("Unexpected system lookup") })
++        assertEquals(listOf(address), resolver.lookup("provider.example"))
++    }
++}
