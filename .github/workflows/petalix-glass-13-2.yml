@@ -1,12 +1,12 @@
-name: Petalix streamlined owner test
+name: Petalix on-screen guide owner test
 on:
   push:
-    branches: [test/petalix-streamlined-owner]
+    branches: [test/petalix-onscreen-guide]
     paths: ['.github/workflows/petalix-glass-13-2.yml', 'tooling/petalix-glass/**']
 permissions:
   contents: read
 concurrency:
-  group: petalix-streamlined-owner-test
+  group: petalix-onscreen-guide-owner-test
   cancel-in-progress: true
 jobs:
   test-apk:
@@ -47,6 +47,7 @@ jobs:
           python3 tooling/petalix-stock/prepare.py --upstream launcher --version "$VERSION" --owner-test
           python3 tooling/petalix-glass/prepare.py launcher
           git -C launcher apply --whitespace=error "$GITHUB_WORKSPACE/tooling/petalix-glass/upstream-beta41-dns.patch"
+          git -C launcher apply --whitespace=error "$GITHUB_WORKSPACE/tooling/petalix-glass/on-screen-guide.patch"
           mkdir -p out
           git -C launcher add -A
           SOURCE_TREE=$(git -C launcher write-tree)
@@ -133,4 +134,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
-          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --draft --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual ARM update for the Petalix Home Test package. Includes restored Home categories, the shared streaming service screen, favorites ordering, and the bounded DNS fallback from Nuvio + IPTV 1.2.0-beta.4.1. Panel OTA is disabled for this APK."
+          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --draft --prerelease --latest=false --title "Petalix On-Screen Guide · Owner Test $VERSION" --notes "Manual ARM update for the Petalix Home Test package. Guide opens over live playback from the player bar. Back closes the overlay and returns to the playing channel. Panel OTA is disabled for this APK."

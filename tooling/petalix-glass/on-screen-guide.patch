@@ -1,0 +1,418 @@
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvOverlayMode.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvOverlayMode.kt
+index 39baad0..1585c35 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvOverlayMode.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvOverlayMode.kt
+@@ -154,7 +154,6 @@ private fun OverlayModeContent(
+     var scheduleChannel by remember { mutableStateOf<LiveChannel?>(null) }
+     var rowIndex by remember { mutableIntStateOf(0) }
+     var dateIndex by remember { mutableIntStateOf(0) }
+-    var activity by remember { mutableIntStateOf(0) }
+     var futurePrompt by remember { mutableStateOf<Pair<LiveChannel, EpgProgram>?>(null) }
+     // Holding OK on a channel or a show: Record / Record series, as in the guide.
+     var recordMenu by remember { mutableStateOf<Pair<LiveChannel, EpgProgram>?>(null) }
+@@ -193,12 +192,6 @@ private fun OverlayModeContent(
+         }
+     }
+     LaunchedEffect(Unit) { delay(60); runCatching { focus.requestFocus() } }
+-    // Closes itself after a while without a key press.
+-    LaunchedEffect(activity) {
+-        delay(15_000)
+-        if (futurePrompt == null && recordMenu == null) onClose()
+-    }
+-
+     val focusedChannel = channels.getOrNull(chIndex)
+     // The schedule preview and show details follow the highlight once it settles, not on
+     // every step while scrolling (that redrew both panels many times a second).
+@@ -348,13 +341,16 @@ private fun OverlayModeContent(
+             .fillMaxSize()
+             .focusRequester(focus)
+             .onPreviewKeyEvent { e ->
++                if (e.key == Key.Back) {
++                    if (e.type == KeyEventType.KeyUp) onClose()
++                    return@onPreviewKeyEvent true
++                }
+                 if (e.type != KeyEventType.KeyDown) {
+                     val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+                     if (isOk && e.type == KeyEventType.KeyUp) {
+                         okHoldJob?.cancel()
+                         if (okPending) {
+                             okPending = false
+-                            activity++
+                             when (level) {
+                                 OverlayLevel.CHANNELS -> focusedChannel?.let { pickChannel(it) }
+                                 OverlayLevel.SCHEDULE -> activateShow()
+@@ -362,9 +358,8 @@ private fun OverlayModeContent(
+                             }
+                         }
+                     }
+-                    return@onPreviewKeyEvent isOk || e.key == Key.Back
++                    return@onPreviewKeyEvent isOk
+                 }
+-                activity++
+                 val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+                 when (level) {
+                     OverlayLevel.CHANNELS -> when {
+@@ -383,14 +378,13 @@ private fun OverlayModeContent(
+                         }
+                         e.key == Key.DirectionRight -> focusedChannel?.let { openSchedule(it) }
+                         isOk -> if (e.nativeKeyEvent.repeatCount == 0) armOk()
+-                        e.key == Key.Back -> onClose()
+                     }
+                     OverlayLevel.GROUPS -> when {
+                         e.key == Key.DirectionUp -> moveGroup(-1)
+                         e.key == Key.DirectionDown -> moveGroup(1)
+                         // OK on a playlist heading: fold or unfold it (the highlight stays on it).
+                         isOk && headingAt != null -> headingAt?.let { viewModel.togglePlaylistCollapsed(it) }
+-                        e.key == Key.DirectionRight || isOk || e.key == Key.Back -> { applyPendingGroup(); headingAt = null; level = OverlayLevel.CHANNELS }
++                        e.key == Key.DirectionRight || isOk -> { applyPendingGroup(); headingAt = null; level = OverlayLevel.CHANNELS }
+                         // Left: straight back to the top of the group list.
+                         e.key == Key.DirectionLeft -> if (e.nativeKeyEvent.repeatCount == 0) moveGroup(-groupRows.size)
+                     }
+@@ -400,13 +394,13 @@ private fun OverlayModeContent(
+                         e.key == Key.PageUp || e.key == Key.ChannelUp -> moveShow(-8)
+                         e.key == Key.PageDown || e.key == Key.ChannelDown -> moveShow(8)
+                         e.key == Key.DirectionRight -> if (days.isNotEmpty()) level = OverlayLevel.DATES
+-                        e.key == Key.DirectionLeft || e.key == Key.Back -> level = OverlayLevel.CHANNELS
++                        e.key == Key.DirectionLeft -> level = OverlayLevel.CHANNELS
+                         isOk -> if (e.nativeKeyEvent.repeatCount == 0) armOk()
+                     }
+                     OverlayLevel.DATES -> when {
+                         e.key == Key.DirectionUp -> jumpToDate((dateIndex - 1).coerceAtLeast(0))
+                         e.key == Key.DirectionDown -> jumpToDate((dateIndex + 1).coerceAtMost(days.lastIndex))
+-                        e.key == Key.DirectionLeft || isOk || e.key == Key.Back -> level = OverlayLevel.SCHEDULE
++                        e.key == Key.DirectionLeft || isOk -> level = OverlayLevel.SCHEDULE
+                         e.key == Key.DirectionRight -> Unit
+                     }
+                 }
+@@ -415,7 +409,13 @@ private fun OverlayModeContent(
+             .onSizeChanged { overlayWidthPx = it.width }
+             .focusable()
+     ) {
+-        Row(modifier = Modifier.fillMaxHeight().onSizeChanged { panelsWidthPx = it.width }) {
++        Row(
++            modifier = Modifier.fillMaxHeight()
++                .padding(start = 20.dp, top = 20.dp, bottom = 20.dp)
++                .onSizeChanged { panelsWidthPx = it.width }
++                .clip(RoundedCornerShape(18.dp))
++                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp))
++        ) {
+             when (level) {
+                 OverlayLevel.GROUPS -> {
+                     GroupsPanel(groups, groupRows, groupIndex, headingAt, settings.showGroupCounts, playlistNames, collapsed)
+@@ -437,7 +437,7 @@ private fun OverlayModeContent(
+         // Details of the highlighted show, top right, in the space the panels leave (it used to be
+         // a fixed width and covered the schedule on narrower screens or with a bigger guide size).
+         val density = androidx.compose.ui.platform.LocalDensity.current
+-        val cardWidth = with(density) { (overlayWidthPx - panelsWidthPx).coerceAtLeast(0).toDp() } - 24.dp - 16.dp
++        val cardWidth = with(density) { (overlayWidthPx - panelsWidthPx).coerceAtLeast(0).toDp() } - 60.dp
+         val cardFits = overlayWidthPx > 0 && cardWidth >= 200.dp
+         val cardW = if (cardWidth > 360.dp) 360.dp else cardWidth
+         val card: EpgProgram? = when (level) {
+@@ -457,7 +457,7 @@ private fun OverlayModeContent(
+                     .padding(top = 24.dp, end = 24.dp)
+                     .width(cardW)
+                     .clip(RoundedCornerShape(12.dp))
+-                    .background(Color.Black.copy(alpha = 0.55f))
++                    .background(Color(0xE61B2531))
+                     .padding(16.dp)
+             ) {
+                 LiveText(about.name, size = osp(20f), weight = FontWeight.Bold, marquee = true, modifier = Modifier.fillMaxWidth())
+@@ -476,7 +476,7 @@ private fun OverlayModeContent(
+                     .padding(top = 24.dp, end = 24.dp)
+                     .width(cardW)
+                     .clip(RoundedCornerShape(12.dp))
+-                    .background(Color.Black.copy(alpha = 0.55f))
++                    .background(Color(0xE61B2531))
+                     .padding(16.dp)
+             ) {
+                 LiveText(p.title, size = osp(20f), weight = FontWeight.Bold, marquee = true, modifier = Modifier.fillMaxWidth())
+@@ -504,7 +504,7 @@ private fun OverlayModeContent(
+     futurePrompt?.let { (ch, p) ->
+         val first = remember { FocusRequester() }
+         val bell = com.nuvio.tv.livetv.calendar.rememberLiveBell(p, ch)
+-        LiveDialog(onDismiss = { futurePrompt = null; activity++ }, width = 460.dp) {
++        LiveDialog(onDismiss = { futurePrompt = null }, width = 460.dp) {
+             LiveText(p.title, size = osp(20f), weight = FontWeight.Bold, maxLines = 2)
+             LiveText(
+                 "${dayLabel(startOfDay(p.startMs), now)}, ${formatRange(p.startMs, p.stopMs, use24h)} · ${ch.name}",
+@@ -521,19 +521,17 @@ private fun OverlayModeContent(
+                 ) {
+                     viewModel.toggleReminder(ch, p)
+                     futurePrompt = null
+-                    activity++
+                 }
+                 if (bell != null) MenuItem(bell.label) {
+                     bell.toggle()
+                     futurePrompt = null
+-                    activity++
+                 }
+                 MenuItem("Watch this channel now") {
+                     futurePrompt = null
+                     viewModel.preview(ch)
+                     onClose()
+                 }
+-                MenuItem("Close") { futurePrompt = null; activity++ }
++                MenuItem("Close") { futurePrompt = null }
+             }
+         }
+         LaunchedEffect(Unit) { delay(60); runCatching { first.requestFocus() } }
+@@ -555,7 +553,7 @@ private fun OverlayModeContent(
+             val n = com.nuvio.tv.livetv.data.LiveTvRepository.normalize(titleMarks(p.title).title)
+             if (seriesList.any { it.channel.key == ch.key && it.norm == n }) "Stop recording series" else "Record series"
+         }
+-        LiveDialog(onDismiss = { recordMenu = null; activity++ }, width = 460.dp) {
++        LiveDialog(onDismiss = { recordMenu = null }, width = 460.dp) {
+             LiveText(p.title, size = osp(20f), weight = FontWeight.Bold, maxLines = 2)
+             LiveText(
+                 "${dayLabel(startOfDay(p.startMs), now)}, ${formatRange(p.startMs, p.stopMs, use24h)} · ${ch.name}",
+@@ -567,21 +565,17 @@ private fun OverlayModeContent(
+                     val msg = if (onNow && recordingNow) viewModel.toggleRecording(ch) else viewModel.toggleScheduled(ch, p)
+                     com.nuvio.tv.livetv.record.LiveTvNotice.show(msg)
+                     recordMenu = null
+-                    activity++
+                 }
+                 if (seriesLabel != null) MenuItem(seriesLabel, if (recordLabel == null) Modifier.focusRequester(first) else Modifier) {
+                     com.nuvio.tv.livetv.record.LiveTvNotice.show(viewModel.toggleSeries(ch, p))
+                     recordMenu = null
+-                    activity++
+                 }
+                 if (seriesLabel == "Record series") MenuItem("Record new episodes only") {
+                     com.nuvio.tv.livetv.record.LiveTvNotice.show(viewModel.toggleSeries(ch, p, newOnly = true))
+                     recordMenu = null
+-                    activity++
+                 }
+                 MenuItem("Close", if (recordLabel == null && seriesLabel == null) Modifier.focusRequester(first) else Modifier) {
+                     recordMenu = null
+-                    activity++
+                 }
+             }
+         }
+@@ -594,8 +588,8 @@ private fun OverlayModeContent(
+ 
+ // ==================================================================== panels
+ 
+-private val PanelDark = Color(0xE6141416)
+-private val PanelMid = Color(0x99141416)
++private val PanelDark = Color(0xED141D28)
++private val PanelMid = Color(0xDE1B2531)
+ 
+ /**
+  * Keeps the highlighted row on screen the way a normal list does: the list moves one row at a
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt
+index 4d569cf..7009692 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerPanel.kt
+@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.DeleteSweep
+ import androidx.compose.material.icons.filled.FilterNone
+ import androidx.compose.material.icons.filled.Forward30
+ import androidx.compose.material.icons.filled.GridView
++import androidx.compose.material.icons.filled.List
+ import androidx.compose.material.icons.filled.History
+ import androidx.compose.material.icons.filled.KeyboardArrowDown
+ import androidx.compose.material.icons.filled.Star
+@@ -74,7 +75,7 @@ internal enum class PanelMode { LIVE, CATCHUP, SHIFT }
+  * the timeline, back 30, play/pause, forward 30 and the gear; the rest are kept for the keys
+  * that still name them, and live in the gear panel.
+  */
+-internal enum class PanelControl { TIMELINE, BACK, PLAY, FORWARD, LIVE, CC, AUDIO, SIZE, SLEEP, PIN, BELL, BACKUPS, SPORTS, MORE }
++internal enum class PanelControl { TIMELINE, BACK, PLAY, FORWARD, LIVE, CC, AUDIO, SIZE, SLEEP, GUIDE, PIN, BELL, BACKUPS, SPORTS, MORE }
+ 
+ /** Timeline: everything in wall-clock milliseconds. */
+ internal data class PanelTimeline(
+@@ -139,13 +140,14 @@ internal object BarPart {
+ }
+ 
+ /** Which controls the bar offers: back 30 / forward 30 only where you can skip, and the gear. */
+-internal fun panelControls(mode: PanelMode, paused: Boolean, canSkip: Boolean, bell: Boolean = false, pin: Boolean = false, backups: Boolean = false, sports: Boolean = false): List<PanelControl> = buildList {
++internal fun panelControls(mode: PanelMode, paused: Boolean, canSkip: Boolean, bell: Boolean = false, pin: Boolean = false, backups: Boolean = false, sports: Boolean = false, guide: Boolean = false): List<PanelControl> = buildList {
+     val transport = mode != PanelMode.LIVE || paused
+     // The timeline itself can be grabbed (Up from the buttons) and moved with ◀ / ▶.
+     if (transport && canSkip) add(PanelControl.TIMELINE)
+     if (transport && canSkip) add(PanelControl.BACK)
+     add(PanelControl.PLAY)
+     if (transport && canSkip) add(PanelControl.FORWARD)
++    if (guide) add(PanelControl.GUIDE)
+     // Sports: pin the live game's score to the corner.
+     if (pin) add(PanelControl.PIN)
+     // The Calendar's bell, beside the gear.
+@@ -264,6 +266,7 @@ internal fun LiveTvPlayerPanel(
+     pinOn: Boolean = false,
+     /** Where the backup button is on screen (bounds in the window), so its list can open right above it. */
+     onBackupsBounds: (androidx.compose.ui.geometry.Rect) -> Unit = {},
++    onGuide: () -> Unit = {},
+     /** Opens the Sports games, streams and layout controls from the Now Playing bar. */
+     onMultiview: () -> Unit = {},
+ ) {
+@@ -397,6 +400,14 @@ internal fun LiveTvPlayerPanel(
+                             }
+                             if (full) {
+                                 Spacer(Modifier.width(10.dp))
++                                if (PanelControl.GUIDE in controls) {
++                                    LabeledPanelButton(
++                                        label = "Guide", icon = Icons.Default.List,
++                                        focused = focused == PanelControl.GUIDE && !inRow,
++                                        onClick = onGuide
++                                    )
++                                    Spacer(Modifier.width(8.dp))
++                                }
+                                 if (PanelControl.PIN in controls) {
+                                     RoundButton(
+                                         if (pinOn) Icons.Default.PushPin else Icons.Outlined.PushPin,
+@@ -418,8 +429,11 @@ internal fun LiveTvPlayerPanel(
+                                     Spacer(Modifier.width(8.dp))
+                                 }
+                                 if (PanelControl.SPORTS in controls) {
+-                                    MultiviewButton(focused = focused == PanelControl.SPORTS && !inRow,
+-                                        onClick = onMultiview)
++                                    LabeledPanelButton(
++                                        label = "Multiview", icon = Icons.Default.GridView,
++                                        focused = focused == PanelControl.SPORTS && !inRow,
++                                        onClick = onMultiview
++                                    )
+                                     Spacer(Modifier.width(8.dp))
+                                 }
+                                 RoundButton(Icons.Default.Settings, focused = focused == PanelControl.MORE && !inRow, big = false)
+@@ -474,7 +488,7 @@ private fun GlassChip(text: String) {
+ 
+ /** A named entry beside the normal playback controls, with the same bar highlight. */
+ @Composable
+-private fun MultiviewButton(focused: Boolean, onClick: () -> Unit) {
++private fun LabeledPanelButton(label: String, icon: ImageVector, focused: Boolean, onClick: () -> Unit) {
+     val shape = RoundedCornerShape(15.dp)
+     val foreground = if (focused) GuideInk else GuideSilver
+     Row(
+@@ -485,8 +499,8 @@ private fun MultiviewButton(focused: Boolean, onClick: () -> Unit) {
+         verticalAlignment = Alignment.CenterVertically,
+         horizontalArrangement = Arrangement.spacedBy(6.dp),
+     ) {
+-        Icon(Icons.Default.GridView, contentDescription = null, tint = foreground, modifier = Modifier.size(15.dp))
+-        LiveText("Multiview", size = 11.sp, weight = FontWeight.Bold, color = foreground)
++        Icon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(15.dp))
++        LiveText(label, size = 11.sp, weight = FontWeight.Bold, color = foreground)
+     }
+ }
+ 
+diff --git a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
+index 660079f..504a99d 100644
+--- a/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
++++ b/app/src/main/java/com/nuvio/tv/livetv/ui/LiveTvPlayerScreen.kt
+@@ -179,8 +179,7 @@ fun LiveTvPlayerScreen(
+     var rowPills by remember { mutableStateOf(false) }
+     // The Channel Row's list showing (null: the one it opens on).
+     var rowListId by remember { mutableStateOf<String?>(null) }
+-    // TV Guide tile: opened when OK is let go, so the key's release doesn't land on the guide
+-    // (where it opened the channel full screen again, and the guide only flashed up).
++    // Open on OK release so the same press cannot also select a channel in the overlay.
+     var guideOnOkUp by remember { mutableStateOf(false) }
+     // Holding Right (live): back to the channel you were watching before.
+     var rightDownAt by remember { mutableStateOf(0L) }
+@@ -203,6 +202,13 @@ fun LiveTvPlayerScreen(
+         // "Opens on the first list": start from the top again next time.
+         if (settings.panelRowOpens == "first") rowListId = null
+     }
++    fun openOnScreenGuide() {
++        guideOnOkUp = false
++        closeFull()
++        bannerVisible = false
++        listVisible = true
++    }
++
+     LaunchedEffect(dialog) {
+         if (dialog == PlayerDialog.NONE && gearShowedBar) { gearShowedBar = false; closeFull(); bannerVisible = false }
+     }
+@@ -221,6 +227,7 @@ fun LiveTvPlayerScreen(
+     }
+     // A recording from Recordings plays here as its own show: no channel switching, no Quick Channels.
+     val playingRecording = viewModel.catchup.collectAsStateWithLifecycle().value?.recordingId != null
++    val canOpenGuide = current != null && playback.catchupTitle == null && !playingRecording
+     val rowOn = !playingRecording && settings.panelRow != "OFF" && BarPart.RECENT !in BarPart.parse(settings.barHidden) && rowTabs.isNotEmpty()
+     val rowId: String? = rowListId?.takeIf { id -> rowTabs.any { it.id == id } }
+         ?: settings.panelRowLast.takeIf { last -> settings.panelRowOpens != "first" && rowTabs.any { it.id == last } }
+@@ -544,6 +551,18 @@ fun LiveTvPlayerScreen(
+                     return@onPreviewKeyEvent false
+                 }
+                 val isOk = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
++                if (isOk && e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) {
++                    guideOnOkUp = false
++                }
++                if (isOk && e.type == KeyEventType.KeyUp && guideOnOkUp) {
++                    guideOnOkUp = false
++                    if (canOpenGuide) openOnScreenGuide() else { closeFull(); onBack() }
++                    return@onPreviewKeyEvent true
++                }
++                if (canOpenGuide && e.nativeKeyEvent.keyCode == AndroidKeyEvent.KEYCODE_GUIDE) {
++                    if (e.type == KeyEventType.KeyUp) openOnScreenGuide()
++                    return@onPreviewKeyEvent true
++                }
+                 // ---- "Up next" at the end of a recording: OK plays it now, Back goes back.
+                 if (upNext != null) {
+                     if (e.type == KeyEventType.KeyUp) {
+@@ -615,15 +634,7 @@ fun LiveTvPlayerScreen(
+                 // ---- the Channel Row's channels (Down from the panel's buttons)
+                 val rf = recentFocus
+                 if (rf != null && controlFocus != null) {
+-                    if (e.type == KeyEventType.KeyUp) {
+-                        if (isOk && guideOnOkUp) {
+-                            guideOnOkUp = false
+-                            closeFull()
+-                            onBack()
+-                            return@onPreviewKeyEvent true
+-                        }
+-                        return@onPreviewKeyEvent isOk || e.key == Key.Back
+-                    }
++                    if (e.type == KeyEventType.KeyUp) return@onPreviewKeyEvent isOk || e.key == Key.Back
+                     showBanner()
+                     // Clear is only in Recently watched (favorites and groups are changed in the guide).
+                     val hasClear = rowId == PanelRowLists.RECENT
+@@ -649,7 +660,7 @@ fun LiveTvPlayerScreen(
+                         // Back: the row tucks away; the bar stays (Back again closes it).
+                         e.key == Key.Back -> recentFocus = null
+                         isOk && e.nativeKeyEvent.repeatCount == 0 -> when {
+-                            // TV Guide: back to the guide.
++                            // TV Guide: show the schedule over the current channel.
+                             rf == 0 -> guideOnOkUp = true
+                             hasClear && rf >= lastTile -> {
+                                 viewModel.clearRecent()
+@@ -679,7 +690,7 @@ fun LiveTvPlayerScreen(
+                         else if ((shiftStartedAt != null || ownTimeline) && viewModel.playback.shiftIsBehind()) PanelMode.SHIFT
+                         else PanelMode.LIVE
+                     val paused = playback.userPaused
+-                    val list = panelControls(mode, paused, canSkip = archive || viewModel.playback.shiftCanSeek(), bell = bellInBar, pin = pinGame != null, backups = backups.isNotEmpty(), sports = multiviewEligible)
++                    val list = panelControls(mode, paused, canSkip = archive || viewModel.playback.shiftCanSeek(), bell = bellInBar, pin = pinGame != null, backups = backups.isNotEmpty(), sports = multiviewEligible, guide = canOpenGuide)
+                     if (e.type == KeyEventType.KeyUp) return@onPreviewKeyEvent isOk || e.key == Key.Back
+                     showBanner()
+                     val buttons = list.filter { it != PanelControl.TIMELINE }
+@@ -738,6 +749,7 @@ fun LiveTvPlayerScreen(
+                                 PanelControl.BACK -> if (archive) scrub(forward = false, repeat = 0, stepMs = 30_000L) else viewModel.playback.shiftSeekBy(-30_000)
+                                 PanelControl.FORWARD -> if (archive) scrub(forward = true, repeat = 0, stepMs = 30_000L) else viewModel.playback.shiftSeekBy(30_000)
+                                 PanelControl.PLAY -> viewModel.playback.togglePause()
++                                PanelControl.GUIDE -> guideOnOkUp = true
+                                 PanelControl.LIVE -> {
+                                     if (playingRecording) onBack()
+                                     else if (archive) current?.let { viewModel.backToLive(it) } else viewModel.playback.goLive()
+@@ -826,7 +838,7 @@ fun LiveTvPlayerScreen(
+                             shifting && viewModel.playback.shiftCanSeek() && (bannerVisible || viewModel.playback.shiftIsBehind()) -> {
+                                 viewModel.playback.shiftSeekBy(-10_000L * (1 + minOf(e.nativeKeyEvent.repeatCount, 11))); showBanner()
+                             }
+-                            settings.overlayMode -> listVisible = true
++                            settings.overlayMode -> openOnScreenGuide()
+                             else -> { viewModel.requestGroupsOnReturn(); onBackToGroups() }
+                         }
+                         true
+@@ -1203,6 +1215,7 @@ fun LiveTvPlayerScreen(
+                 LiveTvPlayerPanel(
+                     onBackupsBounds = { backupsAnchor = it },
+                     onMultiview = { openMultiview() },
++                    onGuide = { openOnScreenGuide() },
+                     background = settings.panelBackground,
+                     channel = ch,
+                     mode = mode,
+@@ -1222,7 +1235,7 @@ fun LiveTvPlayerScreen(
+                     showPosters = settings.showPosters,
+                     timeline = timeline,
+                     paused = paused,
+-                    controls = panelControls(mode, paused, canSkip = archive || viewModel.playback.shiftCanSeek(), bell = bellInBar, pin = pinGame != null, backups = backups.isNotEmpty(), sports = multiviewEligible),
++                    controls = panelControls(mode, paused, canSkip = archive || viewModel.playback.shiftCanSeek(), bell = bellInBar, pin = pinGame != null, backups = backups.isNotEmpty(), sports = multiviewEligible, guide = canOpenGuide),
+                     focused = controlFocus,
+                     captionsOn = captionsOn,
+                     audioLabel = remember(playback.channelKey, bannerVisible) { viewModel.playback.audioLabel() },
