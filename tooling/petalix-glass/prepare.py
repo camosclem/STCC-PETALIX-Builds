@@ -86,6 +86,10 @@ tasks.withType<Test>().configureEach {
     if capabilities.count(marker) != 1:
         raise ValueError("Expected the Favorites backup capability")
     coordinator.write_text(capabilities.replace(marker, marker + ', "favorites-edit-v1"'))
+    from guide_startup_patch import apply as apply_guide_startup
+    apply_guide_startup(root)
+    from guide_settings_patch import apply as apply_guide_settings
+    apply_guide_settings(root)
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())
