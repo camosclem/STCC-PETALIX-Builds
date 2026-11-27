@@ -46,7 +46,6 @@ def apply(root: Path):
     if source.count(old) != 1:
         raise ValueError("4172 preference transaction anchor changed")
     source = source.replace(old, new)
-    source = source.replace("import androidx.datastore.preferences.core.edit", "import androidx.datastore.preferences.core.toMutablePreferences\nimport androidx.datastore.preferences.core.edit", 1)
     prepared = {path: source}
     for name in ("LiveTvViewModel.kt", "LiveTvSettingsViewModel.kt"):
         target = java / "livetv/ui" / name
