@@ -98,6 +98,7 @@ tasks.withType<Test>().configureEach {
     apply_guide_preview(root)
     from home_sidebar_patch import apply as apply_home_sidebar
     apply_home_sidebar(root)
+    subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "upstream-guide-refresh.patch")], cwd=root, check=True)
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())

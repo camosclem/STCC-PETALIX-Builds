@@ -70,7 +70,7 @@ internal fun petalixGuideTileColor(style: String, darkness: String, focused: Boo
             if (visible.isEmpty()) return@launch
             // The first row wholly on screen:''', '''            val visible = info.visibleItemsInfo
             if (visible.isEmpty()) return@launch
-            if (cinematic && !editingGuide) {
+            if (!editingGuide) {
                 // IMD keeps the focused channel one whole row below the top.
                 listState.scrollToItem((target - 1).coerceAtLeast(0))
                 return@launch
