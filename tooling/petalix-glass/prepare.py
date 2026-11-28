@@ -94,6 +94,10 @@ tasks.withType<Test>().configureEach {
     apply_guide_column(root)
     from playback_assignment_patch import apply as apply_playback_assignment
     apply_playback_assignment(root)
+    from guide_preview_patch import apply as apply_guide_preview
+    apply_guide_preview(root)
+    from home_sidebar_patch import apply as apply_home_sidebar
+    apply_home_sidebar(root)
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())
