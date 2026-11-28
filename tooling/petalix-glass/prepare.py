@@ -90,6 +90,8 @@ tasks.withType<Test>().configureEach {
     apply_guide_startup(root)
     from guide_settings_patch import apply as apply_guide_settings
     apply_guide_settings(root)
+    from guide_column_patch import apply as apply_guide_column
+    apply_guide_column(root)
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())
