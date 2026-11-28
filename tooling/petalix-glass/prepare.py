@@ -86,6 +86,19 @@ tasks.withType<Test>().configureEach {
     if capabilities.count(marker) != 1:
         raise ValueError("Expected the Favorites backup capability")
     coordinator.write_text(capabilities.replace(marker, marker + ', "favorites-edit-v1"'))
+    from guide_startup_patch import apply as apply_guide_startup
+    apply_guide_startup(root)
+    from guide_settings_patch import apply as apply_guide_settings
+    apply_guide_settings(root)
+    from guide_column_patch import apply as apply_guide_column
+    apply_guide_column(root)
+    from playback_assignment_patch import apply as apply_playback_assignment
+    apply_playback_assignment(root)
+    from guide_preview_patch import apply as apply_guide_preview
+    apply_guide_preview(root)
+    from home_sidebar_patch import apply as apply_home_sidebar
+    apply_home_sidebar(root)
+    subprocess.run(["git", "apply", "--whitespace=error", str(HERE / "upstream-guide-refresh.patch")], cwd=root, check=True)
 
 if __name__ == "__main__":
     prepare(Path(sys.argv[1]).resolve())

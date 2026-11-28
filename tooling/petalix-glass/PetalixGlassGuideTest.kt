@@ -8,8 +8,21 @@ import com.nuvio.tv.livetv.model.LiveUserState
 import com.nuvio.tv.livetv.ui.*
 import org.junit.Assert.*
 import org.junit.Test
+import androidx.compose.ui.unit.dp
 
 class PetalixGlassGuideTest {
+    @Test fun logoOnlyColumnReclaimsTimelineSpaceWithoutClippingOtherFieldModes() {
+        val logos = LiveTvSettings(showChannelLogos = true, showChannelNames = false, showChannelNumbers = false)
+        val compact = glassChannelColumnWidth(logos, 960.dp)
+        assertTrue(compact < glassChannelColumnWidth(logos.copy(showChannelNames = true), 960.dp))
+        assertTrue(compact < glassChannelColumnWidth(logos.copy(showChannelLogos = false), 960.dp))
+        assertTrue(compact < glassChannelColumnWidth(logos.copy(showChannelNumbers = true), 960.dp))
+        assertEquals(compact, glassChannelColumnWidth(logos, 1280.dp))
+        for (width in listOf(0.dp, 48.dp, 120.dp)) {
+            assertTrue(glassChannelColumnWidth(logos, width) <= width)
+        }
+    }
+
     private val locals = ChannelGroup(PETALIX_ZIP_LOCALS, "My Locals", 4)
     private val sports = ChannelGroup("provider:sports", "Sports", 12, sourceId = "playlist")
     private val favorites = ChannelGroup(ChannelGroup.FAVORITES, "Favorites", 8)

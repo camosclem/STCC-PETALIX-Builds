@@ -7,3 +7,5 @@ https://github.com/camosclem/STCC-PETALIX-Builds/tree/dev/petalix-glass-beta-2-1
 
 The source includes the Nuvio + IPTV Android TV 1.2.0-beta.2.1 release, commit f3fcb2aebd1b44a02f63f56715712fbdee11e5f6, by homelessbrian and contributors including NuvioTV contributors.
 https://github.com/homelessbrian/NuvioPlusIPTV/tree/f3fcb2aebd1b44a02f63f56715712fbdee11e5f6
+
+Selected guide backports from homelessbrian/NuvioPlusIPTV 1.2.0-beta.4.2 use commits aa295bd52 (paged channel links), b03e71b7b (background cleanup), and cb0cee2ed (equivalent guide URLs, scoped here to one origin). The category return and scrolling preview header follow majorleeevil/imd-tv v0.9.1, commits 3a5fd51 and 8741366.

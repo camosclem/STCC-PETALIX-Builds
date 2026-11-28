@@ -1,12 +1,12 @@
-name: Petalix Beta 2.1 owner test
+name: Petalix 4172 guide loading and settings test
 on:
   push:
-    branches: [dev/petalix-glass-beta-2-1]
+    branches: [fix/4172-guide-startup]
     paths: ['.github/workflows/petalix-glass-13-2.yml', 'tooling/petalix-glass/**']
 permissions:
   contents: read
 concurrency:
-  group: petalix-beta-2-1-owner-test
+  group: petalix-4172-guide-fix-owner-test
   cancel-in-progress: true
 jobs:
   test-apk:
@@ -122,4 +122,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
-          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual update for Petalix Home Test on ARM Android TV. Includes Nuvio + IPTV 1.2.0-beta.2.1 with per-playlist guide links, DNS options, M3U movies and series, recurring recordings, and up to 14 days of guide history. Retains the rounded Petalix guide and streaming-service detail pages. Install on the Shield to verify remote navigation and playback."
+          gh release create "petalix-glass-owner-$GITHUB_RUN_ID" out/* --target "$GITHUB_SHA" --prerelease --latest=false --title "Petalix Guide · Owner Test $VERSION" --notes "Manual Shield test based on working build 1795284172. Includes earlier cached-channel loading, indexed guide groups, atomic setting saves, protection of user guide choices from panel overrides, a compact centered logo-only channel column, and exclusion of unassigned cached Pengu playback sources. Empty provider searches show an accurate no-source message. The guide uses exclusive fitted poster/logo previews with safe margins, IMD-style tinted glass programme bars, whole-row scrolling and category-focus guarding. Native side navigation replaces the floating top menus. Verify artwork, guide theme choices, D-pad navigation, movie playback and saved preferences. Isolated Home Test package; no customer OTA rollout."
